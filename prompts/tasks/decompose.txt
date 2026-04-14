@@ -1,0 +1,13 @@
+Break the following request into a structured, prioritised task list.
+
+Request: {request}
+
+For each task, provide:
+- id: short unique identifier
+- objective: clear, actionable description
+- priority: 1 (urgent) to 5 (low)
+- dependencies: list of task ids this task depends on
+- agent_hint: which agent type should handle it (ceo|worker|research|finance|...)
+- estimated_tokens: rough token estimate for the task
+
+Return only a JSON array. No prose.

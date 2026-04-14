@@ -1,0 +1,9 @@
+Summarise the following content concisely.
+
+Content: {content}
+
+Requirements:
+- Maximum {max_words} words
+- Preserve key facts, decisions, and action items
+- Use bullet points for lists
+- Highlight any risks, deadlines, or dependencies

@@ -1,0 +1,71 @@
+# SOVEREIGN AI OS — Operating mode definitions
+
+modes:
+  command:
+    description: "Direct task execution and system management"
+    default_action_class: EXECUTE
+    escalation_threshold: 0.5
+    preferred_model: balanced
+    offline_capable: false
+
+  business:
+    description: "Business operations, communications, project management"
+    default_action_class: DRAFT
+    escalation_threshold: 0.4
+    preferred_model: balanced
+    require_approval_for:
+      - financial
+      - external_api
+      - legal
+
+  personal:
+    description: "Personal assistant tasks — diary, routines, social, concierge"
+    default_action_class: SUGGEST
+    escalation_threshold: 0.6
+    preferred_model: balanced
+
+  finance:
+    description: "Financial analysis and transactions"
+    default_action_class: SUGGEST
+    escalation_threshold: 0.2
+    preferred_model: frontier
+    require_approval_for:
+      - all_execute
+
+  study:
+    description: "Learning, research assistance, second brain"
+    default_action_class: SUGGEST
+    escalation_threshold: 0.8
+    preferred_model: balanced
+
+  travel:
+    description: "Travel planning, bookings, itineraries"
+    default_action_class: DRAFT
+    escalation_threshold: 0.5
+    preferred_model: balanced
+
+  research:
+    description: "Deep research, analysis, synthesis"
+    default_action_class: DRAFT
+    escalation_threshold: 0.6
+    preferred_model: frontier
+
+  builder:
+    description: "Code generation, architecture, system building"
+    default_action_class: DRAFT
+    escalation_threshold: 0.5
+    preferred_model: balanced
+
+  local_offline:
+    description: "Offline-first; uses local memory and deferred sync"
+    default_action_class: SUGGEST
+    escalation_threshold: 0.7
+    offline_capable: true
+    preferred_model: fast
+
+  survival:
+    description: "Emergency mode — minimal resources, offline packs, checklists"
+    default_action_class: SUGGEST
+    escalation_threshold: 0.9
+    offline_capable: true
+    preferred_model: fast

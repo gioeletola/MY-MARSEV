@@ -1,0 +1,49 @@
+# SOVEREIGN AI OS — Model routing configuration
+
+models:
+  frontier:
+    id: claude-opus-4-6
+    description: "Highest capability — strategic decisions, complex reasoning, sensitive tasks"
+    max_tokens: 8192
+    use_for:
+      - strategic_planning
+      - sensitive_decisions
+      - complex_multi_step_reasoning
+      - ceo_agent
+      - decision_brief
+
+  balanced:
+    id: claude-sonnet-4-6
+    description: "General purpose — coordination, guardian review, most worker tasks"
+    max_tokens: 4096
+    use_for:
+      - general_tasks
+      - coordination
+      - guardian_review
+      - chief_of_staff
+      - worker_agents
+
+  fast:
+    id: claude-haiku-4-5-20251001
+    description: "Cheapest/fastest — ephemeral agents, classification, simple queries"
+    max_tokens: 2048
+    use_for:
+      - ephemeral_agents
+      - simple_classification
+      - bulk_operations
+      - routing_decisions
+
+routing_rules:
+  - if:
+      complexity_above: 0.8
+    use: frontier
+  - if:
+      is_sensitive: true
+    use: frontier
+  - if:
+      latency_budget_ms_below: 2000
+    use: fast
+  - if:
+      action_class: READ
+    use: fast
+  - default: balanced

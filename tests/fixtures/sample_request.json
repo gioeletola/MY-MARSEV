@@ -1,0 +1,5 @@
+{
+  "user_input": "Summarise my top 3 strategic priorities and suggest the next action for each.",
+  "expected_mode": "command",
+  "expected_status": "success"
+}

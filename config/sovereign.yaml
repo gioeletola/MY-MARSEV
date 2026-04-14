@@ -1,0 +1,20 @@
+# SOVEREIGN AI OS — Main runtime configuration
+# All values can be overridden by environment variables prefixed with SOVEREIGN_.
+
+log_level: INFO
+json_logs: false
+
+data_dir: data
+prompts_dir: prompts
+
+default_model: claude-sonnet-4-6
+default_operating_mode: command
+
+# Maximum action class allowed without explicit human approval
+# Values: READ | SUGGEST | DRAFT | EXECUTE
+max_action_class: SUGGEST
+
+# Approval mode: "cli" prompts interactively; "auto" uses policy rules
+approval_mode: cli
+
+enable_streaming: true

@@ -1,0 +1,16 @@
+Produce a structured decision brief for the following situation.
+
+Situation: {situation}
+
+Decision Brief Format:
+1. Decision Title (one line)
+2. Context (2-3 sentences)
+3. Options (2-3 options, each with pros and cons)
+4. Recommended Option + Rationale
+5. Risk Level: Low / Medium / High + explanation
+6. Reversibility: Reversible / Partially reversible / Irreversible
+7. Expected Upside
+8. Expected Downside
+9. What happens if delayed?
+
+Be precise and executive. No filler.
