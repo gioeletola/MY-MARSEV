@@ -84,7 +84,7 @@ class MemoryManager:
         return list(self._caches[domain])
 
     # ------------------------------------------------------------------
-    # Semantic search (stub)
+    # Semantic search — TF-IDF cosine similarity
     # ------------------------------------------------------------------
 
     async def semantic_search(
@@ -94,28 +94,82 @@ class MemoryManager:
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
         """
-        Embedding-based semantic search across one or all domains.
+        TF-IDF cosine similarity search across one or all memory domains.
 
-        Stub: performs simple substring matching on string values.
-        Replace with a real vector index (Chroma, Qdrant, Pinecone, etc.)
-        for production use.
+        Flattens all record values to plain text, builds a TF-IDF matrix,
+        and ranks by cosine similarity to the query. Falls back to
+        substring matching if scikit-learn is not available.
+
+        For higher accuracy, enable ChromaDB: pip install sovereign-ai-os[chromadb]
         """
-        domains = [domain] if domain else MEMORY_DOMAINS
-        results: list[dict[str, Any]] = []
-        query_lower = query.lower()
+        domains_to_search = [domain] if domain else MEMORY_DOMAINS
 
-        for d in domains:
+        # Gather all documents
+        docs: list[tuple[str, str, Any]] = []  # (domain, key, record)
+        for d in domains_to_search:
             try:
                 await self._load(d)
                 for key, value in self._caches[d].items():
-                    if self._matches(query_lower, value):
-                        results.append(
-                            {"domain": d, "key": key, "record": value, "score": 1.0}
-                        )
+                    docs.append((d, key, value))
             except Exception:
                 pass
 
-        return results[:top_k]
+        if not docs:
+            return []
+
+        texts = [self._record_to_text(rec) for _, _, rec in docs]
+
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.metrics.pairwise import cosine_similarity
+            import numpy as np
+
+            corpus = texts + [query]
+            vectorizer = TfidfVectorizer(
+                strip_accents="unicode",
+                lowercase=True,
+                ngram_range=(1, 2),
+                max_features=10_000,
+            )
+            tfidf = vectorizer.fit_transform(corpus)
+            # Last row = query vector; all others = documents
+            query_vec = tfidf[-1]
+            doc_vecs = tfidf[:-1]
+            scores = cosine_similarity(query_vec, doc_vecs)[0]
+
+            # Rank by score descending
+            ranked_idx = np.argsort(scores)[::-1]
+            results: list[dict[str, Any]] = []
+            for idx in ranked_idx[:top_k]:
+                if scores[idx] > 0.0:
+                    d, key, record = docs[idx]
+                    results.append({
+                        "domain": d,
+                        "key": key,
+                        "record": record,
+                        "score": float(round(scores[idx], 4)),
+                    })
+            return results
+
+        except ImportError:
+            # Fallback: substring matching
+            logger.warning("scikit-learn not available — falling back to substring search")
+            q = query.lower()
+            results = [
+                {"domain": d, "key": k, "record": rec, "score": 0.5}
+                for d, k, rec in docs
+                if q in self._record_to_text(rec).lower()
+            ]
+            return results[:top_k]
+
+    @staticmethod
+    def _record_to_text(record: Any) -> str:
+        """Flatten a record to a single searchable string."""
+        if isinstance(record, str):
+            return record
+        if isinstance(record, dict):
+            return " ".join(str(v) for v in record.values())
+        return str(record)
 
     # ------------------------------------------------------------------
     # Graph traversal (stub)
@@ -230,14 +284,3 @@ class MemoryManager:
             encoding="utf-8",
         )
 
-    @staticmethod
-    def _matches(query: str, value: Any) -> bool:
-        """Simple substring matching on any string values in a record."""
-        if isinstance(value, str):
-            return query in value.lower()
-        if isinstance(value, dict):
-            return any(
-                query in str(v).lower()
-                for v in value.values()
-            )
-        return query in str(value).lower()

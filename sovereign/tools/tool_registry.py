@@ -89,10 +89,10 @@ class ToolRegistry:
         tool = self.get(name)
         try:
             result = await tool.execute(**inputs)
-            logger.debug("Tool executed", tool=name, success=True)
+            logger.debug("Tool executed tool=%s", name)
             return result
         except Exception as exc:
-            logger.error("Tool execution failed", tool=name, error=str(exc))
+            logger.error("Tool execution failed tool=%s: %s", name, exc)
             raise RuntimeError(f"Tool '{name}' failed: {exc}") from exc
 
     def __len__(self) -> int:
