@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 
+from typing import Any
+
 from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 from sovereign.kernel.action_classes import ActionClass
 from sovereign.kernel.constitution import Constitution
@@ -52,6 +54,10 @@ class GuardianAgent(BaseAgent):
                 requires_human_review=True,
             )
 
+    def set_policy_registry(self, policy_registry: Any) -> None:
+        """Inject a PolicyRegistry for pre-flight rule evaluation."""
+        self._policy_registry = policy_registry
+
     async def review_action(
         self,
         agent_id: str,
@@ -69,6 +75,22 @@ class GuardianAgent(BaseAgent):
         # For READ and SUGGEST, auto-approve without calling Claude
         if action_class <= ActionClass.SUGGEST:
             return True, 0.1, "Auto-approved: action class is READ or SUGGEST."
+
+        # Pre-flight: check policy registry before calling Claude
+        policy_ctx = {
+            "action_class": action_class.name,
+            "mode": ctx.operating_mode,
+            "objective": action_description,
+            "agent_id": agent_id,
+            "_in_action_class": [action_class.name],
+            "_in_mode": [ctx.operating_mode],
+        }
+        if hasattr(self, "_policy_registry") and self._policy_registry is not None:
+            policy_action, policy_rationale = self._policy_registry.evaluate(policy_ctx)
+            if policy_action == "deny":
+                return False, 1.0, f"Policy DENY: {policy_rationale}"
+            if policy_action == "escalate":
+                return False, 0.85, f"Policy ESCALATE: {policy_rationale}"
 
         fake_task = AgentTask(
             objective=(

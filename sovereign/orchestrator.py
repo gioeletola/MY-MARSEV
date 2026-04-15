@@ -32,11 +32,15 @@ from sovereign.tools.builtin.file_ops import FileOpsTool
 from sovereign.tools.builtin.code_exec import CodeExecTool
 from sovereign.tools.builtin.memory_tool import MemoryTool
 from sovereign.tools.builtin.cli_exec import CLITool
+from sovereign.tools.builtin.browser_tool import BrowserTool
+from sovereign.tools.builtin.mcp_tool import MCPTool
 from sovereign.memory.memory_manager import MemoryManager
 from sovereign.registries.agent_registry import AgentRegistry
 from sovereign.registries.prompt_registry import PromptRegistry
 from sovereign.registries.decision_ledger import DecisionLedger, DecisionRecord
 from sovereign.registries.experiment_registry import Experiment, ExperimentRegistry
+from sovereign.registries.policy_registry import build_default_policy_registry
+from sovereign.registries.workflow_registry import WorkflowRegistry
 from sovereign.authority.approval_gate import ApprovalGate, ApprovalRequest
 from sovereign.authority.thresholds import EscalationThresholds
 from sovereign.executive.ceo_agent import CEOAgent
@@ -423,6 +427,27 @@ class SovereignOrchestrator:
     def get_session_count(self) -> int:
         return self._session_counter
 
+    def register_mcp_server(
+        self, name: str, command: list[str],
+        env: dict | None = None, description: str = ""
+    ) -> None:
+        """Register an external MCP server for use by agents."""
+        self._mcp_tool.register_server(name, command, env, description)
+
+    async def run_workflow(
+        self, name: str, variables: dict | None = None
+    ) -> Any:
+        """Execute a named workflow. Variables are substituted into step templates."""
+        return await self._workflow_registry.execute(
+            name=name,
+            variables=variables or {},
+            agent_resolver=self._route_to_agent,
+            ctx=AgentContext(
+                session_id=f"wf_{name}",
+                operating_mode=self.config.default_operating_mode,
+            ),
+        )
+
     def get_experiment_metrics(self, name: str = "live_sessions") -> dict:
         """Return recorded metrics for an experiment."""
         try:
@@ -450,6 +475,7 @@ class SovereignOrchestrator:
         self._prompt_registry = PromptRegistry(self.config.prompts_dir)
         self._ledger = DecisionLedger(self.config.data_dir)
         self._experiment_registry = ExperimentRegistry()
+        self._workflow_registry = WorkflowRegistry()
         # Seed the live-session experiment for ongoing metric collection
         self._experiment_registry.register(Experiment(
             name="live_sessions",
@@ -467,6 +493,9 @@ class SovereignOrchestrator:
         self._tool_registry.register(CodeExecTool())
         self._tool_registry.register(MemoryTool(self._memory))
         self._tool_registry.register(CLITool())
+        self._tool_registry.register(BrowserTool())
+        self._mcp_tool = MCPTool()
+        self._tool_registry.register(self._mcp_tool)
         self._tool_router = ToolRouter(self._tool_registry)
 
     def _init_prompt_builder(self) -> None:
@@ -501,6 +530,9 @@ class SovereignOrchestrator:
             mode=self.config.approval_mode,
             thresholds=thresholds,
         )
+        # Wire policy registry into guardian for pre-flight rule evaluation
+        self._policy_registry = build_default_policy_registry()
+        self._guardian.set_policy_registry(self._policy_registry)
         for agent in [
             self._ceo, self._cos, self._guardian, self._coordinator,
             self._task_setter, self._decision_brief, self._worker, self._system,
