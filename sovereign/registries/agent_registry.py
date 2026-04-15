@@ -19,21 +19,21 @@ class AgentRegistry:
         self._agents: dict[str, Any] = {}
 
     def register(self, agent: Any) -> None:
-        """Register an agent. Raises ValueError on ID collision."""
+        """Register an agent. Skips silently on duplicate ID (idempotent)."""
         aid = agent.agent_id
         if aid in self._agents:
-            raise ValueError(f"Agent '{aid}' is already registered.")
+            logger.debug("Agent already registered, skipping: %s", aid)
+            return
         self._agents[aid] = agent
-        logger.debug("Registered agent", agent_id=aid)
+        logger.debug("Registered agent: %s", aid)
 
-    def get(self, agent_id: str) -> Any:
-        """Return a registered agent by ID. Raises KeyError if not found."""
-        try:
-            return self._agents[agent_id]
-        except KeyError:
-            raise KeyError(
-                f"Agent '{agent_id}' not found. Available: {list(self._agents)}"
-            )
+    def get(self, agent_id: str) -> Any | None:
+        """Return a registered agent by ID, or None if not found."""
+        return self._agents.get(agent_id)
+
+    def count(self) -> int:
+        """Return the number of registered agents."""
+        return len(self._agents)
 
     def deregister(self, agent_id: str) -> None:
         """Remove an agent from the registry."""

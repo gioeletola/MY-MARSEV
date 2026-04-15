@@ -53,6 +53,26 @@ from sovereign.swarm.worker_agent import WorkerAgent
 from sovereign.swarm.system_agent import SystemAgent
 from sovereign.swarm.base_agent import AgentContext, AgentTask
 from sovereign.swarm.domain_chiefs import ResearchChief, FinanceChief, ContentChief, LegalChief
+from sovereign.swarm.business_agents import BUSINESS_AGENTS
+from sovereign.swarm.personal_agents import PERSONAL_AGENTS
+from sovereign.swarm.finance_agents import FINANCE_AGENTS
+from sovereign.swarm.black_tier_agents import BLACK_TIER_AGENTS
+from sovereign.executive.executive_assistant import ExecutiveAssistantAgent
+from sovereign.centers.business_center import BusinessCenter
+from sovereign.centers.personal_center import PersonalCenter
+from sovereign.centers.strategic_center import StrategicCenter
+from sovereign.layers.reality_twin import RealityTwinLayer
+from sovereign.layers.time_machine import TimeMachineLayer
+from sovereign.layers.attention_engine import AttentionEngineLayer
+from sovereign.layers.trust_engine import TrustEngineLayer
+from sovereign.layers.sovereign_exit import SovereignExitLayer
+from sovereign.layers.legacy_layer import LegacyLayer
+from sovereign.registries.integration_registry import IntegrationRegistry
+from sovereign.registries.incident_registry import IncidentRegistry
+from sovereign.registries.memory_schema_registry import MemorySchemaRegistry
+from sovereign.security.security_stack import SecurityStack
+from sovereign.builder.builder_studio import BuilderStudio
+from sovereign.labs.labs_framework import LabsFramework
 from sovereign.factory.agent_factory import AgentFactory
 from sovereign.input_fabric.pipeline import InputPipeline
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
@@ -81,6 +101,11 @@ class SovereignOrchestrator:
         self._init_tools()
         self._init_prompt_builder()
         self._init_executive()
+        self._init_swarm()
+        self._init_centers()
+        self._init_layers()
+        self._init_security()
+        self._init_labs()
         self._init_factory()
         self._init_input_pipeline()
         self._init_health()
@@ -373,16 +398,24 @@ class SovereignOrchestrator:
     def _route_to_agent(self, hint: str):
         """Return the best matching agent instance for the given hint."""
         mapping = {
-            "ceo":       self._ceo,
-            "research":  self._research_chief,
-            "finance":   self._finance_chief,
-            "content":   self._content_chief,
-            "legal":     self._legal_chief,
-            "guardian":  self._guardian,
-            "system":    self._system,
-            "worker":    self._worker,
+            "ceo":                self._ceo,
+            "research":           self._research_chief,
+            "finance":            self._finance_chief,
+            "content":            self._content_chief,
+            "legal":              self._legal_chief,
+            "guardian":           self._guardian,
+            "system":             self._system,
+            "worker":             self._worker,
+            "executive_assistant": self._executive_assistant,
         }
-        return mapping.get(hint.lower(), self._worker)
+        agent = mapping.get(hint.lower())
+        if agent:
+            return agent
+        # Fall back to full agent registry (covers all swarm agents)
+        agent = self._agent_registry.get(hint.lower())
+        if agent:
+            return agent
+        return self._worker
 
     @staticmethod
     def _merge_outputs(outputs: list[StructuredOutput], fallback: str) -> dict:
@@ -476,6 +509,9 @@ class SovereignOrchestrator:
         self._ledger = DecisionLedger(self.config.data_dir)
         self._experiment_registry = ExperimentRegistry()
         self._workflow_registry = WorkflowRegistry()
+        self._integration_registry = IntegrationRegistry()
+        self._incident_registry = IncidentRegistry()
+        self._memory_schema_registry = MemorySchemaRegistry()
         # Seed the live-session experiment for ongoing metric collection
         self._experiment_registry.register(Experiment(
             name="live_sessions",
@@ -525,6 +561,8 @@ class SovereignOrchestrator:
         self._content_chief  = ContentChief(**shared)
         self._legal_chief    = LegalChief(**shared)
 
+        self._executive_assistant = ExecutiveAssistantAgent(**shared)
+
         thresholds = EscalationThresholds.for_mode(self.config.default_operating_mode)
         self._gate = ApprovalGate(
             mode=self.config.approval_mode,
@@ -538,8 +576,54 @@ class SovereignOrchestrator:
             self._task_setter, self._decision_brief, self._worker, self._system,
             self._research_chief, self._finance_chief,
             self._content_chief, self._legal_chief,
+            self._executive_assistant,
         ]:
             self._agent_registry.register(agent)
+
+    def _init_swarm(self) -> None:
+        """Instantiate and register all swarm agents (business, personal, finance, black-tier)."""
+        shared = dict(
+            claude_client=self._claude,
+            tool_registry=self._tool_registry,
+            memory_manager=self._memory,
+            constitution=self._constitution,
+            prompt_builder=self._prompt_builder,
+        )
+        all_agent_classes = BUSINESS_AGENTS + PERSONAL_AGENTS + FINANCE_AGENTS + BLACK_TIER_AGENTS
+        for AgentClass in all_agent_classes:
+            try:
+                agent = AgentClass(**shared)
+                self._agent_registry.register(agent)
+            except Exception as exc:
+                logger.warning("Failed to instantiate agent %s: %s", AgentClass.__name__, exc)
+        logger.info("Swarm initialized: %d agents registered", self._agent_registry.count())
+
+    def _init_centers(self) -> None:
+        """Initialize operational centers."""
+        self._business_center = BusinessCenter(self._agent_registry)
+        self._personal_center = PersonalCenter(self._agent_registry)
+        self._strategic_center = StrategicCenter(self._agent_registry)
+
+    def _init_layers(self) -> None:
+        """Initialize advanced intelligence layers."""
+        self._reality_twin = RealityTwinLayer()
+        self._time_machine = TimeMachineLayer()
+        self._attention_engine = AttentionEngineLayer()
+        self._trust_engine = TrustEngineLayer()
+        self._sovereign_exit = SovereignExitLayer()
+        self._legacy_layer = LegacyLayer()
+
+    def _init_security(self) -> None:
+        """Initialize the security stack."""
+        self._security = SecurityStack(incident_registry=self._incident_registry)
+
+    def _init_labs(self) -> None:
+        """Initialize Labs and Builder Studio."""
+        self._labs = LabsFramework()
+        self._builder = BuilderStudio(
+            agent_factory=None,  # set post-factory init
+            workflow_registry=self._workflow_registry,
+        )
 
     def _init_factory(self) -> None:
         self._factory = AgentFactory(
@@ -550,6 +634,8 @@ class SovereignOrchestrator:
             prompt_builder=self._prompt_builder,
             agent_registry=self._agent_registry,
         )
+        # Wire factory into builder studio now that it's available
+        self._builder._agent_factory = self._factory
 
     def _init_input_pipeline(self) -> None:
         self._pipeline = InputPipeline(config={"pii_filter": False, "max_chars": 50_000})
