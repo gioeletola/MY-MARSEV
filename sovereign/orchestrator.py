@@ -31,10 +31,12 @@ from sovereign.tools.builtin.web_search import WebSearchTool
 from sovereign.tools.builtin.file_ops import FileOpsTool
 from sovereign.tools.builtin.code_exec import CodeExecTool
 from sovereign.tools.builtin.memory_tool import MemoryTool
+from sovereign.tools.builtin.cli_exec import CLITool
 from sovereign.memory.memory_manager import MemoryManager
 from sovereign.registries.agent_registry import AgentRegistry
 from sovereign.registries.prompt_registry import PromptRegistry
 from sovereign.registries.decision_ledger import DecisionLedger, DecisionRecord
+from sovereign.registries.experiment_registry import Experiment, ExperimentRegistry
 from sovereign.authority.approval_gate import ApprovalGate, ApprovalRequest
 from sovereign.authority.thresholds import EscalationThresholds
 from sovereign.executive.ceo_agent import CEOAgent
@@ -259,6 +261,22 @@ class SovereignOrchestrator:
             tokens=total_tokens,
             error=final_output.error if final_output.status == OutputStatus.FAILED else None,
         )
+
+        # --- Experiment registry: record session metrics (Section 16) ---
+        self._experiment_registry.record_metric(
+            "live_sessions",
+            session_id,
+            {
+                "mode": ctx.operating_mode,
+                "status": final_output.status.value,
+                "confidence": final_output.confidence,
+                "tokens": total_tokens,
+                "tasks": len(task_list),
+                "request_class": ceo_output.data.get("request_class", "unknown"),
+                "internet_used": ceo_output.data.get("internet_needed", False),
+            },
+        )
+
         self._emit("session_complete", {
             "session_id": session_id,
             "status": final_output.status.value,
@@ -405,6 +423,14 @@ class SovereignOrchestrator:
     def get_session_count(self) -> int:
         return self._session_counter
 
+    def get_experiment_metrics(self, name: str = "live_sessions") -> dict:
+        """Return recorded metrics for an experiment."""
+        try:
+            exp = self._experiment_registry.get(name)
+            return {"name": exp.name, "metrics": exp.metrics, "status": exp.status}
+        except KeyError:
+            return {}
+
     # ------------------------------------------------------------------
     # Initialisation helpers
     # ------------------------------------------------------------------
@@ -423,6 +449,13 @@ class SovereignOrchestrator:
         self._agent_registry = AgentRegistry()
         self._prompt_registry = PromptRegistry(self.config.prompts_dir)
         self._ledger = DecisionLedger(self.config.data_dir)
+        self._experiment_registry = ExperimentRegistry()
+        # Seed the live-session experiment for ongoing metric collection
+        self._experiment_registry.register(Experiment(
+            name="live_sessions",
+            description="Tracks real-time session metrics: tokens, latency, confidence, mode",
+            variants=["default"],
+        ))
 
     def _init_memory(self) -> None:
         self._memory = MemoryManager(self.config.data_dir)
@@ -433,6 +466,7 @@ class SovereignOrchestrator:
         self._tool_registry.register(FileOpsTool(self.config.data_dir))
         self._tool_registry.register(CodeExecTool())
         self._tool_registry.register(MemoryTool(self._memory))
+        self._tool_registry.register(CLITool())
         self._tool_router = ToolRouter(self._tool_registry)
 
     def _init_prompt_builder(self) -> None:
