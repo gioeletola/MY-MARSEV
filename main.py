@@ -219,5 +219,35 @@ def _print_result(result, *, verbose: bool = False) -> None:
         console.print(JSON(result.to_json()))
 
 
+# ---------------------------------------------------------------------------
+# serve command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def serve(
+    host: str = typer.Option("0.0.0.0", "--host", help="Bind address."),
+    port: int = typer.Option(8080, "--port", "-p", help="Port number."),
+    reload: bool = typer.Option(False, "--reload", help="Enable auto-reload (dev)."),
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+) -> None:
+    """Start the SOVEREIGN AI OS web interface (FastAPI + WebSocket)."""
+    import os
+    import uvicorn
+    os.environ.setdefault("SOVEREIGN_CONFIG", config)
+    console.print(Panel(
+        f"[bold cyan]SOVEREIGN AI OS[/bold cyan] — Web UI\n"
+        f"Listening on [yellow]http://{host}:{port}[/yellow]\n"
+        f"WebSocket at [yellow]ws://{host}:{port}/ws[/yellow]",
+        border_style="cyan",
+    ))
+    uvicorn.run(
+        "sovereign.api.server:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
+
+
 if __name__ == "__main__":
     app()
