@@ -55,8 +55,13 @@ from sovereign.swarm.base_agent import AgentContext, AgentTask
 from sovereign.swarm.domain_chiefs import ResearchChief, FinanceChief, ContentChief, LegalChief
 from sovereign.swarm.business_agents import BUSINESS_AGENTS
 from sovereign.swarm.personal_agents import PERSONAL_AGENTS
+from sovereign.swarm.personal_workers import PERSONAL_WORKERS
 from sovereign.swarm.finance_agents import FINANCE_AGENTS
 from sovereign.swarm.black_tier_agents import BLACK_TIER_AGENTS
+from sovereign.swarm.imperial_agents import IMPERIAL_AGENTS
+from sovereign.swarm.decision_networking_agents import DECISION_NETWORKING_AGENTS
+from sovereign.swarm.security_agents import SECURITY_AGENTS
+from sovereign.swarm.offline_agents import OFFLINE_AGENTS
 from sovereign.executive.executive_assistant import ExecutiveAssistantAgent
 from sovereign.centers.business_center import BusinessCenter
 from sovereign.centers.personal_center import PersonalCenter
@@ -67,9 +72,14 @@ from sovereign.layers.attention_engine import AttentionEngineLayer
 from sovereign.layers.trust_engine import TrustEngineLayer
 from sovereign.layers.sovereign_exit import SovereignExitLayer
 from sovereign.layers.legacy_layer import LegacyLayer
+from sovereign.layers.human_layer import HumanLayer
+from sovereign.observability.eval_agent import EvalAgent
+from sovereign.observability.metrics import MetricsCollector, record_session
 from sovereign.registries.integration_registry import IntegrationRegistry
 from sovereign.registries.incident_registry import IncidentRegistry
 from sovereign.registries.memory_schema_registry import MemorySchemaRegistry
+from sovereign.registries.approval_rule_registry import ApprovalRuleRegistry
+from sovereign.registries.model_routing_registry import ModelRoutingRegistry
 from sovereign.security.security_stack import SecurityStack
 from sovereign.builder.builder_studio import BuilderStudio
 from sovereign.labs.labs_framework import LabsFramework
@@ -306,6 +316,16 @@ class SovereignOrchestrator:
             },
         )
 
+        # Record metrics
+        record_session(
+            self._metrics,
+            mode=ctx.operating_mode,
+            latency_ms=0.0,  # placeholder (no wall-clock yet)
+            tokens=total_tokens,
+            tasks=len(task_list),
+        )
+        self._metrics.inc("sessions_total")
+
         self._emit("session_complete", {
             "session_id": session_id,
             "status": final_output.status.value,
@@ -512,6 +532,8 @@ class SovereignOrchestrator:
         self._integration_registry = IntegrationRegistry()
         self._incident_registry = IncidentRegistry()
         self._memory_schema_registry = MemorySchemaRegistry()
+        self._approval_rule_registry = ApprovalRuleRegistry()
+        self._model_routing_registry = ModelRoutingRegistry()
         # Seed the live-session experiment for ongoing metric collection
         self._experiment_registry.register(Experiment(
             name="live_sessions",
@@ -581,7 +603,7 @@ class SovereignOrchestrator:
             self._agent_registry.register(agent)
 
     def _init_swarm(self) -> None:
-        """Instantiate and register all swarm agents (business, personal, finance, black-tier)."""
+        """Instantiate and register all swarm agents."""
         shared = dict(
             claude_client=self._claude,
             tool_registry=self._tool_registry,
@@ -589,7 +611,11 @@ class SovereignOrchestrator:
             constitution=self._constitution,
             prompt_builder=self._prompt_builder,
         )
-        all_agent_classes = BUSINESS_AGENTS + PERSONAL_AGENTS + FINANCE_AGENTS + BLACK_TIER_AGENTS
+        all_agent_classes = (
+            BUSINESS_AGENTS + PERSONAL_AGENTS + PERSONAL_WORKERS +
+            FINANCE_AGENTS + BLACK_TIER_AGENTS + IMPERIAL_AGENTS +
+            DECISION_NETWORKING_AGENTS + SECURITY_AGENTS + OFFLINE_AGENTS
+        )
         for AgentClass in all_agent_classes:
             try:
                 agent = AgentClass(**shared)
@@ -612,6 +638,7 @@ class SovereignOrchestrator:
         self._trust_engine = TrustEngineLayer()
         self._sovereign_exit = SovereignExitLayer()
         self._legacy_layer = LegacyLayer()
+        self._human_layer = HumanLayer()
 
     def _init_security(self) -> None:
         """Initialize the security stack."""
@@ -642,3 +669,5 @@ class SovereignOrchestrator:
 
     def _init_health(self) -> None:
         self._health = HealthMonitor()
+        self._eval_agent = EvalAgent()
+        self._metrics = MetricsCollector()

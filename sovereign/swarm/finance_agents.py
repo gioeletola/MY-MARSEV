@@ -310,6 +310,83 @@ RealEstateAnalystAgent = _make_worker(
 )
 
 # ---------------------------------------------------------------------------
+# Additional personal finance workers (Section 11)
+# ---------------------------------------------------------------------------
+
+AllocationAgent = _make_worker(
+    "allocation_agent",
+    "Allocation Agent",
+    (
+        "Optimize resource allocation across all asset classes and investment vehicles. "
+        "Apply strategic allocation frameworks (core-satellite, all-weather, risk-parity). "
+        "Model rebalancing scenarios. Track drift from target allocation. "
+        "Recommend tactical tilts based on market conditions. "
+        "IMPORTANT: All recommendations for informational purposes only."
+    ),
+    tools=["memory_tool", "code_exec"],
+    confidence=0.83,
+    requires_review=True,
+)
+
+ScenarioFinanceAgent = _make_worker(
+    "scenario_finance",
+    "Scenario Finance Agent",
+    (
+        "Build and analyze financial scenarios: bull/base/bear cases, "
+        "stress tests, Monte Carlo simulations. "
+        "Model impact of: job loss, market crash, unexpected expenses, "
+        "windfall gains, recession. "
+        "Help the user make robust financial decisions that survive multiple scenarios."
+    ),
+    tools=["memory_tool", "code_exec"],
+    confidence=0.82,
+    requires_review=True,
+)
+
+BlackMapGeoRiskAgent = _make_worker(
+    "blackmap_georisk",
+    "BlackMap GeoRisk Agent",
+    (
+        "Assess geopolitical and geographic risks to financial assets and interests. "
+        "Monitor: political instability, currency controls, sanctions, "
+        "tax law changes, asset seizure risks by jurisdiction. "
+        "Recommend: geographic diversification of assets, jurisdiction strategies. "
+        "For informational and planning purposes."
+    ),
+    tools=["web_search", "memory_tool"],
+    confidence=0.78,
+    requires_review=True,
+)
+
+MoneyLeakAssassinAgent = _make_worker(
+    "money_leak_assassin",
+    "Money Leak Assassin Agent",
+    (
+        "Find and eliminate every money leak in the user's financial life: "
+        "forgotten subscriptions, unused services, overpayment for commodities, "
+        "bank fees, insurance overcharges, idle cash earning nothing. "
+        "Track cumulative savings from eliminated leaks. "
+        "Monthly money leak audit."
+    ),
+    tools=["memory_tool"],
+    confidence=0.87,
+)
+
+LifestyleCreepAgent = _make_worker(
+    "lifestyle_creep",
+    "Lifestyle Creep Agent",
+    (
+        "Monitor and manage lifestyle inflation: when income rises, do expenses "
+        "rise proportionally (creep) or do savings rate improve? "
+        "Track spending growth vs income growth. "
+        "Alert on lifestyle creep patterns. "
+        "Help maintain savings rate discipline through income increases."
+    ),
+    tools=["memory_tool", "code_exec"],
+    confidence=0.84,
+)
+
+# ---------------------------------------------------------------------------
 # Export registry
 # ---------------------------------------------------------------------------
 
@@ -329,4 +406,9 @@ FINANCE_AGENTS: list[type[BaseAgent]] = [
     FinancialIndependenceAgent,
     CryptoPortfolioAgent,
     RealEstateAnalystAgent,
+    AllocationAgent,
+    ScenarioFinanceAgent,
+    BlackMapGeoRiskAgent,
+    MoneyLeakAssassinAgent,
+    LifestyleCreepAgent,
 ]

@@ -27,42 +27,38 @@ def _make_worker(agent_id: str, specialty: str, instructions: str,
                  requires_review: bool = False, confidence: float = 0.82):
     """Factory: create a worker agent class with the given spec."""
 
+    _agent_id = agent_id
     _tools = tools or ["web_search", "memory_tool"]
     _model = model
     _confidence = confidence
     _review = requires_review
 
-    class _Worker(BaseAgent):
-        agent_id = agent_id  # type: ignore[assignment]
-        model = _model       # type: ignore[assignment]
+    async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
+        try:
+            if not task.tools_allowed:
+                task.tools_allowed = list(_tools)
+            prompt = (
+                f"You are the {specialty} of the SOVEREIGN AI OS.\n\n"
+                f"{instructions}\n\n"
+                f"Task:\n{task.objective}\n\n"
+                "Be precise, structured, and actionable. No fluff."
+            )
+            result, history = await self._call_with_tools(
+                [{"role": "user", "content": prompt}], ctx, task, max_tokens=2048
+            )
+            out = self._make_output(
+                task=task, ctx=ctx, result=result,
+                status=OutputStatus.SUCCESS, confidence=_confidence,
+                data={"tool_turns": len(history)},
+            )
+            out.requires_human_review = _review
+            return out
+        except Exception as exc:
+            logger.error("%s failed: %s", _agent_id, exc)
+            return StructuredOutput.failure(ctx.session_id, _agent_id, task.task_id, str(exc))
 
-        async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
-            try:
-                if not task.tools_allowed:
-                    task.tools_allowed = _tools
-                prompt = (
-                    f"You are the {specialty} of the SOVEREIGN AI OS.\n\n"
-                    f"{instructions}\n\n"
-                    f"Task:\n{task.objective}\n\n"
-                    "Be precise, structured, and actionable. No fluff."
-                )
-                result, history = await self._call_with_tools(
-                    [{"role": "user", "content": prompt}], ctx, task, max_tokens=2048
-                )
-                out = self._make_output(
-                    task=task, ctx=ctx, result=result,
-                    status=OutputStatus.SUCCESS, confidence=_confidence,
-                    data={"tool_turns": len(history)},
-                )
-                out.requires_human_review = _review
-                return out
-            except Exception as exc:
-                logger.error("%s failed: %s", agent_id, exc)
-                return StructuredOutput.failure(ctx.session_id, agent_id, task.task_id, str(exc))
-
-    _Worker.__name__ = specialty.replace(" ", "") + "Agent"
-    _Worker.__qualname__ = _Worker.__name__
-    return _Worker
+    name = specialty.replace(" ", "") + "Agent"
+    return type(name, (BaseAgent,), {"agent_id": _agent_id, "model": _model, "run": run})
 
 
 # ── BUSINESS CHIEFS ──────────────────────────────────────────────────────────
