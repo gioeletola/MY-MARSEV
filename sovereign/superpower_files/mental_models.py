@@ -1,0 +1,60 @@
+"""Superpower pack: 50 essential mental models for decision-making."""
+
+PACK = {
+    "title": "Mental Models — Decision-Making Toolkit",
+    "version": "1.0",
+    "sections": {
+        "Thinking & Reasoning": {
+            "First Principles": "Break problems down to fundamental truths, reason up from there",
+            "Inversion": "Solve problems backwards — ask 'how would I fail?' then avoid those paths",
+            "Second-Order Thinking": "Ask 'and then what?' — anticipate downstream consequences",
+            "Occam's Razor": "The simplest explanation is usually correct",
+            "Hanlon's Razor": "Never attribute to malice what can be explained by stupidity",
+            "Falsifiability": "A claim is only scientific if it can be proven wrong",
+            "Steel-manning": "Build the strongest version of the opposing argument before responding",
+            "Chesterton's Fence": "Never remove something until you understand why it was built",
+        },
+        "Probability & Risk": {
+            "Base Rate Neglect": "Most predictions ignore how often similar things succeed historically",
+            "Regression to the Mean": "Extreme events are usually followed by more average ones",
+            "Expected Value": "Probability × Magnitude — use this for all decisions under uncertainty",
+            "Fat Tails": "Rare extreme events dominate long-run outcomes — don't ignore tail risk",
+            "Antifragility": "Design systems that benefit from disorder and volatility",
+            "Margin of Safety": "Build buffers into all plans — assume things go wrong",
+        },
+        "Systems Thinking": {
+            "Feedback Loops": "Reinforcing loops amplify; balancing loops stabilise",
+            "Leverage Points": "Small interventions in the right place create large change",
+            "Bottleneck Theory (ToC)": "System speed is determined by its weakest link",
+            "Emergent Properties": "Complex behaviours arise from simple rules at scale",
+            "Network Effects": "Value grows exponentially with nodes — 1 → n² relationships",
+            "Compounding": "Small consistent gains compound to extraordinary results over time",
+        },
+        "Human Psychology": {
+            "Availability Bias": "We overweight recent vivid events in our decisions",
+            "Confirmation Bias": "We seek information that confirms existing beliefs",
+            "Sunk Cost Fallacy": "Past costs are gone — only future value matters for decisions",
+            "Loss Aversion": "Losses feel 2x worse than equivalent gains",
+            "Dunning-Kruger": "Low-competence people overestimate; experts underestimate their knowledge",
+            "IKEA Effect": "We value things more when we built them ourselves",
+            "Social Proof": "People follow others' behaviour under uncertainty",
+            "Anchoring": "First number stated dominates all subsequent judgements",
+        },
+        "Strategy": {
+            "Blue Ocean Strategy": "Create uncontested market space rather than compete in red oceans",
+            "Clayton's Innovator's Dilemma": "Incumbents are disrupted by cheaper, simpler products they initially ignore",
+            "OODA Loop": "Observe, Orient, Decide, Act — speed through the loop wins",
+            "10x Rule": "Think 10x improvement, not 10% — different solution space entirely",
+            "Jobs to be Done": "Customers hire products to do a job — focus on the job, not demographics",
+            "Power's 7 Powers": "Scale, Network, Counter-positioning, Switching costs, Branding, Cornered resource, Process",
+        },
+        "Execution": {
+            "Pareto Principle": "80% of results come from 20% of causes — find the 20%",
+            "Minimum Viable Product": "Ship the smallest thing that tests your riskiest assumption",
+            "Parkinson's Law": "Work expands to fill the time allowed — compress deadlines",
+            "Maker vs Manager Schedule": "Makers need 4-hour blocks; managers run on hourly slots",
+            "Dead Reckoning": "Estimate where you are from known starting point + movement",
+            "Pre-mortem": "Imagine the project failed — what went wrong? Fix those things now",
+        },
+    },
+}

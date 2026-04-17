@@ -1,0 +1,55 @@
+"""Superpower pack: financial intelligence — ratios, valuation, analysis."""
+
+PACK = {
+    "title": "Financial IQ",
+    "version": "1.0",
+    "sections": {
+        "Key Financial Ratios": {
+            "Current Ratio": "Current Assets / Current Liabilities — > 1.5 is healthy",
+            "Quick Ratio": "(Cash + AR) / Current Liabilities — > 1.0 required",
+            "Debt-to-Equity": "Total Debt / Equity — < 2.0 conservative; > 4.0 high risk",
+            "EBITDA Margin": "EBITDA / Revenue — benchmark varies by industry",
+            "Gross Margin": "(Revenue - COGS) / Revenue — measures pricing power",
+            "Net Margin": "Net Income / Revenue — overall profitability",
+            "ROE": "Net Income / Equity — measures return on shareholder investment",
+            "ROA": "Net Income / Total Assets — asset efficiency",
+            "ROIC": "NOPAT / Invested Capital — best overall efficiency metric",
+            "P/E Ratio": "Price / EPS — compare to sector peers, not in isolation",
+            "EV/EBITDA": "Enterprise Value / EBITDA — standard acquisition valuation multiple",
+        },
+        "Valuation Methods": {
+            "DCF": "Discounted Cash Flow — intrinsic value; sensitive to terminal growth + WACC",
+            "Comparable Company Analysis": "EV/Revenue, EV/EBITDA, P/E vs peer group",
+            "Precedent Transactions": "M&A deal multiples paid for similar companies",
+            "Asset-Based": "Sum of assets minus liabilities — floor value; used for distressed",
+            "Rule of 40": "Revenue Growth % + EBITDA Margin % > 40 = healthy SaaS",
+            "Berkshire Method": "Owner earnings = Net income + D&A - maintenance capex",
+        },
+        "Cash Flow Fundamentals": [
+            "Cash is king — profitable companies can still go bankrupt from poor cash flow",
+            "Free Cash Flow = Operating Cash Flow - Capital Expenditure",
+            "Distinguish capex from opex: capex builds assets; opex funds operations",
+            "Burn rate = monthly cash outflow; runway = cash / burn rate",
+            "Working capital = Current Assets - Current Liabilities",
+            "Cash conversion cycle = DIO + DSO - DPO",
+        ],
+        "Personal Finance Rules": {
+            "50/30/20": "50% needs, 30% wants, 20% savings/investments",
+            "Emergency fund": "3–6 months of expenses in liquid, low-risk accounts",
+            "Compound interest": "Start investing early — 10 years doubles roughly at 7.2% (Rule of 72)",
+            "Tax-advantaged accounts first": "Max ISA/401k/pension before taxable accounts",
+            "Index funds": "90% of active managers underperform index over 10+ years",
+            "Net worth tracking": "Assets - Liabilities; track monthly, not daily",
+        },
+        "Red Flags in Financials": [
+            "Revenue growing faster than cash — watch receivables",
+            "Gross margin compression — pricing or cost problem",
+            "Accounts receivable growing faster than revenue — aggressive recognition",
+            "Goodwill > 30% of assets — acquisition risk",
+            "Auditor change without clear reason",
+            "Management turnover in finance function",
+            "Earnings restated — significant integrity concern",
+            "High leverage + rising interest rates = distress risk",
+        ],
+    },
+}
