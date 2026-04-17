@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en" x-data="hud()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — JARVIS HUD</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:#000; color:#06b6d4; font-family:'JetBrains Mono',monospace;
+           overflow:hidden; width:100vw; height:100vh; user-select:none; }
+
+    /* Scan-line effect */
+    body::before {
+      content:''; position:fixed; inset:0; z-index:1000; pointer-events:none;
+      background:repeating-linear-gradient(0deg, transparent, transparent 2px,
+                 rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    }
+
+    /* Camera feed */
+    #camera-feed {
+      position:fixed; inset:0; z-index:0;
+      object-fit:cover; width:100%; height:100%;
+      opacity:0.35; filter:saturate(0) contrast(1.2);
+    }
+    #camera-canvas {
+      position:fixed; inset:0; z-index:1;
+      width:100%; height:100%; pointer-events:none;
+    }
+
+    /* HUD overlay */
+    .hud-overlay {
+      position:fixed; inset:0; z-index:10;
+      pointer-events:none;
+    }
+
+    /* Corners */
+    .corner { position:absolute; width:40px; height:40px; }
+    .corner-tl { top:20px; left:20px; border-top:2px solid #06b6d4; border-left:2px solid #06b6d4; }
+    .corner-tr { top:20px; right:20px; border-top:2px solid #06b6d4; border-right:2px solid #06b6d4; }
+    .corner-bl { bottom:20px; left:20px; border-bottom:2px solid #06b6d4; border-left:2px solid #06b6d4; }
+    .corner-br { bottom:20px; right:20px; border-bottom:2px solid #06b6d4; border-right:2px solid #06b6d4; }
+
+    /* Panels */
+    .panel {
+      position:absolute; pointer-events:all;
+      background:rgba(0,10,15,0.8); border:1px solid rgba(6,182,212,0.3);
+      border-radius:4px; backdrop-filter:blur(8px);
+      font-size:11px; line-height:1.5;
+    }
+    .panel-title {
+      font-size:10px; color:rgba(6,182,212,0.6); letter-spacing:0.15em;
+      text-transform:uppercase; border-bottom:1px solid rgba(6,182,212,0.15);
+      padding:4px 10px; margin-bottom:4px;
+    }
+
+    /* Left panel — system status */
+    .panel-left { top:60px; left:20px; width:200px; padding:8px 0; }
+
+    /* Right panel — agent feed */
+    .panel-right { top:60px; right:20px; width:240px; max-height:calc(100vh - 200px); padding:8px 0; overflow-y:auto; }
+
+    /* Bottom bar */
+    .panel-bottom {
+      bottom:20px; left:50%; transform:translateX(-50%);
+      width:min(600px, 90vw); padding:8px 12px;
+      display:flex; align-items:center; gap:12px;
+    }
+
+    /* Center crosshair */
+    .crosshair {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:40px; height:40px; pointer-events:none;
+    }
+    .crosshair::before, .crosshair::after {
+      content:''; position:absolute; background:rgba(6,182,212,0.5);
+    }
+    .crosshair::before { left:50%; top:0; width:1px; height:100%; }
+    .crosshair::after  { top:50%; left:0; height:1px; width:100%; }
+
+    /* Pulse ring */
+    .pulse-ring {
+      position:absolute; top:50%; left:50%;
+      width:80px; height:80px;
+      transform:translate(-50%,-50%);
+      border:1px solid rgba(6,182,212,0.2);
+      border-radius:50%; pointer-events:none;
+      animation:ringPulse 3s ease-out infinite;
+    }
+    @keyframes ringPulse {
+      0%  { width:80px; height:80px; opacity:0.5; }
+      100%{ width:200px; height:200px; opacity:0; }
+    }
+
+    /* Voice input */
+    .voice-active { border-color:rgba(124,58,237,0.6) !important; }
+    .voice-orb {
+      width:36px; height:36px; border-radius:50%;
+      background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.4);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:all 0.2s; pointer-events:all;
+      font-size:16px;
+    }
+    .voice-orb.listening { background:rgba(124,58,237,0.3); animation:voicePulse 1s infinite; }
+    @keyframes voicePulse { 0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,0.4)} 50%{box-shadow:0 0 0 10px rgba(124,58,237,0)} }
+
+    /* Chat input */
+    .hud-input {
+      flex:1; background:transparent; border:none; outline:none;
+      color:#06b6d4; font-family:'JetBrains Mono',monospace; font-size:12px;
+      caret-color:#7c3aed;
+    }
+    .hud-input::placeholder { color:rgba(6,182,212,0.3); }
+
+    /* Status dots */
+    .s-dot { width:6px; height:6px; border-radius:50%; display:inline-block; margin-right:4px; }
+    .s-dot.ok   { background:#10b981; animation:blink 2s infinite; }
+    .s-dot.warn { background:#f59e0b; animation:blink 1s infinite; }
+    .s-dot.err  { background:#f43f5e; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* Stream text */
+    .stream-text { color:#e2e8f0; font-size:12px; max-height:80px; overflow-y:auto; }
+
+    /* Scan line animation */
+    .scan-line {
+      position:fixed; left:0; right:0; height:2px;
+      background:linear-gradient(90deg,transparent,rgba(6,182,212,0.2),transparent);
+      animation:scanDown 8s linear infinite; z-index:5; pointer-events:none;
+    }
+    @keyframes scanDown { from{top:0} to{top:100vh} }
+
+    ::-webkit-scrollbar { width:2px; }
+    ::-webkit-scrollbar-thumb { background:rgba(6,182,212,0.2); }
+  </style>
+</head>
+<body>
+
+<!-- Camera feed -->
+<video id="camera-feed" autoplay muted playsinline></video>
+<canvas id="camera-canvas"></canvas>
+
+<!-- Scan line -->
+<div class="scan-line"></div>
+
+<!-- HUD overlay -->
+<div class="hud-overlay">
+  <!-- Corners -->
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <!-- Crosshair -->
+  <div class="crosshair"></div>
+  <div class="pulse-ring" x-show="wsConnected"></div>
+
+  <!-- Top center — clock + mode -->
+  <div style="position:absolute;top:22px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none">
+    <div class="text-lg font-bold" style="letter-spacing:0.2em" x-text="clock"></div>
+    <div class="text-xs" style="color:rgba(6,182,212,0.5);letter-spacing:0.3em" x-text="mode.toUpperCase() + ' MODE'"></div>
+  </div>
+
+  <!-- Left panel — System -->
+  <div class="panel panel-left">
+    <div class="panel-title">SYSTEM STATUS</div>
+    <div style="padding:0 10px">
+      <template x-for="s in sysItems" :key="s.label">
+        <div class="flex justify-between items-center" style="margin-bottom:4px">
+          <span style="color:rgba(6,182,212,0.6)" x-text="s.label"></span>
+          <div class="flex items-center">
+            <span class="s-dot" :class="s.ok ? 'ok' : 'err'"></span>
+            <span :style="s.ok ? 'color:#10b981' : 'color:#f43f5e'" x-text="s.value"></span>
+          </div>
+        </div>
+      </template>
+      <div style="height:1px;background:rgba(6,182,212,0.1);margin:8px 0"></div>
+      <div class="flex justify-between items-center" style="margin-bottom:4px">
+        <span style="color:rgba(6,182,212,0.6)">AGENTS</span>
+        <span x-text="agentCount"></span>
+      </div>
+      <div class="flex justify-between items-center" style="margin-bottom:4px">
+        <span style="color:rgba(6,182,212,0.6)">RUNNING</span>
+        <span style="color:#06b6d4" x-text="runningAgents.length"></span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span style="color:rgba(6,182,212,0.6)">UPTIME</span>
+        <span style="color:#10b981" x-text="uptime"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel — Agent Feed -->
+  <div class="panel panel-right">
+    <div class="panel-title">AGENT ACTIVITY</div>
+    <div style="padding:0 10px">
+      <template x-for="(evt, i) in agentFeed.slice(0,15)" :key="i">
+        <div style="display:flex;gap:6px;margin-bottom:4px;align-items:flex-start">
+          <span class="s-dot" style="margin-top:4px;flex-shrink:0"
+                :class="evt.status==='running'?'ok':evt.status==='failed'?'err':'warn'"></span>
+          <div>
+            <span style="color:#06b6d4;font-size:10px" x-text="evt.agent_id"></span>
+            <span style="color:rgba(6,182,212,0.4);font-size:10px" x-text="' · ' + evt.status"></span>
+            <div style="color:rgba(226,232,240,0.5);font-size:10px;margin-top:1px" x-text="evt.time"></div>
+          </div>
+        </div>
+      </template>
+      <div x-show="agentFeed.length===0" style="color:rgba(6,182,212,0.3);font-size:10px;text-align:center;padding:8px 0">
+        Awaiting activity...
+      </div>
+    </div>
+  </div>
+
+  <!-- Stream output -->
+  <div x-show="streamText" class="panel" style="top:60px;left:230px;right:270px;padding:8px 12px" x-transition>
+    <div class="panel-title">AI RESPONSE</div>
+    <div class="stream-text" x-text="streamText"></div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="panel panel-bottom" :class="listening ? 'voice-active' : ''">
+    <div class="voice-orb" :class="listening ? 'listening' : ''" @click="toggleVoice()"
+         :title="listening ? 'Stop listening' : 'Click to speak'">
+      🎙
+    </div>
+    <input class="hud-input" type="text" placeholder="Command SOVEREIGN..." x-model="command"
+           @keydown.enter="sendCommand()" @keydown.escape="command=''"/>
+    <button style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);
+                   border-radius:4px;padding:4px 12px;color:#06b6d4;cursor:pointer;font-size:11px;pointer-events:all"
+            @click="sendCommand()">SEND</button>
+    <button style="background:transparent;border:1px solid rgba(124,58,237,0.3);border-radius:4px;
+                   padding:4px 10px;color:rgba(124,58,237,0.7);cursor:pointer;font-size:11px;pointer-events:all"
+            @click="streamText=''" x-show="streamText">CLR</button>
+    <a href="/" style="color:rgba(6,182,212,0.4);font-size:10px;pointer-events:all;text-decoration:none">EXIT HUD</a>
+  </div>
+
+  <!-- WS status indicator -->
+  <div style="position:absolute;bottom:24px;right:24px;display:flex;align-items:center;gap:4px;font-size:10px">
+    <span class="s-dot" :class="wsConnected ? 'ok' : 'err'"></span>
+    <span :style="wsConnected ? 'color:#10b981' : 'color:#f43f5e'" x-text="wsConnected ? 'CONNECTED' : 'RECONNECTING'"></span>
+  </div>
+</div>
+
+<script>
+function hud() {
+  return {
+    clock:'', ws:null, wsConnected:false, listening:false,
+    command:'', streamText:'', mode:'command',
+    agentCount:0, agentFeed:[], runningAgents:[], uptime:'00:00:00',
+    startedAt: Date.now(),
+    sysItems:[
+      {label:'API',    value:'OK',  ok:true},
+      {label:'MEMORY', value:'OK',  ok:true},
+      {label:'ORCH',   value:'OK',  ok:true},
+      {label:'KERNEL', value:'OK',  ok:true},
+    ],
+
+    init() {
+      this.tickClock();
+      setInterval(() => this.tickClock(), 1000);
+      this.connectWS();
+      this.startCamera();
+    },
+    tickClock() {
+      const now = new Date();
+      this.clock = now.toLocaleTimeString('en-GB',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const elapsed = Math.floor((Date.now() - this.startedAt) / 1000);
+      const h = String(Math.floor(elapsed/3600)).padStart(2,'0');
+      const m = String(Math.floor((elapsed%3600)/60)).padStart(2,'0');
+      const s = String(elapsed%60).padStart(2,'0');
+      this.uptime = `${h}:${m}:${s}`;
+    },
+    connectWS() {
+      const proto = location.protocol==='https:'?'wss:':'ws:';
+      this.ws = new WebSocket(`${proto}//${location.host}/ws`);
+      this.ws.onopen  = () => { this.wsConnected = true; this.pollHealth(); };
+      this.ws.onclose = () => { this.wsConnected = false; setTimeout(() => this.connectWS(), 3000); };
+      this.ws.onmessage = e => this.handleMsg(JSON.parse(e.data));
+    },
+    pollHealth() {
+      if (this.ws?.readyState===1) this.ws.send(JSON.stringify({type:'health_poll'}));
+    },
+    handleMsg(msg) {
+      if (msg.type==='health') {
+        const d = msg.data||{};
+        this.agentCount = d.agents_registered||0;
+        this.mode = d.operating_mode||'command';
+        this.sysItems[0].ok = d.status==='healthy';
+        this.sysItems[0].value = d.status==='healthy'?'OK':'ERR';
+        this.sysItems[2].ok = d.status==='healthy';
+        this.sysItems[2].value = d.status==='healthy'?'OK':'ERR';
+      }
+      if (msg.type==='agent_status') {
+        this.agentFeed.unshift({agent_id:msg.agent_id, status:msg.status, time:new Date().toLocaleTimeString()});
+        if (this.agentFeed.length>50) this.agentFeed.pop();
+        if (msg.status==='running') {
+          if (!this.runningAgents.includes(msg.agent_id)) this.runningAgents.push(msg.agent_id);
+        } else {
+          this.runningAgents = this.runningAgents.filter(a=>a!==msg.agent_id);
+        }
+      }
+      if (msg.type==='stream_delta') this.streamText += msg.content;
+      if (msg.type==='stream_done') { /* done */ }
+    },
+    sendCommand() {
+      if (!this.command.trim() || !this.ws || this.ws.readyState!==1) return;
+      this.streamText = '';
+      this.ws.send(JSON.stringify({type:'chat', content:this.command, mode:this.mode}));
+      this.command = '';
+    },
+    toggleVoice() {
+      this.listening = !this.listening;
+      if (this.listening) {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+          this.listening = false;
+          return;
+        }
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const rec = new SR();
+        rec.lang = 'en-US'; rec.interimResults = false;
+        rec.onresult = e => {
+          this.command = e.results[0][0].transcript;
+          this.sendCommand();
+        };
+        rec.onend = () => { this.listening = false; };
+        rec.start();
+      }
+    },
+    async startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({video:true});
+        const vid = document.getElementById('camera-feed');
+        vid.srcObject = stream;
+      } catch(e) {
+        console.warn('Camera not available:', e.message);
+      }
+    },
+  };
+}
+</script>
+</body>
+</html>

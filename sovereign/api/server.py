@@ -102,3 +102,28 @@ async def usage() -> JSONResponse:
         "usage": _orchestrator.get_usage(),
         "sessions": _orchestrator.get_session_count(),
     })
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def executive_dashboard(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("executive_dashboard.html", {"request": request})
+
+
+@app.get("/finance", response_class=HTMLResponse)
+async def finance_cockpit(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("finance_cockpit.html", {"request": request})
+
+
+@app.get("/business", response_class=HTMLResponse)
+async def business_wall(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("business_wall.html", {"request": request})
+
+
+@app.get("/approvals", response_class=HTMLResponse)
+async def approvals_center(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("approvals_center.html", {"request": request})
+
+
+@app.get("/hud", response_class=HTMLResponse)
+async def jarvis_hud(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("jarvis_hud.html", {"request": request})

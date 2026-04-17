@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en" x-data="exec()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — Executive Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
+                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
+                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
+        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>
+    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
+    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
+    .gradient-border {
+      background:linear-gradient(#11111a,#11111a) padding-box,
+                 linear-gradient(135deg,#06b6d4,#7c3aed) border-box;
+      border:1px solid transparent; border-radius:12px;
+    }
+    .stat-ring { position:relative; display:inline-flex; align-items:center; justify-content:center; }
+    .ring-track { fill:none; stroke:#1e1e2e; stroke-width:6; }
+    .ring-fill  { fill:none; stroke-width:6; stroke-linecap:round;
+                  transition: stroke-dashoffset 1s ease; transform:rotate(-90deg); transform-origin:50% 50%; }
+    .pulse-dot::before { content:''; display:inline-block; width:6px; height:6px;
+      border-radius:50%; margin-right:6px; vertical-align:middle; animation:pulse 2s infinite; }
+    .pulse-dot.active::before { background:#06b6d4; }
+    .pulse-dot.idle::before   { background:#6b7280; }
+    .pulse-dot.warn::before   { background:#f59e0b; }
+    .pulse-dot.error::before  { background:#f43f5e; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .metric-glow-cyan   { box-shadow:0 0 24px rgba(6,182,212,0.12); }
+    .metric-glow-violet { box-shadow:0 0 24px rgba(124,58,237,0.12); }
+    .activity-item { animation:slideIn 0.3s ease; }
+    @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:none} }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<!-- Nav -->
+<header class="flex items-center justify-between mb-6 px-2">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg gradient-border flex items-center justify-center text-cyan font-mono font-bold text-sm">S</div>
+    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
+    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">EXECUTIVE DASHBOARD</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <span class="text-xs text-muted font-mono" x-text="clock"></span>
+    <span class="pulse-dot active text-xs text-cyan font-medium">LIVE</span>
+    <a href="/" class="text-xs text-muted hover:text-cyan transition-colors">← Chat</a>
+  </div>
+</header>
+
+<!-- KPI Row -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <template x-for="kpi in kpis" :key="kpi.label">
+    <div class="card p-4 metric-glow-cyan">
+      <div class="text-xs text-muted mb-1" x-text="kpi.label"></div>
+      <div class="text-2xl font-bold font-mono" :class="kpi.color" x-text="kpi.value"></div>
+      <div class="text-xs mt-1" :class="kpi.delta >= 0 ? 'text-emerald' : 'text-rose'">
+        <span x-text="(kpi.delta >= 0 ? '↑' : '↓') + Math.abs(kpi.delta) + '%'"></span>
+        <span class="text-muted ml-1">vs yesterday</span>
+      </div>
+    </div>
+  </template>
+</div>
+
+<!-- Main Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+  <!-- Agent Activity Feed -->
+  <div class="card p-4 lg:col-span-2">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-muted uppercase tracking-wider">Agent Activity Feed</h2>
+      <span class="text-xs font-mono text-muted" x-text="activity.length + ' events'"></span>
+    </div>
+    <div class="space-y-2 max-h-64 overflow-y-auto" id="activity-feed">
+      <template x-for="(evt, i) in activity.slice(0,20)" :key="i">
+        <div class="activity-item flex items-start gap-3 py-2 border-b border-border last:border-0">
+          <span class="pulse-dot text-xs font-mono mt-0.5" :class="statusClass(evt.status)" x-text="evt.agent_id"></span>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-gray-300 truncate" x-text="evt.message"></p>
+            <p class="text-xs text-muted font-mono" x-text="evt.time"></p>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded-full font-mono" :class="badgeClass(evt.status)" x-text="evt.status"></span>
+        </div>
+      </template>
+      <div x-show="activity.length === 0" class="text-center text-muted text-xs py-8">No activity yet. Connect to start.</div>
+    </div>
+  </div>
+
+  <!-- System Health -->
+  <div class="card p-4">
+    <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-4">System Health</h2>
+    <div class="flex flex-col items-center mb-4">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle class="ring-track" cx="60" cy="60" r="48"/>
+        <circle class="ring-fill" cx="60" cy="60" r="48"
+          :stroke="healthColor"
+          :stroke-dasharray="301.6"
+          :stroke-dashoffset="301.6 * (1 - healthPct / 100)"/>
+      </svg>
+      <div class="absolute text-center pointer-events-none" style="margin-top:-74px">
+        <div class="text-2xl font-bold font-mono" :class="healthPct >= 80 ? 'text-emerald' : healthPct >= 50 ? 'text-amber' : 'text-rose'" x-text="healthPct + '%'"></div>
+        <div class="text-xs text-muted">health</div>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <template x-for="item in healthItems" :key="item.label">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-muted" x-text="item.label"></span>
+          <span class="font-mono" :class="item.ok ? 'text-emerald' : 'text-rose'" x-text="item.value"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Recent Decisions -->
+  <div class="card p-4 lg:col-span-2">
+    <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-4">Recent Decisions</h2>
+    <div class="space-y-2 max-h-48 overflow-y-auto">
+      <template x-for="(d, i) in decisions" :key="i">
+        <div class="flex items-center gap-3 py-2 border-b border-border last:border-0">
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
+               :class="d.type === 'approval' ? 'bg-emerald/10 text-emerald' : 'bg-violet/10 text-violet'"
+               x-text="d.type === 'approval' ? '✓' : '⚡'"></div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-gray-300 truncate" x-text="d.description"></p>
+            <p class="text-xs text-muted font-mono" x-text="d.agent_id + ' · ' + d.time"></p>
+          </div>
+          <span class="text-xs font-mono" :class="d.outcome === 'approved' ? 'text-emerald' : 'text-amber'" x-text="d.outcome"></span>
+        </div>
+      </template>
+      <div x-show="decisions.length === 0" class="text-xs text-muted text-center py-6">No decisions recorded yet.</div>
+    </div>
+  </div>
+
+  <!-- Token Usage -->
+  <div class="card p-4">
+    <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-4">Token Usage</h2>
+    <div class="space-y-3">
+      <template x-for="t in tokenStats" :key="t.label">
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-muted" x-text="t.label"></span>
+            <span class="font-mono text-cyan" x-text="fmtNum(t.value)"></span>
+          </div>
+          <div class="h-1.5 bg-border rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-700"
+                 :class="t.color" :style="`width:${t.pct}%`"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="mt-4 pt-4 border-t border-border">
+      <div class="flex justify-between text-xs">
+        <span class="text-muted">Cache hit rate</span>
+        <span class="font-mono text-emerald" x-text="cacheHitRate + '%'"></span>
+      </div>
+      <div class="flex justify-between text-xs mt-1">
+        <span class="text-muted">Est. cost today</span>
+        <span class="font-mono text-amber" x-text="'$' + costToday"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function exec() {
+  return {
+    clock: '',
+    ws: null,
+    activity: [],
+    decisions: [],
+    healthPct: 0,
+    healthColor: '#10b981',
+    kpis: [
+      {label:'Active Agents',  value:'0',    color:'text-cyan',    delta:0},
+      {label:'Sessions Today', value:'0',    color:'text-violet',  delta:0},
+      {label:'Decisions Made', value:'0',    color:'text-amber',   delta:0},
+      {label:'Avg Confidence', value:'—',    color:'text-emerald', delta:0},
+    ],
+    healthItems: [
+      {label:'API',          value:'—', ok:true},
+      {label:'Memory',       value:'—', ok:true},
+      {label:'Orchestrator', value:'—', ok:true},
+      {label:'Mode',         value:'—', ok:true},
+    ],
+    tokenStats: [
+      {label:'Input tokens',  value:0, pct:0, color:'bg-cyan'},
+      {label:'Output tokens', value:0, pct:0, color:'bg-violet'},
+      {label:'Cache read',    value:0, pct:0, color:'bg-emerald'},
+    ],
+    cacheHitRate: '0.0',
+    costToday: '0.00',
+
+    init() {
+      this.tickClock();
+      setInterval(() => this.tickClock(), 1000);
+      this.connectWS();
+      setInterval(() => this.pollHealth(), 5000);
+    },
+    tickClock() {
+      this.clock = new Date().toLocaleTimeString('en-GB', {hour12:false});
+    },
+    connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      this.ws = new WebSocket(`${proto}//${location.host}/ws`);
+      this.ws.onmessage = e => this.handleMsg(JSON.parse(e.data));
+      this.ws.onopen = () => this.pollHealth();
+      this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
+    },
+    handleMsg(msg) {
+      if (msg.type === 'agent_status') {
+        this.activity.unshift({
+          agent_id: msg.agent_id, status: msg.status,
+          message: `Status: ${msg.status}`, time: new Date().toLocaleTimeString()
+        });
+        if (this.activity.length > 50) this.activity.pop();
+      }
+      if (msg.type === 'health') this.applyHealth(msg.data);
+      if (msg.type === 'stream_done') this.updateTokens(msg);
+    },
+    pollHealth() {
+      if (this.ws && this.ws.readyState === 1)
+        this.ws.send(JSON.stringify({type:'health_poll'}));
+    },
+    applyHealth(data) {
+      if (!data) return;
+      const ok = data.status === 'healthy';
+      this.healthPct = ok ? 98 : 45;
+      this.healthColor = ok ? '#10b981' : '#f43f5e';
+      this.healthItems[0].value = ok ? 'OK' : 'ERR';
+      this.healthItems[0].ok = ok;
+      this.healthItems[1].value = (data.memory_domains || 14) + ' domains';
+      this.healthItems[2].value = ok ? 'running' : 'error';
+      this.healthItems[2].ok = ok;
+      this.healthItems[3].value = data.operating_mode || '—';
+      this.kpis[0].value = String(data.agents_registered || 0);
+    },
+    updateTokens(msg) {
+      if (!msg.tokens) return;
+      const t = this.tokenStats;
+      const total = msg.tokens;
+      t[0].value = total; t[0].pct = 60;
+      t[1].value = Math.round(total * 0.3); t[1].pct = 30;
+      t[2].value = Math.round(total * 0.5); t[2].pct = 50;
+    },
+    statusClass(s) {
+      return {active:'active running':true, done:'idle', failed:'error', waiting_approval:'warn'}[s] || 'idle';
+    },
+    badgeClass(s) {
+      const m = {running:'bg-cyan/10 text-cyan', done:'bg-emerald/10 text-emerald',
+                 failed:'bg-rose/10 text-rose', waiting_approval:'bg-amber/10 text-amber'};
+      return m[s] || 'bg-surface text-muted';
+    },
+    fmtNum(n) {
+      if (n >= 1_000_000) return (n/1_000_000).toFixed(1)+'M';
+      if (n >= 1_000) return (n/1_000).toFixed(1)+'K';
+      return String(n);
+    },
+  };
+}
+</script>
+</body>
+</html>

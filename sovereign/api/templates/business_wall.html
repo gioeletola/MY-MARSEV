@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" x-data="bwall()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — Business Wall</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
+                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
+                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
+        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>
+    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
+    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
+    .project-card { background:#11111a; border:1px solid #1e1e2e; border-radius:10px; transition:all 0.2s; cursor:pointer; }
+    .project-card:hover { border-color:#2d2d45; transform:translateY(-1px); }
+    .task-row:hover { background:#16161e; }
+    .agent-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px; }
+    .agent-pill { background:#11111a; border:1px solid #1e1e2e; border-radius:8px; padding:8px 10px;
+                  display:flex; align-items:center; gap:8px; }
+    .agent-pill.running { border-color:rgba(6,182,212,0.3); }
+    .progress-ring { transform:rotate(-90deg); transform-origin:50% 50%; }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<!-- Nav -->
+<header class="flex items-center justify-between mb-6 px-2">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm bg-violet/10 border border-violet/30 text-violet">⚡</div>
+    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
+    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">BUSINESS WALL</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <span class="text-xs text-muted font-mono" x-text="clock"></span>
+    <button @click="runBriefing()" class="text-xs px-3 py-1.5 rounded-lg bg-violet/10 text-violet border border-violet/20 hover:bg-violet/20 transition-colors">
+      Morning Brief
+    </button>
+    <a href="/" class="text-xs text-muted hover:text-cyan transition-colors">← Chat</a>
+  </div>
+</header>
+
+<!-- KPI Row -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+  <template x-for="k in kpis" :key="k.label">
+    <div class="card p-3">
+      <div class="text-xs text-muted" x-text="k.label"></div>
+      <div class="text-xl font-bold font-mono mt-1" :class="k.color" x-text="k.value"></div>
+    </div>
+  </template>
+</div>
+
+<!-- Main Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+  <!-- Projects Board -->
+  <div class="lg:col-span-2">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-muted uppercase tracking-wider">Active Projects</h2>
+      <div class="flex gap-1">
+        <template x-for="s in ['all','active','review','blocked']" :key="s">
+          <button @click="projectFilter=s" class="text-xs px-2 py-1 rounded transition-colors"
+                  :class="projectFilter===s ? 'bg-violet/10 text-violet' : 'text-muted hover:text-cyan'"
+                  x-text="s"></button>
+        </template>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <template x-for="p in filteredProjects" :key="p.id">
+        <div class="project-card p-4">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <p class="text-sm font-semibold text-white" x-text="p.name"></p>
+              <p class="text-xs text-muted font-mono" x-text="p.agent"></p>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded-full font-mono"
+                  :class="statusBadge(p.status)" x-text="p.status"></span>
+          </div>
+          <p class="text-xs text-gray-400 mb-3 leading-relaxed" x-text="p.description"></p>
+          <!-- Progress bar -->
+          <div class="flex items-center gap-2">
+            <div class="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all"
+                   :class="p.pct === 100 ? 'bg-emerald' : 'bg-cyan'"
+                   :style="`width:${p.pct}%`"></div>
+            </div>
+            <span class="text-xs font-mono text-muted" x-text="p.pct + '%'"></span>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-xs text-muted">
+            <span x-text="'Due: ' + p.due"></span>
+            <span x-text="p.tasks + ' tasks'"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="space-y-4">
+
+    <!-- Active Tasks -->
+    <div class="card p-4">
+      <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Active Tasks</h2>
+      <div class="space-y-2 max-h-48 overflow-y-auto">
+        <template x-for="(t, i) in activeTasks" :key="i">
+          <div class="task-row flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs">
+            <div class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                 :class="t.priority === 'high' ? 'bg-rose' : t.priority === 'med' ? 'bg-amber' : 'bg-muted'"></div>
+            <span class="flex-1 text-gray-300 truncate" x-text="t.title"></span>
+            <span class="text-muted font-mono" x-text="t.agent"></span>
+          </div>
+        </template>
+        <div x-show="activeTasks.length===0" class="text-xs text-muted text-center py-4">No active tasks.</div>
+      </div>
+    </div>
+
+    <!-- Agent Swarm Status -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-muted uppercase tracking-wider">Agent Swarm</h2>
+        <span class="text-xs font-mono text-cyan" x-text="runningCount + ' running'"></span>
+      </div>
+      <div class="agent-grid">
+        <template x-for="a in agents" :key="a.id">
+          <div class="agent-pill" :class="a.status === 'running' ? 'running' : ''">
+            <div class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                 :class="a.status === 'running' ? 'bg-cyan animate-pulse' : 'bg-muted'"></div>
+            <span class="text-xs text-gray-300 truncate font-mono" x-text="a.id"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Briefing output -->
+<div x-show="briefingOutput" class="card p-4 mt-4" x-transition>
+  <div class="flex items-center justify-between mb-2">
+    <h2 class="text-sm font-semibold text-muted uppercase tracking-wider">Morning Briefing</h2>
+    <button @click="briefingOutput=''" class="text-xs text-muted hover:text-rose">✕</button>
+  </div>
+  <p class="text-xs text-gray-300 leading-relaxed font-mono whitespace-pre-wrap" x-text="briefingOutput"></p>
+</div>
+
+<script>
+function bwall() {
+  return {
+    clock:'', ws:null, briefingOutput:'', projectFilter:'all',
+    kpis: [
+      {label:'Active Projects', value:'0', color:'text-cyan'},
+      {label:'Tasks Today',     value:'0', color:'text-violet'},
+      {label:'Completed',       value:'0', color:'text-emerald'},
+      {label:'Blocked',         value:'0', color:'text-rose'},
+      {label:'Agents Active',   value:'0', color:'text-amber'},
+    ],
+    projects: [
+      {id:'p1', name:'Q2 Go-to-Market', agent:'marketing_strategist', status:'active', pct:65,
+       description:'Full GTM campaign planning for product launch in Q2.', due:'Apr 30', tasks:12},
+      {id:'p2', name:'API Integration', agent:'system_architect', status:'active', pct:30,
+       description:'Third-party payment provider integration and testing.', due:'May 15', tasks:8},
+      {id:'p3', name:'Investor Deck', agent:'presentation_agent', status:'review', pct:90,
+       description:'Series A investor presentation. Awaiting final review.', due:'Apr 20', tasks:5},
+      {id:'p4', name:'Compliance Audit', agent:'compliance_agent', status:'blocked', pct:45,
+       description:'Annual regulatory compliance review. Waiting on legal docs.', due:'May 1', tasks:15},
+      {id:'p5', name:'Brand Refresh', agent:'brand_strategist', status:'active', pct:20,
+       description:'Full visual identity and brand guidelines update.', due:'Jun 1', tasks:20},
+      {id:'p6', name:'Cost Reduction', agent:'cfo_agent', status:'active', pct:75,
+       description:'Identify and execute 15% operational cost reduction.', due:'Apr 25', tasks:9},
+    ],
+    activeTasks: [
+      {title:'Draft Q2 sales targets', agent:'ceo', priority:'high'},
+      {title:'Review marketing copy', agent:'editor', priority:'med'},
+      {title:'Update CRM pipeline', agent:'crm_agent', priority:'low'},
+      {title:'Schedule board meeting', agent:'calendar', priority:'high'},
+    ],
+    agents: [],
+
+    get filteredProjects() {
+      if (this.projectFilter === 'all') return this.projects;
+      return this.projects.filter(p => p.status === this.projectFilter);
+    },
+    get runningCount() {
+      return this.agents.filter(a => a.status === 'running').length;
+    },
+
+    init() {
+      this.tickClock();
+      setInterval(() => this.tickClock(), 1000);
+      this.kpis[0].value = String(this.projects.filter(p=>p.status==='active').length);
+      this.kpis[3].value = String(this.projects.filter(p=>p.status==='blocked').length);
+      this.populateAgents();
+      this.connectWS();
+    },
+    tickClock() {
+      this.clock = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    },
+    populateAgents() {
+      const ids = ['ceo_agent','chief_of_staff','marketing_strategist','sales_agent','hr_manager',
+                   'legal_review','compliance_agent','brand_strategist','system_architect','cfo_agent'];
+      this.agents = ids.map(id => ({id, status:'idle'}));
+    },
+    connectWS() {
+      const proto = location.protocol==='https:'?'wss:':'ws:';
+      this.ws = new WebSocket(`${proto}//${location.host}/ws`);
+      this.ws.onmessage = e => this.handleMsg(JSON.parse(e.data));
+      this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
+    },
+    handleMsg(msg) {
+      if (msg.type === 'agent_status') {
+        const a = this.agents.find(x => x.id === msg.agent_id);
+        if (a) a.status = msg.status;
+        this.kpis[4].value = String(this.runningCount);
+      }
+      if (msg.type === 'stream_delta') this.briefingOutput += msg.content;
+    },
+    runBriefing() {
+      this.briefingOutput = '';
+      if (this.ws?.readyState === 1)
+        this.ws.send(JSON.stringify({type:'chat', content:'Give me a concise morning business briefing: key priorities, risks, and recommended actions for today.', mode:'business'}));
+    },
+    statusBadge(s) {
+      return {
+        active: 'bg-cyan/10 text-cyan',
+        review: 'bg-amber/10 text-amber',
+        blocked: 'bg-rose/10 text-rose',
+        done: 'bg-emerald/10 text-emerald',
+      }[s] || 'bg-surface text-muted';
+    },
+  };
+}
+</script>
+</body>
+</html>

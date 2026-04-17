@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" x-data="approvals()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — Approvals Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
+                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
+                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
+        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>
+    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
+    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
+    .approval-card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; transition:border-color 0.2s; }
+    .approval-card:hover { border-color:#2d2d45; }
+    .approval-card.high-risk { border-color:rgba(244,63,94,0.3); }
+    .risk-bar { height:4px; border-radius:2px; background:#1e1e2e; }
+    .btn-approve { background:rgba(16,185,129,0.1); color:#10b981; border:1px solid rgba(16,185,129,0.2); }
+    .btn-approve:hover { background:rgba(16,185,129,0.2); }
+    .btn-reject  { background:rgba(244,63,94,0.1); color:#f43f5e; border:1px solid rgba(244,63,94,0.2); }
+    .btn-reject:hover { background:rgba(244,63,94,0.2); }
+    .btn-defer   { background:rgba(245,158,11,0.1); color:#f59e0b; border:1px solid rgba(245,158,11,0.2); }
+    .btn-defer:hover { background:rgba(245,158,11,0.2); }
+    .slide-out { animation: slideOut 0.3s ease forwards; }
+    @keyframes slideOut { to { opacity:0; transform:translateX(100%); } }
+    .badge { padding:2px 8px; border-radius:999px; font-size:11px; font-family:'JetBrains Mono',monospace; }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<!-- Nav -->
+<header class="flex items-center justify-between mb-6 px-2">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm"
+         style="background:linear-gradient(135deg,rgba(244,63,94,0.2),rgba(124,58,237,0.2));border:1px solid rgba(244,63,94,0.3);color:#f43f5e">!</div>
+    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
+    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">APPROVALS CENTER</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <span class="text-xs text-muted font-mono" x-text="clock"></span>
+    <span class="badge" :class="pending.length > 0 ? 'bg-rose/10 text-rose' : 'bg-emerald/10 text-emerald'"
+          x-text="pending.length + ' pending'"></span>
+    <a href="/" class="text-xs text-muted hover:text-cyan transition-colors">← Chat</a>
+  </div>
+</header>
+
+<!-- Summary Bar -->
+<div class="grid grid-cols-4 gap-3 mb-6">
+  <div class="card p-3 text-center">
+    <div class="text-xl font-bold font-mono text-rose" x-text="pending.length"></div>
+    <div class="text-xs text-muted mt-0.5">Pending</div>
+  </div>
+  <div class="card p-3 text-center">
+    <div class="text-xl font-bold font-mono text-emerald" x-text="approved"></div>
+    <div class="text-xs text-muted mt-0.5">Approved today</div>
+  </div>
+  <div class="card p-3 text-center">
+    <div class="text-xl font-bold font-mono text-muted" x-text="rejected"></div>
+    <div class="text-xs text-muted mt-0.5">Rejected today</div>
+  </div>
+  <div class="card p-3 text-center">
+    <div class="text-xl font-bold font-mono text-amber" x-text="highRiskCount"></div>
+    <div class="text-xs text-muted mt-0.5">High risk</div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="flex gap-2 mb-4">
+  <template x-for="f in filters" :key="f.id">
+    <button @click="activeFilter = f.id"
+            class="text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium"
+            :class="activeFilter === f.id ? 'bg-violet/10 text-violet border-violet/30' : 'bg-surface text-muted border-border hover:text-cyan'"
+            x-text="f.label"></button>
+  </template>
+</div>
+
+<!-- Approval Cards -->
+<div class="space-y-3" id="approvals-list">
+  <template x-for="item in filteredItems" :key="item.id">
+    <div class="approval-card p-4" :class="item.risk > 0.7 ? 'high-risk' : ''" :id="`card-${item.id}`">
+      <div class="flex items-start gap-4">
+        <!-- Risk indicator -->
+        <div class="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center"
+             :class="item.risk > 0.7 ? 'bg-rose/10' : item.risk > 0.4 ? 'bg-amber/10' : 'bg-emerald/10'">
+          <span class="text-lg font-bold font-mono" :class="riskColor(item.risk)" x-text="Math.round(item.risk*100)"></span>
+          <span class="text-xs" :class="riskColor(item.risk)">risk</span>
+        </div>
+        <!-- Content -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-semibold text-white" x-text="item.title"></span>
+            <span class="badge" :class="item.type === 'finance' ? 'bg-amber/10 text-amber' : 'bg-violet/10 text-violet'" x-text="item.type"></span>
+            <span class="badge bg-surface text-muted border border-border" x-text="item.escalation"></span>
+          </div>
+          <p class="text-xs text-gray-400 mb-2 leading-relaxed" x-text="item.description"></p>
+          <div class="flex items-center gap-4 text-xs text-muted font-mono">
+            <span x-text="'Agent: ' + item.agent_id"></span>
+            <span x-text="'Requested: ' + item.requested_at"></span>
+            <span x-text="'Session: ' + item.session_id"></span>
+          </div>
+          <!-- Risk breakdown -->
+          <div class="grid grid-cols-3 gap-2 mt-3">
+            <template x-for="dim in item.dimensions" :key="dim.label">
+              <div>
+                <div class="flex justify-between text-xs mb-0.5">
+                  <span class="text-muted" x-text="dim.label"></span>
+                  <span :class="dim.v > 0.6 ? 'text-rose' : 'text-muted'" x-text="Math.round(dim.v*100) + '%'"></span>
+                </div>
+                <div class="risk-bar">
+                  <div class="h-full rounded-sm transition-all" :style="`width:${dim.v*100}%`"
+                       :class="dim.v > 0.6 ? 'bg-rose' : dim.v > 0.3 ? 'bg-amber' : 'bg-emerald'"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        <!-- Action buttons -->
+        <div class="flex flex-col gap-2 flex-shrink-0">
+          <button @click="approve(item.id)" class="btn-approve text-xs px-4 py-2 rounded-lg font-semibold transition-colors">
+            ✓ Approve
+          </button>
+          <button @click="reject(item.id)" class="btn-reject text-xs px-4 py-2 rounded-lg font-semibold transition-colors">
+            ✕ Reject
+          </button>
+          <button @click="defer(item.id)" class="btn-defer text-xs px-4 py-2 rounded-lg font-medium transition-colors">
+            ⏸ Defer
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div x-show="filteredItems.length === 0" class="card p-12 text-center">
+    <div class="text-4xl mb-3">✓</div>
+    <p class="text-sm font-semibold text-emerald">All clear — no pending approvals</p>
+    <p class="text-xs text-muted mt-1">Agents are operating within automatic approval thresholds.</p>
+  </div>
+</div>
+
+<!-- Decision History -->
+<div class="card p-4 mt-6">
+  <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Decision History</h2>
+  <div class="space-y-2 max-h-48 overflow-y-auto">
+    <template x-for="(d, i) in history" :key="i">
+      <div class="flex items-center gap-3 py-2 border-b border-border last:border-0 text-xs">
+        <span class="font-mono" :class="d.action === 'approved' ? 'text-emerald' : d.action === 'rejected' ? 'text-rose' : 'text-amber'"
+              x-text="d.action.toUpperCase()"></span>
+        <span class="text-gray-300 flex-1 truncate" x-text="d.title"></span>
+        <span class="text-muted font-mono" x-text="d.time"></span>
+      </div>
+    </template>
+    <div x-show="history.length === 0" class="text-xs text-muted text-center py-4">No decisions yet this session.</div>
+  </div>
+</div>
+
+<script>
+function approvals() {
+  return {
+    clock: '',
+    ws: null,
+    approved: 0,
+    rejected: 0,
+    activeFilter: 'all',
+    filters: [
+      {id:'all', label:'All'},
+      {id:'finance', label:'Finance'},
+      {id:'security', label:'Security'},
+      {id:'system', label:'System'},
+      {id:'high_risk', label:'High Risk'},
+    ],
+    pending: [
+      {id:'a1', title:'Execute cashflow rebalancing', type:'finance', risk:0.72,
+       agent_id:'cashflow_analyst', session_id:'s-abc1', escalation:'ADMIN',
+       description:'Proposed transfer of $15,000 from operating account to investment account based on Q1 analysis. Requires admin approval per policy.',
+       requested_at:'14:32', dimensions:[
+         {label:'Financial', v:0.8}, {label:'Operational', v:0.3}, {label:'Legal', v:0.1}
+       ]},
+      {id:'a2', title:'Send investor update email', type:'communication', risk:0.35,
+       agent_id:'business_writer', session_id:'s-abc2', escalation:'OPERATOR',
+       description:'Draft investor update for Q1 results. Content reviewed. Requires sign-off before sending to 47 recipients.',
+       requested_at:'13:15', dimensions:[
+         {label:'Reputational', v:0.4}, {label:'Legal', v:0.2}, {label:'Strategic', v:0.3}
+       ]},
+      {id:'a3', title:'Deploy security patch to prod', type:'security', risk:0.61,
+       agent_id:'deployment_assistant', session_id:'s-abc3', escalation:'ADMIN',
+       description:'Applying CVE-2024-1337 patch to production servers. Estimated downtime: 3 minutes. Change window: tonight 02:00 UTC.',
+       requested_at:'12:50', dimensions:[
+         {label:'Operational', v:0.6}, {label:'Security', v:0.2}, {label:'Financial', v:0.1}
+       ]},
+    ],
+    history: [],
+
+    get filteredItems() {
+      if (this.activeFilter === 'all') return this.pending;
+      if (this.activeFilter === 'high_risk') return this.pending.filter(x => x.risk > 0.6);
+      return this.pending.filter(x => x.type === this.activeFilter);
+    },
+    get highRiskCount() { return this.pending.filter(x => x.risk > 0.7).length; },
+
+    init() {
+      this.tickClock();
+      setInterval(() => this.tickClock(), 1000);
+      this.connectWS();
+    },
+    tickClock() {
+      this.clock = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    },
+    connectWS() {
+      const proto = location.protocol==='https:'?'wss:':'ws:';
+      this.ws = new WebSocket(`${proto}//${location.host}/ws`);
+      this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
+    },
+    approve(id) {
+      const item = this.pending.find(x => x.id === id);
+      if (!item) return;
+      this.history.unshift({title: item.title, action:'approved', time: new Date().toLocaleTimeString()});
+      this.pending = this.pending.filter(x => x.id !== id);
+      this.approved++;
+      if (this.ws?.readyState === 1)
+        this.ws.send(JSON.stringify({type:'chat', content:`Approval granted for: ${item.title}`, mode:'command'}));
+    },
+    reject(id) {
+      const item = this.pending.find(x => x.id === id);
+      if (!item) return;
+      this.history.unshift({title: item.title, action:'rejected', time: new Date().toLocaleTimeString()});
+      this.pending = this.pending.filter(x => x.id !== id);
+      this.rejected++;
+    },
+    defer(id) {
+      const item = this.pending.find(x => x.id === id);
+      if (!item) return;
+      this.history.unshift({title: item.title, action:'deferred', time: new Date().toLocaleTimeString()});
+      this.pending = this.pending.filter(x => x.id !== id);
+    },
+    riskColor(r) {
+      return r > 0.7 ? 'text-rose' : r > 0.4 ? 'text-amber' : 'text-emerald';
+    },
+  };
+}
+</script>
+</body>
+</html>
