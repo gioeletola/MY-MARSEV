@@ -16,6 +16,7 @@ Session flow (10 steps):
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 import logging
 from typing import Any, AsyncIterator, Callable
@@ -34,6 +35,14 @@ from sovereign.tools.builtin.memory_tool import MemoryTool
 from sovereign.tools.builtin.cli_exec import CLITool
 from sovereign.tools.builtin.browser_tool import BrowserTool
 from sovereign.tools.builtin.mcp_tool import MCPTool
+from sovereign.tools.builtin.notes_tool import NotesTool
+from sovereign.tools.builtin.calendar_tool import CalendarTool
+from sovereign.tools.builtin.bookmark_tool import BookmarkTool
+from sovereign.tools.builtin.screenshot_tool import ScreenshotTool
+from sovereign.tools.builtin.transcriber_tool import TranscriberTool
+from sovereign.tools.builtin.notification_tool import NotificationTool
+from sovereign.tools.builtin.calculator_tool import CalculatorTool
+from sovereign.tools.builtin.clipboard_tool import ClipboardTool
 from sovereign.memory.memory_manager import MemoryManager
 from sovereign.registries.agent_registry import AgentRegistry
 from sovereign.registries.prompt_registry import PromptRegistry
@@ -89,6 +98,12 @@ from sovereign.output.output_contract import OutputStatus, StructuredOutput
 from sovereign.observability.health_monitor import HealthMonitor
 from sovereign.router.model_router import ModelRouter
 from sovereign.router.cost_estimator import estimate_from_usage
+from sovereign.infra.token_budget_enforcer import TokenBudgetEnforcer
+from sovereign.infra.notification_service import NotificationService
+from sovereign.infra.scheduler import Scheduler
+from sovereign.governance.escalation import EscalationChain, EscalationLevel
+from sovereign.governance.spending_limits import SpendingLimitsEngine
+from sovereign.governance.risk_scoring import RiskScoringEngine
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +120,7 @@ class SovereignOrchestrator:
         # Streaming event callbacks registered by the UI layer
         self._event_callbacks: list[Callable[[dict[str, Any]], None]] = []
 
+        self._init_governance()
         self._init_claude_client()
         self._init_registries()
         self._init_memory()
@@ -164,6 +180,7 @@ class SovereignOrchestrator:
         """
         session_id = f"sess_{uuid.uuid4().hex[:8]}"
         self._session_counter += 1
+        _t0 = time.monotonic()
         self._emit("session_start", {"session_id": session_id, "input": user_input[:200]})
         logger.info("Session started", session_id=session_id)
 
@@ -317,10 +334,11 @@ class SovereignOrchestrator:
         )
 
         # Record metrics
+        latency_ms = (time.monotonic() - _t0) * 1000
         record_session(
             self._metrics,
             mode=ctx.operating_mode,
-            latency_ms=0.0,  # placeholder (no wall-clock yet)
+            latency_ms=latency_ms,
             tokens=total_tokens,
             tasks=len(task_list),
         )
@@ -369,6 +387,21 @@ class SovereignOrchestrator:
                 tools_allowed=tools_needed,
                 context={"agent_hint": agent_hint},
             )
+
+            # Auto risk-score every task
+            risk_score = self._risk_scorer.score(
+                objective=objective,
+                agent_id=agent_hint,
+                action_class=action_class.name,
+            )
+            if risk_score.is_high_risk():
+                self._escalation.create_event(
+                    trigger=f"high_risk_task: {objective[:80]}",
+                    agent_id=agent_hint,
+                    action_class=action_class.name,
+                    risk_score=risk_score.overall,
+                    level=EscalationLevel.ADMIN if risk_score.overall >= 0.7 else EscalationLevel.OPERATOR,
+                )
 
             # Guardian gate for EXECUTE class
             if action_class >= ActionClass.EXECUTE:
@@ -472,7 +505,31 @@ class SovereignOrchestrator:
             "checks": status.checks,
             "metrics": status.metrics,
             "alerts": status.alerts,
+            "budget": self._budget.daily_summary(),
+            "escalations_pending": len(self._escalation.pending_events()),
+            "tools_registered": self._tool_registry.count(),
+            "agents_registered": self._agent_registry.count(),
         }
+
+    def get_budget_summary(self) -> dict:
+        """Return daily and monthly token/cost budget summary."""
+        return {
+            "daily": self._budget.daily_summary(),
+            "monthly": self._budget.monthly_summary(),
+            "top_consumers": self._budget.top_consumers(5),
+        }
+
+    def get_pending_escalations(self) -> list[dict]:
+        """Return all unresolved escalation events."""
+        return [e.to_dict() for e in self._escalation.pending_events()]
+
+    def resolve_escalation(self, event_id: str, resolution: str) -> bool:
+        """Mark an escalation event as resolved."""
+        return self._escalation.resolve(event_id, resolution)
+
+    def get_scheduler(self) -> "Scheduler":
+        """Return the scheduler for registering background jobs."""
+        return self._scheduler
 
     def get_usage(self) -> dict:
         return self._claude.get_usage()
@@ -520,6 +577,7 @@ class SovereignOrchestrator:
         self._claude = ClaudeClient(
             api_key=self.config.api_key,
             default_model=self.config.default_model,
+            budget_enforcer=self._budget,
         )
         self._model_router = ModelRouter()
 
@@ -554,6 +612,14 @@ class SovereignOrchestrator:
         self._tool_registry.register(BrowserTool())
         self._mcp_tool = MCPTool()
         self._tool_registry.register(self._mcp_tool)
+        self._tool_registry.register(NotesTool())
+        self._tool_registry.register(CalendarTool())
+        self._tool_registry.register(BookmarkTool())
+        self._tool_registry.register(ScreenshotTool())
+        self._tool_registry.register(TranscriberTool())
+        self._tool_registry.register(NotificationTool())
+        self._tool_registry.register(CalculatorTool())
+        self._tool_registry.register(ClipboardTool())
         self._tool_router = ToolRouter(self._tool_registry)
 
     def _init_prompt_builder(self) -> None:
@@ -663,6 +729,15 @@ class SovereignOrchestrator:
         )
         # Wire factory into builder studio now that it's available
         self._builder._agent_factory = self._factory
+
+    def _init_governance(self) -> None:
+        """Initialize budget, notification, escalation, risk, and scheduling subsystems."""
+        self._budget = TokenBudgetEnforcer()
+        self._notif = NotificationService()
+        self._escalation = EscalationChain(notification_service=self._notif)
+        self._spending = SpendingLimitsEngine()
+        self._risk_scorer = RiskScoringEngine()
+        self._scheduler = Scheduler()
 
     def _init_input_pipeline(self) -> None:
         self._pipeline = InputPipeline(config={"pii_filter": False, "max_chars": 50_000})
