@@ -549,6 +549,47 @@ CodeReviewAgent = _make_worker(
 )
 
 
+# ── MISSING OPERATIONS WORKERS ───────────────────────────────────────────────
+
+ProcurementAgent = _make_worker(
+    "procurement_agent", "Procurement Agent",
+    "Manage vendor sourcing, RFQ/RFP processes, supplier evaluation, and purchase orders. "
+    "Maintain approved vendor list. Optimise procurement costs. Flag single-source risks.",
+    tools=["web_search", "memory_tool"], requires_review=True,
+)
+
+TaskEnforcerAgent = _make_worker(
+    "task_enforcer", "Task Enforcer Agent",
+    "Ensure tasks are completed on time and to spec. Chase owners, surface blockers, "
+    "escalate overdue items. Maintain accountability log. Never let tasks fall through cracks.",
+    tools=["memory_tool"],
+)
+
+SOPExecutorAgent = _make_worker(
+    "sop_executor", "SOP Executor Agent",
+    "Execute defined standard operating procedures step by step. "
+    "Follow SOP scripts, log each step taken, flag deviations, and confirm completion.",
+    tools=["memory_tool", "file_ops"],
+)
+
+ApprovalCollectorAgent = _make_worker(
+    "approval_collector", "Approval Collector Agent",
+    "Aggregate all pending approvals across the system: contracts, spend, content, "
+    "actions. Package into structured approval briefs. Track approval status and deadlines. "
+    "Escalate long-outstanding items.",
+    tools=["memory_tool"],
+)
+
+# ── MISSING MARKETING WORKER ──────────────────────────────────────────────────
+
+OfferTestingAgent = _make_worker(
+    "offer_testing", "Offer Testing Agent",
+    "Design and analyse A/B tests on offers, pricing, messaging, and CTAs. "
+    "Define test hypothesis, sample size, and success metrics. "
+    "Analyse results and produce statistical significance report.",
+    tools=["web_search", "code_exec", "memory_tool"],
+)
+
 # ── CATALOGUE (for registry loading) ─────────────────────────────────────────
 
 BUSINESS_AGENTS = [
@@ -561,10 +602,12 @@ BUSINESS_AGENTS = [
     ClientReactivationAgent,
     BrandGuardianAgent, ContentStrategistAgent, TrendMiningAgent, RepurposingAgent,
     CopyEngineAgent, SEOAgent, AdsGeneratorAgent, DistributionAgent,
-    ReputationAgent, CampaignLauncherAgent, LandingPageAgent, CompetitorScraperAgent,
+    ReputationAgent, CampaignLauncherAgent, LandingPageAgent, OfferTestingAgent,
+    CompetitorScraperAgent,
     ContentProductionAgent, ClipFinderAgent, PublishingQueueAgent,
     ThumbnailBriefAgent, ContentRecyclingAgent, PerformanceOptimizerAgent,
     SOPAgent, WorkflowOptimizerAgent, InternalAuditAgent, QualityControlAgent,
+    ProcurementAgent, TaskEnforcerAgent, SOPExecutorAgent, ApprovalCollectorAgent,
     DeadlineChaserAgent, BottleneckResolverAgent, RecapDispatchAgent,
     RecruiterAgent, CVScreeningAgent, TalentRankingAgent,
     OnboardingAgent, TeamPerformanceAgent, OrgDesignAgent,

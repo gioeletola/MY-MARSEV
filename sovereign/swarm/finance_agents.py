@@ -387,6 +387,95 @@ LifestyleCreepAgent = _make_worker(
 )
 
 # ---------------------------------------------------------------------------
+# Missing Section 11 Finance Workers
+# ---------------------------------------------------------------------------
+
+OpportunityRadarAgent = _make_worker(
+    "opportunity_radar",
+    "Opportunity Radar Agent",
+    (
+        "Continuously scan for financial opportunities: undervalued assets, "
+        "arbitrage windows, tax-advantaged vehicles, high-yield instruments, "
+        "market dislocations. Score each by risk/reward. Alert on time-sensitive "
+        "opportunities. Maintain opportunity pipeline with status tracking."
+    ),
+    tools=["web_search", "memory_tool", "code_exec"],
+    confidence=0.80,
+    requires_review=True,
+)
+
+MacroNewsAgent = _make_worker(
+    "macro_news",
+    "Macro News Agent",
+    (
+        "Monitor and synthesize macro-economic news: central bank decisions, "
+        "inflation data, employment reports, GDP releases, geopolitical events. "
+        "Assess impact on portfolio and cashflow. Produce daily macro briefing. "
+        "Flag material events requiring immediate attention or portfolio adjustment."
+    ),
+    tools=["web_search", "memory_tool"],
+    confidence=0.80,
+    requires_review=True,
+)
+
+SpendingIntelligenceAgent = _make_worker(
+    "spending_intelligence",
+    "Spending Intelligence Agent",
+    (
+        "Analyse spending behaviour patterns: categorise all transactions, "
+        "identify anomalies, detect emotional spending triggers, map "
+        "spending to goals alignment. Produce weekly spending intelligence "
+        "report. Surface highest-impact optimisation opportunities."
+    ),
+    tools=["memory_tool", "code_exec"],
+    confidence=0.85,
+)
+
+PredictiveResearchAgent = _make_worker(
+    "predictive_research",
+    "Predictive Research Agent",
+    (
+        "Research and model predictive financial signals: leading indicators, "
+        "sector rotation patterns, sentiment analysis, alternative data. "
+        "Build forward-looking models for income, expenses, and asset values. "
+        "Quantify forecast uncertainty. All models for informational purposes."
+    ),
+    tools=["web_search", "memory_tool", "code_exec"],
+    confidence=0.78,
+    requires_review=True,
+)
+
+AssetWatchAgent = _make_worker(
+    "asset_watch",
+    "Asset Watch Agent",
+    (
+        "Monitor all owned assets: financial instruments, real estate, "
+        "business equity, collectibles, vehicles, digital assets. "
+        "Track current valuations, liquidity, carrying costs, appreciation. "
+        "Alert on significant value changes or events requiring action. "
+        "Maintain live net worth dashboard."
+    ),
+    tools=["web_search", "memory_tool"],
+    confidence=0.83,
+    requires_review=True,
+)
+
+DueDiligenceAgent = _make_worker(
+    "due_diligence",
+    "Due Diligence Agent",
+    (
+        "Perform structured due diligence on investment opportunities: "
+        "verify claims, analyse financials, assess management, research "
+        "market position, check legal/regulatory status, identify red flags. "
+        "Produce due diligence report with pass/fail/conditional verdict. "
+        "IMPORTANT: Always recommend professional legal/financial review before action."
+    ),
+    tools=["web_search", "memory_tool", "code_exec"],
+    confidence=0.80,
+    requires_review=True,
+)
+
+# ---------------------------------------------------------------------------
 # Export registry
 # ---------------------------------------------------------------------------
 
@@ -411,4 +500,10 @@ FINANCE_AGENTS: list[type[BaseAgent]] = [
     BlackMapGeoRiskAgent,
     MoneyLeakAssassinAgent,
     LifestyleCreepAgent,
+    OpportunityRadarAgent,
+    MacroNewsAgent,
+    SpendingIntelligenceAgent,
+    PredictiveResearchAgent,
+    AssetWatchAgent,
+    DueDiligenceAgent,
 ]
