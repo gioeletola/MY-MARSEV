@@ -2,10 +2,15 @@
 SOVEREIGN AI OS — FastAPI web server.
 
 Exposes:
-  GET  /          → single-page UI (Jinja2 template)
-  WS   /ws        → WebSocket for real-time streaming
-  GET  /health    → JSON system health check
-  GET  /api/usage → token usage summary
+  GET  /                               → single-page UI (Jinja2 template)
+  WS   /ws                             → WebSocket for real-time streaming
+  GET  /health                         → JSON system health check
+  GET  /api/usage                      → token usage summary
+  GET  /api/budget                     → daily / monthly budget summary
+  GET  /api/escalations                → pending escalation events
+  POST /api/escalations/{id}/resolve   → resolve an escalation event
+  GET  /api/agents                     → registered agent list
+  GET  /api/metrics                    → live session metrics
 """
 from __future__ import annotations
 
@@ -18,6 +23,7 @@ from typing import Any
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from sovereign.api.ws_handler import WebSocketSessionManager
 
@@ -127,3 +133,56 @@ async def approvals_center(request: Request) -> HTMLResponse:
 @app.get("/hud", response_class=HTMLResponse)
 async def jarvis_hud(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("jarvis_hud.html", {"request": request})
+
+
+# ---------------------------------------------------------------------------
+# REST API — governance / observability
+# ---------------------------------------------------------------------------
+
+@app.get("/api/budget")
+async def budget() -> JSONResponse:
+    """Daily and monthly token / cost budget summary."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    return JSONResponse(_orchestrator.get_budget_summary())
+
+
+@app.get("/api/escalations")
+async def list_escalations() -> JSONResponse:
+    """Return all pending escalation events."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    return JSONResponse({"escalations": _orchestrator.get_pending_escalations()})
+
+
+class ResolveRequest(BaseModel):
+    resolution: str = "approved"
+
+
+@app.post("/api/escalations/{event_id}/resolve")
+async def resolve_escalation(event_id: str, body: ResolveRequest) -> JSONResponse:
+    """Resolve an escalation event by ID."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    success = _orchestrator.resolve_escalation(event_id, body.resolution)
+    if not success:
+        return JSONResponse({"error": "Event not found or already resolved"}, status_code=404)
+    return JSONResponse({"resolved": event_id, "resolution": body.resolution})
+
+
+@app.get("/api/agents")
+async def list_agents() -> JSONResponse:
+    """Return count and summary of registered agents."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    registry = _orchestrator._agent_registry
+    agents = registry.list_agents()
+    return JSONResponse({"count": registry.count(), "agents": agents})
+
+
+@app.get("/api/metrics")
+async def metrics() -> JSONResponse:
+    """Live session experiment metrics."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    return JSONResponse(_orchestrator.get_experiment_metrics("live_sessions"))

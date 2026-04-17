@@ -178,26 +178,7 @@ function approvals() {
       {id:'system', label:'System'},
       {id:'high_risk', label:'High Risk'},
     ],
-    pending: [
-      {id:'a1', title:'Execute cashflow rebalancing', type:'finance', risk:0.72,
-       agent_id:'cashflow_analyst', session_id:'s-abc1', escalation:'ADMIN',
-       description:'Proposed transfer of $15,000 from operating account to investment account based on Q1 analysis. Requires admin approval per policy.',
-       requested_at:'14:32', dimensions:[
-         {label:'Financial', v:0.8}, {label:'Operational', v:0.3}, {label:'Legal', v:0.1}
-       ]},
-      {id:'a2', title:'Send investor update email', type:'communication', risk:0.35,
-       agent_id:'business_writer', session_id:'s-abc2', escalation:'OPERATOR',
-       description:'Draft investor update for Q1 results. Content reviewed. Requires sign-off before sending to 47 recipients.',
-       requested_at:'13:15', dimensions:[
-         {label:'Reputational', v:0.4}, {label:'Legal', v:0.2}, {label:'Strategic', v:0.3}
-       ]},
-      {id:'a3', title:'Deploy security patch to prod', type:'security', risk:0.61,
-       agent_id:'deployment_assistant', session_id:'s-abc3', escalation:'ADMIN',
-       description:'Applying CVE-2024-1337 patch to production servers. Estimated downtime: 3 minutes. Change window: tonight 02:00 UTC.',
-       requested_at:'12:50', dimensions:[
-         {label:'Operational', v:0.6}, {label:'Security', v:0.2}, {label:'Financial', v:0.1}
-       ]},
-    ],
+    pending: [],
     history: [],
 
     get filteredItems() {
@@ -210,33 +191,66 @@ function approvals() {
     init() {
       this.tickClock();
       setInterval(() => this.tickClock(), 1000);
+      this.fetchEscalations();
+      setInterval(() => this.fetchEscalations(), 10000);
       this.connectWS();
     },
     tickClock() {
       this.clock = new Date().toLocaleTimeString('en-GB',{hour12:false});
     },
+    async fetchEscalations() {
+      try {
+        const r = await fetch('/api/escalations');
+        if (!r.ok) return;
+        const data = await r.json();
+        this.pending = (data.escalations || []).map(ev => ({
+          id:          ev.event_id,
+          title:       ev.trigger,
+          type:        ev.action_class?.toLowerCase() || 'system',
+          risk:        ev.risk_score ?? 0,
+          agent_id:    ev.agent_id,
+          session_id:  ev.event_id?.slice(0,8),
+          escalation:  ev.level,
+          description: ev.trigger,
+          requested_at: ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : '--',
+          dimensions: [
+            {label:'Risk', v: ev.risk_score ?? 0},
+          ],
+        }));
+      } catch(e) { /* server not ready */ }
+    },
     connectWS() {
       const proto = location.protocol==='https:'?'wss:':'ws:';
       this.ws = new WebSocket(`${proto}//${location.host}/ws`);
+      this.ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'escalation') this.fetchEscalations();
+      };
       this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
     },
-    approve(id) {
+    async approve(id) {
       const item = this.pending.find(x => x.id === id);
       if (!item) return;
+      await fetch(`/api/escalations/${id}/resolve`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({resolution:'approved'})
+      });
       this.history.unshift({title: item.title, action:'approved', time: new Date().toLocaleTimeString()});
       this.pending = this.pending.filter(x => x.id !== id);
       this.approved++;
-      if (this.ws?.readyState === 1)
-        this.ws.send(JSON.stringify({type:'chat', content:`Approval granted for: ${item.title}`, mode:'command'}));
     },
-    reject(id) {
+    async reject(id) {
       const item = this.pending.find(x => x.id === id);
       if (!item) return;
+      await fetch(`/api/escalations/${id}/resolve`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({resolution:'rejected'})
+      });
       this.history.unshift({title: item.title, action:'rejected', time: new Date().toLocaleTimeString()});
       this.pending = this.pending.filter(x => x.id !== id);
       this.rejected++;
     },
-    defer(id) {
+    async defer(id) {
       const item = this.pending.find(x => x.id === id);
       if (!item) return;
       this.history.unshift({title: item.title, action:'deferred', time: new Date().toLocaleTimeString()});
