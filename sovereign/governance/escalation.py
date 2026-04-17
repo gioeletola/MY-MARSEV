@@ -115,10 +115,10 @@ class EscalationChain:
             event = chain.create_event("risk>threshold", "agent-42", "EXECUTE", 0.75, level)
     """
 
-    def __init__(self, persist_path: Path | None = None) -> None:
+    def __init__(self, persist_path: Path | None = None, notification_service: Any = None) -> None:
         self._path: Path = persist_path or _ESCALATIONS_PATH
-        # In-memory cache of *unresolved* events; resolved events only live in the JSONL.
         self._events: dict[str, EscalationEvent] = {}
+        self._notif = notification_service
         self._load()
 
     # ------------------------------------------------------------------
@@ -185,6 +185,20 @@ class EscalationChain:
             "EscalationChain: new event %s — level=%s agent=%s",
             event.event_id[:8], level.name, agent_id,
         )
+        # Push notification for ADMIN/OWNER escalations
+        if self._notif and level >= EscalationLevel.ADMIN:
+            import asyncio
+            try:
+                asyncio.get_event_loop().create_task(
+                    self._notif.send(
+                        title=f"Escalation: {level.name} required",
+                        body=f"Agent {agent_id} triggered {level.name} escalation. Risk: {risk_score:.0%}. Trigger: {trigger}",
+                        level="critical" if level == EscalationLevel.OWNER else "warning",
+                        source_agent=agent_id,
+                    )
+                )
+            except Exception:
+                pass
         return event
 
     def resolve(self, event_id: str, resolution: str) -> bool:

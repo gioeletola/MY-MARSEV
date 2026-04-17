@@ -113,6 +113,7 @@ class BaseAgent(ABC):
 
     agent_id: str = "base"
     model: str = "claude-sonnet-4-6"
+    superpower_packs: list[str] = []   # e.g. ["negotiation", "mental_models"]
 
     def __init__(
         self,
@@ -127,6 +128,13 @@ class BaseAgent(ABC):
         self._memory = memory_manager
         self._constitution = constitution
         self._prompt_builder = prompt_builder
+        self._superpower_loader: Any = None
+        if self.superpower_packs:
+            try:
+                from sovereign.superpower_files.loader import SuperpowerLoader
+                self._superpower_loader = SuperpowerLoader()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Abstract interface
@@ -239,7 +247,7 @@ class BaseAgent(ABC):
         task: AgentTask | None = None,
     ) -> Any:  # CachedSystemPrompt
         """Build the cached system prompt for this agent's current context."""
-        return self._prompt_builder.build_for_agent(
+        prompt = self._prompt_builder.build_for_agent(
             agent_id=self.agent_id,
             task_context={
                 "operating_mode": ctx.operating_mode,
@@ -247,6 +255,19 @@ class BaseAgent(ABC):
             },
             memory_snapshot=ctx.memory_snapshot,
         )
+        # Inject superpower knowledge packs if configured
+        if self._superpower_loader and self.superpower_packs:
+            try:
+                extra = "\n\n".join(
+                    self._superpower_loader.render(p)
+                    for p in self.superpower_packs
+                    if self._superpower_loader.get(p)
+                )
+                if extra and hasattr(prompt, "static_section"):
+                    prompt.static_section += "\n\n" + extra
+            except Exception:
+                pass
+        return prompt
 
     # ------------------------------------------------------------------
     # Registry / observability

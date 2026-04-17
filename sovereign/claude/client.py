@@ -136,10 +136,12 @@ class ClaudeClient:
         self,
         api_key: str,
         default_model: str = "claude-sonnet-4-6",
+        budget_enforcer: Any | None = None,
     ) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self.default_model = default_model
         self.usage = TokenUsage()
+        self._budget = budget_enforcer
 
     # ------------------------------------------------------------------
     # Core completion
@@ -185,8 +187,28 @@ class ClaudeClient:
         if tools:
             kwargs["tools"] = tools
 
+        # Token budget pre-check
+        if self._budget is not None:
+            try:
+                self._budget.check(estimated_tokens=1000)
+            except Exception as budget_exc:
+                logger.warning("Token budget enforcer blocked call: %s", budget_exc)
+                raise
+
         response: anthropic.types.Message = await self._client.messages.create(**kwargs)
         self.usage.update(response.usage)
+
+        # Record spend
+        if self._budget is not None:
+            try:
+                self._budget.record(
+                    agent_id="claude_client",
+                    input_tokens=response.usage.input_tokens,
+                    output_tokens=response.usage.output_tokens,
+                )
+            except Exception:
+                pass
+
         logger.debug(
             "Claude API call complete",
             model=kwargs["model"],

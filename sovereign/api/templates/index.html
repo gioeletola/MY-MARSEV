@@ -90,7 +90,21 @@
       <option value="travel">Travel</option>
       <option value="local_offline">Offline</option>
       <option value="survival">Survival</option>
+      <option value="founder">Founder</option>
+      <option value="war">⚠ War</option>
+      <option value="prestige">Prestige</option>
+      <option value="silent">🔒 Silent</option>
+      <option value="recovery">Recovery</option>
+      <option value="emergency">🚨 Emergency</option>
     </select>
+    <!-- Dashboard nav -->
+    <div class="flex items-center gap-1">
+      <a href="/dashboard" target="_blank" class="text-xs text-muted hover:text-cyan font-mono border border-border rounded px-2 py-1 transition-colors" title="Executive Dashboard">exec</a>
+      <a href="/finance"   target="_blank" class="text-xs text-muted hover:text-amber font-mono border border-border rounded px-2 py-1 transition-colors" title="Finance Cockpit">fin</a>
+      <a href="/business"  target="_blank" class="text-xs text-muted hover:text-violet font-mono border border-border rounded px-2 py-1 transition-colors" title="Business Wall">biz</a>
+      <a href="/approvals" target="_blank" class="text-xs text-muted hover:text-rose font-mono border border-border rounded px-2 py-1 transition-colors" title="Approvals Center">appr</a>
+      <a href="/hud"       target="_blank" class="text-xs text-muted hover:text-cyan font-mono border border-border rounded px-2 py-1 transition-colors" title="Jarvis HUD">hud</a>
+    </div>
     <!-- WS status -->
     <div class="flex items-center gap-1.5">
       <div :class="wsStatus === 'connected' ? 'bg-cyan' : wsStatus === 'connecting' ? 'bg-amber' : 'bg-rose'"

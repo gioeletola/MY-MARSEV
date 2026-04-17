@@ -38,6 +38,9 @@ class PipelineOutput:
     sensitivity_level: str = "normal"  # "normal" | "sensitive" | "confidential"
     processing_steps: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    intent: str = "general"
+    intent_confidence: float = 0.5
+    mode_hint: str = "command"
 
 
 class InputPipeline:
@@ -64,6 +67,11 @@ class InputPipeline:
         self._config = config or {}
         self._pii_filter: bool = self._config.get("pii_filter", False)
         self._max_chars: int = self._config.get("max_chars", 100_000)
+        try:
+            from sovereign.perception.intent_radar import IntentRadar
+            self._intent_radar: "IntentRadar | None" = IntentRadar()
+        except Exception:
+            self._intent_radar = None
 
     async def process(
         self,
@@ -125,6 +133,20 @@ class InputPipeline:
             warnings.append("Potential prompt injection pattern detected in input.")
         steps.append("11_security")
 
+        # Step 11.5: Intent detection via IntentRadar
+        intent = "general"
+        intent_confidence = 0.5
+        mode_hint = "command"
+        if self._intent_radar is not None:
+            try:
+                detected = self._intent_radar.classify(text)
+                intent = detected.intent
+                intent_confidence = detected.confidence
+                mode_hint = detected.mode_hint
+            except Exception:
+                pass
+        steps.append("11.5_intent")
+
         # Step 12: Build output
         steps.append("12_build")
 
@@ -133,6 +155,7 @@ class InputPipeline:
             "Pipeline complete",
             type=detected_type,
             chars=len(text),
+            intent=intent,
             warnings=len(warnings),
         )
         steps.append("13_log")
@@ -144,6 +167,9 @@ class InputPipeline:
             detected_language=language,
             processing_steps=steps,
             warnings=warnings,
+            intent=intent,
+            intent_confidence=intent_confidence,
+            mode_hint=mode_hint,
         )
 
     # ------------------------------------------------------------------

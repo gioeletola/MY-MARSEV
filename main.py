@@ -249,5 +249,43 @@ def serve(
     )
 
 
+@app.command()
+def telegram(
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+    token: str = typer.Option("", "--token", "-t", help="Telegram bot token (overrides TELEGRAM_BOT_TOKEN env var)."),
+    allowed: str = typer.Option("", "--allowed", "-a", help="Comma-separated allowed chat IDs."),
+) -> None:
+    """Start the SOVEREIGN Telegram bot (long-poll, bidirectional)."""
+    import os
+    os.environ.setdefault("SOVEREIGN_CONFIG", config)
+    bot_token = token or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not bot_token:
+        console.print("[red]No bot token. Set TELEGRAM_BOT_TOKEN or pass --token.[/red]")
+        raise typer.Exit(1)
+    allowed_ids = allowed or os.environ.get("TELEGRAM_ALLOWED_CHAT_IDS", "")
+    try:
+        from sovereign.bootstrap import create_orchestrator
+        orch = create_orchestrator(config)
+    except EnvironmentError as exc:
+        console.print(f"[red]Config error:[/red] {exc}")
+        raise typer.Exit(1)
+
+    console.print(Panel(
+        "[bold cyan]SOVEREIGN AI OS[/bold cyan] — Telegram Bot\n"
+        "Long-poll mode active. Press Ctrl-C to stop.",
+        border_style="cyan",
+    ))
+
+    async def _run() -> None:
+        from sovereign.integrations.telegram_bot import TelegramBot
+        bot = TelegramBot(orch, bot_token, allowed_ids)
+        try:
+            await bot.start()
+        except KeyboardInterrupt:
+            bot.stop()
+
+    asyncio.run(_run())
+
+
 if __name__ == "__main__":
     app()
