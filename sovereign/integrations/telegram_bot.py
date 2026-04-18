@@ -196,7 +196,7 @@ class TelegramBot:
         if not text:
             return
 
-        mode = self._modes.get(str(chat_id), "command")
+        self._modes.get(str(chat_id), "command")
         context_str = self._history.context_string(str(chat_id))
         full_prompt = f"{context_str}\nUser: {text}" if context_str else text
 

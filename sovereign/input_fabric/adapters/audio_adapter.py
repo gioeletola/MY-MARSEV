@@ -12,7 +12,8 @@ class AudioAdapter:
     async def extract(self, raw: Any) -> str:
         try:
             import whisper  # type: ignore[import]
-            import tempfile, pathlib
+            import tempfile
+            import pathlib
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 f.write(raw if isinstance(raw, bytes) else str(raw).encode())
                 tmp_path = f.name

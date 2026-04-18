@@ -496,7 +496,7 @@ async def add_goal(body: AddGoalRequest) -> JSONResponse:
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     try:
-        import uuid, time
+        import uuid
         from sovereign.proactive.goal_monitor import Goal
         monitor = _orchestrator.goal_monitor
         goal = Goal(
@@ -594,7 +594,6 @@ async def expansion_gaps() -> JSONResponse:
             CapabilityGapDetector,
             WeeklyGapReport,
         )
-        from dataclasses import asdict
         detector = CapabilityGapDetector()
         all_gaps = detector.all_gaps()
         report = WeeklyGapReport().generate(all_gaps)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sovereign.tools.base_tool import BaseTool, ToolSchema
+from sovereign.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 

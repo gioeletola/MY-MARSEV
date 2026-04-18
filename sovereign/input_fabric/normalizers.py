@@ -1,6 +1,5 @@
 """Text normalisation utilities used by the pipeline."""
 from __future__ import annotations
-import re
 
 
 def collapse_whitespace(text: str) -> str:

@@ -1,7 +1,7 @@
 """Tests for sovereign/models/ — provider layer, fallback chain, privacy router, caveman mode."""
 from __future__ import annotations
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 
 # ── ModelCapabilityRegistry ──────────────────────────────────────────────────

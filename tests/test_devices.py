@@ -4,7 +4,6 @@ No real hardware, cv2, psutil, or paho-mqtt required.
 """
 from __future__ import annotations
 
-import asyncio
 import pathlib
 import pytest
 
@@ -110,7 +109,7 @@ class TestSensorManager:
 
 class TestDeviceGateway:
     def _gw(self, tmp_path):
-        from sovereign.devices.device_registry import DeviceRegistry, Device, DeviceType
+        from sovereign.devices.device_registry import DeviceRegistry
         import unittest.mock as mock
         from sovereign.devices import device_registry as dr_mod
         data_file = tmp_path / "devices.json"

@@ -16,7 +16,6 @@ import logging
 import pathlib
 import uuid
 from datetime import datetime, timezone
-from typing import Any
 
 from sovereign.integrations.base_integration import (
     BaseIntegration,

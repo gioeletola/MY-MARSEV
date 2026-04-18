@@ -71,7 +71,7 @@ class BusinessCenter:
             # fallback to any strategy chief
             agent = self._registry.get("strategy_chief")
         if agent is None:
-            raise RuntimeError(f"BusinessCenter: no fallback agent available")
+            raise RuntimeError("BusinessCenter: no fallback agent available")
         logger.info("BusinessCenter routing to agent=%s", agent_id)
         return await agent.run(task, ctx)
 

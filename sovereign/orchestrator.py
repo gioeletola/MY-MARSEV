@@ -19,11 +19,10 @@ import asyncio
 import time
 import uuid
 import logging
-from typing import Any, AsyncIterator, Callable
+from typing import Any, Callable
 
 from sovereign.kernel.action_classes import ActionClass
 from sovereign.kernel.constitution import default_constitution
-from sovereign.kernel.stop_conditions import StopConditionEvaluator
 from sovereign.claude.client import ClaudeClient
 from sovereign.claude.prompt_builder import PromptBuilder
 from sovereign.tools.tool_registry import ToolRegistry

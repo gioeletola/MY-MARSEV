@@ -1,10 +1,9 @@
 """Tests for the Claude API client layer (mocked — no real API calls)."""
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
-from sovereign.claude.client import CachedSystemPrompt, ClaudeClient, TokenUsage
+from sovereign.claude.client import CachedSystemPrompt, TokenUsage
 from sovereign.claude.prompt_builder import PromptBuilder
 from sovereign.kernel.constitution import default_constitution
 from sovereign.registries.prompt_registry import PromptRegistry

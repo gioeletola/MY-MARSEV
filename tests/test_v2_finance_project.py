@@ -5,9 +5,7 @@ SuggestionEngine, IntegrationManager — all with isolated tmp_path fixtures.
 from __future__ import annotations
 
 import json
-import pathlib
 import time
-import uuid
 import pytest
 
 
@@ -213,7 +211,7 @@ class TestProjectMemoryStore:
         store = self._store(tmp_path)
         p  = store.create_project("Progress")
         t1 = store.add_task(p["project_id"], "Task A")
-        t2 = store.add_task(p["project_id"], "Task B")
+        store.add_task(p["project_id"], "Task B")
         store.complete_task(p["project_id"], t1["task_id"])
         updated = store.get_project(p["project_id"])
         assert updated["progress"] == 50  # 1 of 2 done
@@ -334,7 +332,7 @@ class TestGoalMonitor:
         assert updated.progress_pct == pytest.approx(30.0)
 
     def test_goal_completed_when_target_reached(self, tmp_path, monkeypatch):
-        from sovereign.proactive.goal_monitor import Goal, GoalStatus
+        from sovereign.proactive.goal_monitor import Goal
         gm = self._monitor(tmp_path, monkeypatch)
         g = Goal(goal_id="g3", title="Hit 100%", description="", target_value=100.0)
         gm.add(g)

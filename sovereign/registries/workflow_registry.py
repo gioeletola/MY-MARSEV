@@ -12,7 +12,6 @@ from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sovereign.swarm.base_agent import AgentContext
-    from sovereign.output.output_contract import StructuredOutput
 
 logger = logging.getLogger(__name__)
 

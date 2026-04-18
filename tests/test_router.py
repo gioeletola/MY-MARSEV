@@ -1,5 +1,4 @@
 """Tests for the model router and cost estimator."""
-import pytest
 
 from sovereign.router.model_router import MODEL_IDS, ModelRouter, ModelTier, RoutingCriteria
 from sovereign.router.cost_estimator import estimate_cost, estimate_from_usage

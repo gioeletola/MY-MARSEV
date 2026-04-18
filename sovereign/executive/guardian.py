@@ -12,7 +12,6 @@ from typing import Any
 
 from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 from sovereign.kernel.action_classes import ActionClass
-from sovereign.kernel.constitution import Constitution
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
 
 logger = logging.getLogger(__name__)

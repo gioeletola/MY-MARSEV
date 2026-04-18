@@ -1,8 +1,6 @@
 """Tests for memory manager and all 14 memory domains."""
 from __future__ import annotations
-import tempfile
 import pytest
-import pytest_asyncio
 
 from sovereign.memory.memory_manager import MemoryManager
 

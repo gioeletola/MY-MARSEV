@@ -5,7 +5,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Awaitable
+from typing import Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 
@@ -141,10 +141,9 @@ class VoiceCommandRecogniser:
     def _whisper_transcribe_sync(self, audio_bytes: bytes, mime: str) -> RecognisedCommand:
         """Blocking Whisper API call — run in executor."""
         try:
-            import io
             import httpx
             headers = {"Authorization": f"Bearer {self._api_key}"}
-            files = {"file": (f"audio.wav", audio_bytes, mime),
+            files = {"file": ("audio.wav", audio_bytes, mime),
                      "model": (None, self._whisper_model),
                      "language": (None, self._language)}
             resp = httpx.post(

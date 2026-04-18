@@ -5,7 +5,6 @@ Tests for the full expansion pipeline:
 from __future__ import annotations
 
 import json
-import pathlib
 import pytest
 
 
@@ -184,7 +183,7 @@ class TestConnectorBuilder:
 
     def test_build_writes_file(self, tmp_path):
         builder = self._builder(tmp_path)
-        code = builder.build(self._blueprint(), write=True)
+        builder.build(self._blueprint(), write=True)
         gen_dir = tmp_path / "generated"
         files = list(gen_dir.glob("*.py"))
         assert len(files) >= 1

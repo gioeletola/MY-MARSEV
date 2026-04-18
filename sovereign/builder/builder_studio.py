@@ -124,7 +124,6 @@ class BuilderStudio:
             logger.warning("BuilderStudio: no agent_factory set, cannot instantiate")
             return None
 
-        from sovereign.swarm.ephemeral_agent import EphemeralAgent
         from sovereign.factory.agent_spec import AgentSpec
         spec = AgentSpec(
             agent_id=f"custom_{bp.blueprint_id}",

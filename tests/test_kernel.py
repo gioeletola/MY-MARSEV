@@ -2,7 +2,7 @@
 import pytest
 
 from sovereign.kernel.action_classes import ActionClass
-from sovereign.kernel.constitution import Constitution, default_constitution
+from sovereign.kernel.constitution import default_constitution
 from sovereign.kernel.stop_conditions import IterationState, StopConditionEvaluator
 
 

@@ -80,7 +80,8 @@ class CSVImportTool(BaseTool):
             store = FinancialMemoryStore()
 
             if action == "preview":
-                import csv, io
+                import csv
+                import io
                 reader = csv.DictReader(io.StringIO(csv_text))
                 rows = [row for _, row in zip(range(10), reader)]
                 return {

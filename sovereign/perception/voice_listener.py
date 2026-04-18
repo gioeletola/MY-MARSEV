@@ -81,7 +81,8 @@ class VoiceListener:
     def _record_audio(self, duration_s: float) -> bytes:
         try:
             import pyaudio  # type: ignore
-            import wave, io
+            import wave
+            import io
             pa = pyaudio.PyAudio()
             stream = pa.open(format=pyaudio.paInt16, channels=1, rate=16000,
                              input=True, frames_per_buffer=1024)
@@ -104,7 +105,8 @@ class VoiceListener:
     def _transcribe(self, audio_bytes: bytes) -> VoiceInput:
         if not audio_bytes or self._whisper is None:
             return VoiceInput(text="", confidence=0.0)
-        import tempfile, os
+        import tempfile
+        import os
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(audio_bytes)
             fname = f.name

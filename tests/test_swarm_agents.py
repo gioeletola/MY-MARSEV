@@ -1,6 +1,5 @@
 """Tests for swarm agent factory pattern and agent collections."""
 from __future__ import annotations
-import pytest
 
 from sovereign.swarm.base_agent import BaseAgent
 from sovereign.swarm.finance_agents import FINANCE_AGENTS, CashflowAnalystAgent
@@ -64,7 +63,6 @@ def test_all_agents_have_model_attr():
 
 
 def test_security_agents_all_subclass_base():
-    from sovereign.swarm.security_agents import SECURITY_AGENTS
     for cls in SECURITY_AGENTS:
         assert issubclass(cls, BaseAgent)
 

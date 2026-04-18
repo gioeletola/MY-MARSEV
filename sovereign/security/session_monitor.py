@@ -16,10 +16,9 @@ import logging
 import os
 import time
 import uuid
-from collections import defaultdict, deque
-from dataclasses import asdict, dataclass, field
+from collections import defaultdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Deque
 
 logger = logging.getLogger(__name__)
 

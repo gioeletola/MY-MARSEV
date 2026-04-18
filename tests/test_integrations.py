@@ -5,8 +5,6 @@ No external services or credentials required.
 from __future__ import annotations
 
 import json
-import pathlib
-import pytest
 
 from sovereign.integrations.base_integration import IntegrationConfig, IntegrationStatus
 

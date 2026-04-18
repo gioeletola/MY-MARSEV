@@ -1,7 +1,7 @@
 """Registry of model capabilities — context windows, tool support, cost per token."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

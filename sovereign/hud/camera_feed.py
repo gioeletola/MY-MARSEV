@@ -27,7 +27,8 @@ class Frame:
         if not self.available:
             return b""
         try:
-            import cv2, numpy as np  # type: ignore
+            import cv2
+            import numpy as np  # type: ignore
             arr = np.frombuffer(self.data, dtype=np.uint8).reshape(self.height, self.width, self.channels)
             _, buf = cv2.imencode(".jpg", arr, [cv2.IMWRITE_JPEG_QUALITY, 70])
             return buf.tobytes()

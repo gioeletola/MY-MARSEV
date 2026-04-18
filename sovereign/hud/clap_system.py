@@ -53,7 +53,9 @@ class ClapSystem:
         self._active = False
 
     def _listen_blocking(self) -> None:
-        import pyaudio, struct, math  # type: ignore
+        import pyaudio
+        import struct
+        import math  # type: ignore
         pa = pyaudio.PyAudio()
         stream = pa.open(format=pyaudio.paInt16, channels=1, rate=44100,
                          input=True, frames_per_buffer=1024)

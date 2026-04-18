@@ -1,6 +1,5 @@
 """Tests for EvalAgent and MetricsCollector."""
 from __future__ import annotations
-import pathlib
 import pytest
 
 from sovereign.observability.eval_agent import EvalAgent

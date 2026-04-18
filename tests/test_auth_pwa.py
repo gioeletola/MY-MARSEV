@@ -44,7 +44,8 @@ class TestJWTAuth:
             m.verify_token(bad)
 
     def test_tampered_payload_raises(self):
-        import base64, json
+        import base64
+        import json
         m = self._mod()
         token = m.create_token({"sub": "user"})
         header, body, sig = token.split(".")
@@ -157,7 +158,7 @@ class TestServerAuthWiring:
         assert callable(require_auth)
 
     def test_server_imports_auth(self):
-        import importlib, pathlib
+        import pathlib
         src = pathlib.Path(__file__).parent.parent / "sovereign" / "api" / "server.py"
         assert "require_auth" in src.read_text()
 

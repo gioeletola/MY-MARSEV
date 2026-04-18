@@ -1,7 +1,11 @@
 """Screenshot Organizer — index and search screenshots."""
 from __future__ import annotations
-import json, logging, pathlib, time, uuid
-from sovereign.tools.base_tool import BaseTool, ToolSchema
+import json
+import logging
+import pathlib
+import time
+import uuid
+from sovereign.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 _INDEX_FILE = pathlib.Path("data/memory/screenshots.json")

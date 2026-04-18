@@ -1,8 +1,6 @@
 """Tests for agent registry, decision ledger, workflow registry, and governance."""
 from __future__ import annotations
-import pathlib
 import pytest
-import pytest_asyncio
 
 
 # ── AgentRegistry ─────────────────────────────────────────────────────────────
@@ -113,7 +111,7 @@ def test_workflow_registry_list():
 
 def test_rbac_imports():
     pytest.importorskip("sovereign.governance.rbac")
-    from sovereign.governance.rbac import RBACRegistry, Permission
+    from sovereign.governance.rbac import RBACRegistry
     reg = RBACRegistry()
     assert isinstance(reg, RBACRegistry)
 

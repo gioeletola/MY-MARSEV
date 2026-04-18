@@ -6,15 +6,11 @@ These tests mock the Claude API so no real ANTHROPIC_API_KEY is needed.
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
 from sovereign.tools.tool_registry import ToolRegistry
-from sovereign.tools.base_tool import BaseTool, ToolSchema
 from sovereign.memory.memory_manager import MemoryManager
 from sovereign.registries.decision_ledger import DecisionLedger, DecisionRecord
-from sovereign.kernel.action_classes import ActionClass
-from sovereign.kernel.constitution import default_constitution
 from sovereign.authority.thresholds import EscalationThresholds
 
 

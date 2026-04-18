@@ -6,8 +6,6 @@ No real API key or network required.
 from __future__ import annotations
 
 import asyncio
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -282,12 +280,12 @@ class TestPrivacyMode:
         assert not pm.is_cloud_allowed(is_sensitive=False)
 
     def test_public_allows_sensitive(self):
-        from sovereign.privacy.privacy_mode import PrivacyMode, PrivacyLevel
+        from sovereign.privacy.privacy_mode import PrivacyMode
         pm = PrivacyMode()
         assert pm.is_cloud_allowed(is_sensitive=True)
 
     def test_status_dict(self):
-        from sovereign.privacy.privacy_mode import PrivacyMode, PrivacyLevel
+        from sovereign.privacy.privacy_mode import PrivacyMode
         pm = PrivacyMode()
         s = pm.status()
         assert s["level"] == "PUBLIC"
