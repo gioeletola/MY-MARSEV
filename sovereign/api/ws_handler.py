@@ -97,6 +97,16 @@ class WebSocketSessionManager:
         elif mtype == "health_poll":
             await self._send(ws, {"type": "health", **self._orch.health()})
 
+        elif mtype == "mode_change":
+            mode = msg.get("mode", "")
+            ok = self._orch.set_mode(mode)
+            await self._send(ws, {
+                "type": "mode_changed" if ok else "error",
+                "mode": self._orch.current_mode,
+                "code": "invalid_mode" if not ok else None,
+                "message": f"Unknown mode: {mode!r}" if not ok else None,
+            })
+
         elif mtype == "cancel":
             sid = msg.get("session_id")
             if sid and sid in self._active_tasks:

@@ -638,13 +638,60 @@ async def expansion_model_perf() -> JSONResponse:
 
 
 # ---------------------------------------------------------------------------
-# REST API — Connected Entities
+# REST API — Memory domains
 # ---------------------------------------------------------------------------
 
+@app.get("/api/memory/{domain}")
+async def memory_domain(domain: str, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Read a memory domain snapshot."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        data = await _orchestrator._memory.read(domain)
+        return JSONResponse({"domain": domain, "data": data})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
 
-class ProvisionEntityRequest(BaseModel):
+
+# ---------------------------------------------------------------------------
+# REST API — Operating mode
+# ---------------------------------------------------------------------------
+
+@app.get("/api/mode")
+async def get_mode() -> JSONResponse:
+    """Return the current operating mode (public)."""
+    if _orchestrator is None:
+        return JSONResponse({"mode": "command"})
+    return JSONResponse({"mode": _orchestrator.current_mode})
+
+
+class SetModeRequest(BaseModel):
+    mode: str
+
+
+@app.post("/api/mode")
+async def set_mode(body: SetModeRequest, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Switch operating mode."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    ok = _orchestrator.set_mode(body.mode)
+    if not ok:
+        return JSONResponse({"error": f"Unknown mode: {body.mode!r}"}, status_code=400)
+    return JSONResponse({"mode": _orchestrator.current_mode})
+
+
+# ---------------------------------------------------------------------------
+# REST API — Connected Entity Provisioning
+# ---------------------------------------------------------------------------
+
+@app.get("/entities", response_class=HTMLResponse)
+async def entities_panel(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("entities_panel.html", {"request": request})
+
+
+class ProvisionRequest(BaseModel):
     name: str
-    category: str
+    category: str = "account"
     connector_config: dict | None = None
     agent_bindings: list[str] = []
     files: list[str] = []
@@ -653,87 +700,47 @@ class ProvisionEntityRequest(BaseModel):
     metadata: dict = {}
 
 
-class UpdateEntityRequest(BaseModel):
-    status: str | None = None
-
-
-@app.get("/entities", response_class=HTMLResponse)
-async def entities_panel(request: Request) -> HTMLResponse:
-    """Serve the Entities management panel."""
-    return templates.TemplateResponse("entities_panel.html", {"request": request})
-
-
 @app.get("/api/entities")
 async def list_entities(category: str = "") -> JSONResponse:
-    """Return all connected entities, optionally filtered by category."""
+    """List all provisioned entities."""
     if _orchestrator is None:
-        return JSONResponse({"error": "Not initialised"}, status_code=503)
+        return JSONResponse({"entities": []})
     try:
-        provisioner = _orchestrator.entity_provisioner
-        entities = provisioner.list_entities(category=category)
-        return JSONResponse({"entities": entities, "count": len(entities)})
+        return JSONResponse({"entities": _orchestrator.entity_provisioner.list_entities(category)})
     except Exception as exc:
-        logger.warning("list_entities error: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 @app.post("/api/entities")
-async def provision_entity(
-    body: ProvisionEntityRequest, _: dict = Depends(require_auth)
-) -> JSONResponse:
-    """Provision a new connected entity (7-step pipeline)."""
+async def provision_entity(body: ProvisionRequest, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Provision a new connected entity."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     try:
-        provisioner = _orchestrator.entity_provisioner
-        entity = provisioner.provision(
-            name=body.name,
-            category=body.category,
+        entity = _orchestrator.entity_provisioner.provision(
+            name=body.name, category=body.category,
             connector_config=body.connector_config,
-            agent_bindings=body.agent_bindings,
-            files=body.files,
-            ui_panel=body.ui_panel,
-            sync_interval_s=body.sync_interval_s,
+            agent_bindings=body.agent_bindings, files=body.files,
+            ui_panel=body.ui_panel, sync_interval_s=body.sync_interval_s,
             metadata=body.metadata,
         )
-        return JSONResponse(entity.to_dict(), status_code=201)
+        from dataclasses import asdict
+        return JSONResponse(asdict(entity), status_code=201)
     except Exception as exc:
-        logger.warning("provision_entity error: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 @app.get("/api/entities/{entity_id}")
 async def get_entity(entity_id: str) -> JSONResponse:
-    """Return full summary for a single entity."""
+    """Get a single entity summary."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     try:
-        provisioner = _orchestrator.entity_provisioner
-        summary = provisioner.get_entity_summary(entity_id)
-        if not summary:
+        summary = _orchestrator.entity_provisioner.get_entity_summary(entity_id)
+        if summary is None:
             return JSONResponse({"error": "Entity not found"}, status_code=404)
         return JSONResponse(summary)
     except Exception as exc:
-        logger.warning("get_entity error: %s", exc)
-        return JSONResponse({"error": str(exc)}, status_code=500)
-
-
-@app.patch("/api/entities/{entity_id}")
-async def update_entity(
-    entity_id: str, body: UpdateEntityRequest, _: dict = Depends(require_auth)
-) -> JSONResponse:
-    """Update entity fields (currently status)."""
-    if _orchestrator is None:
-        return JSONResponse({"error": "Not initialised"}, status_code=503)
-    try:
-        registry = _orchestrator._entity_registry
-        if body.status is not None:
-            ok = registry.update_status(entity_id, body.status)
-            if not ok:
-                return JSONResponse({"error": "Entity not found"}, status_code=404)
-        return JSONResponse({"updated": entity_id})
-    except Exception as exc:
-        logger.warning("update_entity error: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
@@ -743,29 +750,21 @@ async def sync_entity(entity_id: str, _: dict = Depends(require_auth)) -> JSONRe
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     try:
-        provisioner = _orchestrator.entity_provisioner
-        result = provisioner.sync(entity_id)
-        if not result.get("ok") and result.get("error"):
-            return JSONResponse(result, status_code=200)
+        result = _orchestrator.entity_provisioner.sync(entity_id)
         return JSONResponse(result)
     except Exception as exc:
-        logger.warning("sync_entity error: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 @app.delete("/api/entities/{entity_id}")
-async def deprovision_entity(
-    entity_id: str, _: dict = Depends(require_auth)
-) -> JSONResponse:
-    """Deprovision an entity (removes vault, bindings, sync job)."""
+async def deprovision_entity(entity_id: str, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Deprovision and delete an entity."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     try:
-        provisioner = _orchestrator.entity_provisioner
-        ok = provisioner.deprovision(entity_id)
+        ok = _orchestrator.entity_provisioner.deprovision(entity_id)
         if not ok:
             return JSONResponse({"error": "Entity not found"}, status_code=404)
         return JSONResponse({"deprovisioned": entity_id})
     except Exception as exc:
-        logger.warning("deprovision_entity error: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)

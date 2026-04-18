@@ -56,6 +56,7 @@ packages = ["sovereign"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+exclude = [".claude/worktrees", "backups"]
 
 [tool.ruff.lint]
 ignore = ["F821"]  # forward-reference string annotations; handled by type: ignore

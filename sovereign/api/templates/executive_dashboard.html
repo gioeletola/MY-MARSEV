@@ -2,271 +2,279 @@
 <html lang="en" x-data="exec()" x-init="init()">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#06b6d4"/>
+  <link rel="manifest" href="/manifest.json"/>
   <title>SOVEREIGN — Executive Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <script>
     tailwind.config = {
-      theme: { extend: {
-        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
-                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
-                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
-        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
-      }}
-    }
+      theme: {
+        extend: {
+          colors: { surface: '#111118', base: '#0a0a0f', cyan: '#06b6d4', violet: '#7c3aed', amber: '#f59e0b' },
+          fontFamily: { mono: ['JetBrains Mono', 'monospace'], sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    };
   </script>
   <style>
-    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
-    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
-    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
-    .gradient-border {
-      background:linear-gradient(#11111a,#11111a) padding-box,
-                 linear-gradient(135deg,#06b6d4,#7c3aed) border-box;
-      border:1px solid transparent; border-radius:12px;
-    }
-    .stat-ring { position:relative; display:inline-flex; align-items:center; justify-content:center; }
-    .ring-track { fill:none; stroke:#1e1e2e; stroke-width:6; }
-    .ring-fill  { fill:none; stroke-width:6; stroke-linecap:round;
-                  transition: stroke-dashoffset 1s ease; transform:rotate(-90deg); transform-origin:50% 50%; }
-    .pulse-dot::before { content:''; display:inline-block; width:6px; height:6px;
-      border-radius:50%; margin-right:6px; vertical-align:middle; animation:pulse 2s infinite; }
-    .pulse-dot.active::before { background:#06b6d4; }
-    .pulse-dot.idle::before   { background:#6b7280; }
-    .pulse-dot.warn::before   { background:#f59e0b; }
-    .pulse-dot.error::before  { background:#f43f5e; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    .metric-glow-cyan   { box-shadow:0 0 24px rgba(6,182,212,0.12); }
-    .metric-glow-violet { box-shadow:0 0 24px rgba(124,58,237,0.12); }
-    .activity-item { animation:slideIn 0.3s ease; }
-    @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:none} }
+    body { background: #0a0a0f; font-family: 'Inter', sans-serif; }
+    .card { background: #111118; border: 1px solid rgba(6,182,212,0.15); }
+    .glow { box-shadow: 0 0 20px rgba(6,182,212,0.15); }
+    @keyframes pulse-dot { 0%,100%{opacity:1}50%{opacity:.3} }
+    .dot-pulse { animation: pulse-dot 2s infinite; }
+    @keyframes slide-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    .slide-in { animation: slide-in .3s ease; }
+    ::-webkit-scrollbar { width:4px } ::-webkit-scrollbar-track { background:#0a0a0f }
+    ::-webkit-scrollbar-thumb { background:#06b6d4; border-radius:2px }
   </style>
 </head>
-<body class="min-h-screen p-4">
+<body class="min-h-screen text-gray-100">
 
-<!-- Nav -->
-<header class="flex items-center justify-between mb-6 px-2">
+<!-- HEADER -->
+<header class="sticky top-0 z-50 bg-base border-b border-cyan/20 px-4 py-3 flex items-center justify-between">
   <div class="flex items-center gap-3">
-    <div class="w-8 h-8 rounded-lg gradient-border flex items-center justify-center text-cyan font-mono font-bold text-sm">S</div>
-    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
-    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">EXECUTIVE DASHBOARD</span>
+    <a href="/" class="text-cyan/60 hover:text-cyan transition-colors text-sm">← Chat</a>
+    <span class="text-gray-600">|</span>
+    <span class="font-mono text-cyan font-medium tracking-widest text-sm">SOVEREIGN</span>
+    <span class="hidden sm:block text-gray-500 text-xs">Executive Dashboard</span>
   </div>
-  <div class="flex items-center gap-4">
-    <span class="text-xs text-muted font-mono" x-text="clock"></span>
-    <span class="pulse-dot active text-xs text-cyan font-medium">LIVE</span>
-    <a href="/" class="text-xs text-muted hover:text-cyan transition-colors">← Chat</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs text-gray-500 font-mono" x-text="mode.toUpperCase()"></span>
+    <div class="w-2 h-2 rounded-full bg-cyan dot-pulse"></div>
+    <nav class="hidden md:flex gap-1">
+      <a href="/finance" class="px-3 py-1.5 text-xs rounded-lg text-gray-400 hover:text-cyan hover:bg-cyan/10 transition-all">Finance</a>
+      <a href="/business" class="px-3 py-1.5 text-xs rounded-lg text-gray-400 hover:text-cyan hover:bg-cyan/10 transition-all">Business</a>
+      <a href="/expansion" class="px-3 py-1.5 text-xs rounded-lg text-gray-400 hover:text-cyan hover:bg-cyan/10 transition-all">Expansion</a>
+    </nav>
   </div>
 </header>
 
-<!-- KPI Row -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-  <template x-for="kpi in kpis" :key="kpi.label">
-    <div class="card p-4 metric-glow-cyan">
-      <div class="text-xs text-muted mb-1" x-text="kpi.label"></div>
-      <div class="text-2xl font-bold font-mono" :class="kpi.color" x-text="kpi.value"></div>
-      <div class="text-xs mt-1" :class="kpi.delta >= 0 ? 'text-emerald' : 'text-rose'">
-        <span x-text="(kpi.delta >= 0 ? '↑' : '↓') + Math.abs(kpi.delta) + '%'"></span>
-        <span class="text-muted ml-1">vs yesterday</span>
+<!-- MAIN -->
+<main class="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-6">
+
+  <!-- KPI Row -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <template x-for="kpi in kpis" :key="kpi.label">
+      <div class="card rounded-xl p-4 slide-in">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1" x-text="kpi.label"></p>
+        <p class="text-xl font-mono font-semibold" :class="kpi.color" x-text="kpi.value"></p>
+        <div class="mt-2 flex items-end gap-0.5 h-6">
+          <template x-for="(v,i) in kpi.trend" :key="i">
+            <div class="flex-1 rounded-sm transition-all duration-500"
+                 :class="kpi.trendColor + ' opacity-60'"
+                 :style="`height:${Math.max(10, v)}%`"></div>
+          </template>
+        </div>
+        <p class="text-xs mt-1" :class="kpi.deltaPositive ? 'text-emerald-400' : 'text-gray-600'">
+          <span x-text="kpi.deltaLabel"></span>
+        </p>
+      </div>
+    </template>
+  </div>
+
+  <!-- 3-column grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- Goals -->
+    <div class="card rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-cyan uppercase tracking-wider">Goals</h2>
+        <button @click="addGoalModal=true" class="text-xs px-2 py-1 rounded-lg bg-cyan/10 text-cyan hover:bg-cyan/20 transition-all">+ Add</button>
+      </div>
+      <div class="space-y-3 max-h-72 overflow-y-auto pr-1">
+        <template x-for="g in goals" :key="g.goal_id">
+          <div class="slide-in">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-gray-300 truncate max-w-[160px]" x-text="g.title"></span>
+              <span class="font-mono" :class="goalColor(g.status)" x-text="Math.round(g.progress_pct||0) + '%'"></span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-1.5">
+              <div class="h-1.5 rounded-full transition-all duration-700"
+                   :class="goalBarColor(g.status)"
+                   :style="`width:${Math.min(100,g.progress_pct||0)}%`"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-gray-600 mt-0.5">
+              <span x-text="g.status"></span>
+              <span x-show="g.is_overdue" class="text-amber-500">⚠ overdue</span>
+            </div>
+          </div>
+        </template>
+        <p x-show="goals.length === 0" class="text-gray-600 text-xs text-center py-4">No goals yet — add your first</p>
       </div>
     </div>
-  </template>
-</div>
 
-<!-- Main Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-  <!-- Agent Activity Feed -->
-  <div class="card p-4 lg:col-span-2">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-sm font-semibold text-muted uppercase tracking-wider">Agent Activity Feed</h2>
-      <span class="text-xs font-mono text-muted" x-text="activity.length + ' events'"></span>
-    </div>
-    <div class="space-y-2 max-h-64 overflow-y-auto" id="activity-feed">
-      <template x-for="(evt, i) in activity.slice(0,20)" :key="i">
-        <div class="activity-item flex items-start gap-3 py-2 border-b border-border last:border-0">
-          <span class="pulse-dot text-xs font-mono mt-0.5" :class="statusClass(evt.status)" x-text="evt.agent_id"></span>
-          <div class="flex-1 min-w-0">
-            <p class="text-xs text-gray-300 truncate" x-text="evt.message"></p>
-            <p class="text-xs text-muted font-mono" x-text="evt.time"></p>
+    <!-- Projects -->
+    <div class="card rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-violet-400 uppercase tracking-wider">Projects</h2>
+        <span class="text-xs text-gray-500 font-mono" x-text="(projectSummary.total||projects.length) + ' total'"></span>
+      </div>
+      <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+        <template x-for="p in projects.slice(0,8)" :key="p.project_id||p.id||p.name">
+          <div class="flex items-center gap-3 p-2 rounded-lg bg-gray-900/50 slide-in">
+            <div class="w-2 h-2 rounded-full flex-shrink-0"
+                 :class="{'bg-emerald-400':p.status==='done','bg-cyan':p.status==='active','bg-amber-400':p.status==='at_risk','bg-red-400':p.status==='blocked','bg-gray-600':!p.status}"></div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs text-gray-200 truncate" x-text="p.name"></p>
+              <p class="text-[10px] text-gray-600" x-text="(p.progress||0)+'% · '+(p.owner||'unassigned')"></p>
+            </div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded text-gray-400 bg-gray-800 flex-shrink-0" x-text="p.status||'?'"></span>
           </div>
-          <span class="text-xs px-2 py-0.5 rounded-full font-mono" :class="badgeClass(evt.status)" x-text="evt.status"></span>
-        </div>
-      </template>
-      <div x-show="activity.length === 0" class="text-center text-muted text-xs py-8">No activity yet. Connect to start.</div>
-    </div>
-  </div>
-
-  <!-- System Health -->
-  <div class="card p-4">
-    <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-4">System Health</h2>
-    <div class="flex flex-col items-center mb-4">
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle class="ring-track" cx="60" cy="60" r="48"/>
-        <circle class="ring-fill" cx="60" cy="60" r="48"
-          :stroke="healthColor"
-          :stroke-dasharray="301.6"
-          :stroke-dashoffset="301.6 * (1 - healthPct / 100)"/>
-      </svg>
-      <div class="absolute text-center pointer-events-none" style="margin-top:-74px">
-        <div class="text-2xl font-bold font-mono" :class="healthPct >= 80 ? 'text-emerald' : healthPct >= 50 ? 'text-amber' : 'text-rose'" x-text="healthPct + '%'"></div>
-        <div class="text-xs text-muted">health</div>
+        </template>
+        <p x-show="projects.length===0" class="text-gray-600 text-xs text-center py-4">No projects</p>
       </div>
     </div>
-    <div class="space-y-2">
-      <template x-for="item in healthItems" :key="item.label">
-        <div class="flex items-center justify-between text-xs">
-          <span class="text-muted" x-text="item.label"></span>
-          <span class="font-mono" :class="item.ok ? 'text-emerald' : 'text-rose'" x-text="item.value"></span>
-        </div>
-      </template>
-    </div>
-  </div>
 
-  <!-- Recent Decisions -->
-  <div class="card p-4 lg:col-span-2">
-    <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-4">Recent Decisions</h2>
-    <div class="space-y-2 max-h-48 overflow-y-auto">
-      <template x-for="(d, i) in decisions" :key="i">
-        <div class="flex items-center gap-3 py-2 border-b border-border last:border-0">
-          <div class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-               :class="d.type === 'approval' ? 'bg-emerald/10 text-emerald' : 'bg-violet/10 text-violet'"
-               x-text="d.type === 'approval' ? '✓' : '⚡'"></div>
-          <div class="flex-1 min-w-0">
-            <p class="text-xs text-gray-300 truncate" x-text="d.description"></p>
-            <p class="text-xs text-muted font-mono" x-text="d.agent_id + ' · ' + d.time"></p>
+    <!-- Agent Activity -->
+    <div class="card rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-amber-400 uppercase tracking-wider">Agents</h2>
+        <span class="text-xs text-gray-500 font-mono" x-text="agentCount + ' registered'"></span>
+      </div>
+      <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+        <template x-for="a in recentAgents" :key="a.agent_id||a.id||a.name">
+          <div class="flex items-center gap-3 p-2 rounded-lg bg-gray-900/50 slide-in">
+            <div class="w-2 h-2 rounded-full flex-shrink-0 dot-pulse bg-cyan"></div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs text-gray-200 truncate" x-text="a.agent_id||a.id||a.name"></p>
+              <p class="text-[10px] text-gray-600" x-text="a.specialty||a.domain||''"></p>
+            </div>
+            <div class="flex-shrink-0 w-14 bg-gray-800 rounded-full h-1">
+              <div class="h-1 rounded-full bg-cyan/60" :style="`width:${Math.round((a.confidence||0.7)*100)}%`"></div>
+            </div>
           </div>
-          <span class="text-xs font-mono" :class="d.outcome === 'approved' ? 'text-emerald' : 'text-amber'" x-text="d.outcome"></span>
-        </div>
-      </template>
-      <div x-show="decisions.length === 0" class="text-xs text-muted text-center py-6">No decisions recorded yet.</div>
+        </template>
+      </div>
     </div>
+
   </div>
 
-  <!-- Token Usage -->
-  <div class="card p-4">
-    <h2 class="text-sm font-semibold text-muted uppercase tracking-wider mb-4">Token Usage</h2>
+  <!-- Quick Actions -->
+  <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <a href="/" class="card rounded-xl p-3 flex items-center gap-3 hover:bg-cyan/5 transition-all group cursor-pointer">
+      <span class="text-2xl">💬</span>
+      <div><p class="text-xs font-semibold text-gray-200 group-hover:text-cyan transition-colors">Ask CEO</p><p class="text-[10px] text-gray-600">Open chat</p></div>
+    </a>
+    <button @click="addGoalModal=true" class="card rounded-xl p-3 flex items-center gap-3 hover:bg-violet-400/5 transition-all group text-left">
+      <span class="text-2xl">🎯</span>
+      <div><p class="text-xs font-semibold text-gray-200 group-hover:text-violet-400 transition-colors">Add Goal</p><p class="text-[10px] text-gray-600">Track target</p></div>
+    </button>
+    <a href="/finance" class="card rounded-xl p-3 flex items-center gap-3 hover:bg-emerald-400/5 transition-all group cursor-pointer">
+      <span class="text-2xl">💰</span>
+      <div><p class="text-xs font-semibold text-gray-200 group-hover:text-emerald-400 transition-colors">Finance</p><p class="text-[10px] text-gray-600">Cockpit</p></div>
+    </a>
+    <a href="/expansion" class="card rounded-xl p-3 flex items-center gap-3 hover:bg-amber-400/5 transition-all group cursor-pointer">
+      <span class="text-2xl">🚀</span>
+      <div><p class="text-xs font-semibold text-gray-200 group-hover:text-amber-400 transition-colors">Expansion</p><p class="text-[10px] text-gray-600">New capabilities</p></div>
+    </a>
+  </div>
+
+</main>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-base border-t border-cyan/20 flex items-center justify-around px-2 py-2 z-50">
+  <a href="/dashboard" class="flex flex-col items-center gap-0.5 p-2 text-cyan">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    <span class="text-[9px]">Home</span>
+  </a>
+  <a href="/finance" class="flex flex-col items-center gap-0.5 p-2 text-gray-500">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <span class="text-[9px]">Finance</span>
+  </a>
+  <a href="/business" class="flex flex-col items-center gap-0.5 p-2 text-gray-500">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+    <span class="text-[9px]">Business</span>
+  </a>
+  <a href="/" class="flex flex-col items-center gap-0.5 p-2 text-gray-500">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+    <span class="text-[9px]">Chat</span>
+  </a>
+</nav>
+
+<!-- ADD GOAL MODAL -->
+<div x-show="addGoalModal" x-transition class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4" @keydown.escape.window="addGoalModal=false">
+  <div class="card rounded-2xl p-6 w-full max-w-md glow" @click.stop>
+    <h3 class="text-sm font-semibold text-cyan mb-4">New Goal</h3>
     <div class="space-y-3">
-      <template x-for="t in tokenStats" :key="t.label">
-        <div>
-          <div class="flex justify-between text-xs mb-1">
-            <span class="text-muted" x-text="t.label"></span>
-            <span class="font-mono text-cyan" x-text="fmtNum(t.value)"></span>
-          </div>
-          <div class="h-1.5 bg-border rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-700"
-                 :class="t.color" :style="`width:${t.pct}%`"></div>
-          </div>
-        </div>
-      </template>
+      <input x-model="newGoal.title" placeholder="Goal title..." class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-cyan focus:outline-none"/>
+      <div class="grid grid-cols-2 gap-2">
+        <input x-model.number="newGoal.target" type="number" placeholder="Target (100)" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-cyan focus:outline-none"/>
+        <input x-model="newGoal.unit" placeholder="Unit ($, %, users)" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-cyan focus:outline-none"/>
+      </div>
     </div>
-    <div class="mt-4 pt-4 border-t border-border">
-      <div class="flex justify-between text-xs">
-        <span class="text-muted">Cache hit rate</span>
-        <span class="font-mono text-emerald" x-text="cacheHitRate + '%'"></span>
-      </div>
-      <div class="flex justify-between text-xs mt-1">
-        <span class="text-muted">Est. cost today</span>
-        <span class="font-mono text-amber" x-text="'$' + costToday"></span>
-      </div>
+    <div class="flex gap-2 mt-4">
+      <button @click="submitGoal()" class="flex-1 py-2 rounded-lg bg-cyan text-black text-sm font-semibold hover:bg-cyan/90 transition-all">Add Goal</button>
+      <button @click="addGoalModal=false" class="px-4 py-2 rounded-lg bg-gray-800 text-gray-400 text-sm hover:bg-gray-700 transition-all">Cancel</button>
     </div>
   </div>
-
 </div>
 
 <script>
 function exec() {
   return {
-    clock: '',
-    ws: null,
-    activity: [],
-    decisions: [],
-    healthPct: 0,
-    healthColor: '#10b981',
-    kpis: [
-      {label:'Active Agents',  value:'0',    color:'text-cyan',    delta:0},
-      {label:'Sessions Today', value:'0',    color:'text-violet',  delta:0},
-      {label:'Decisions Made', value:'0',    color:'text-amber',   delta:0},
-      {label:'Avg Confidence', value:'—',    color:'text-emerald', delta:0},
-    ],
-    healthItems: [
-      {label:'API',          value:'—', ok:true},
-      {label:'Memory',       value:'—', ok:true},
-      {label:'Orchestrator', value:'—', ok:true},
-      {label:'Mode',         value:'—', ok:true},
-    ],
-    tokenStats: [
-      {label:'Input tokens',  value:0, pct:0, color:'bg-cyan'},
-      {label:'Output tokens', value:0, pct:0, color:'bg-violet'},
-      {label:'Cache read',    value:0, pct:0, color:'bg-emerald'},
-    ],
-    cacheHitRate: '0.0',
-    costToday: '0.00',
+    mode: 'command',
+    kpis: [],
+    goals: [],
+    projects: [],
+    projectSummary: {},
+    agentCount: 0,
+    recentAgents: [],
+    addGoalModal: false,
+    newGoal: { title: '', target: 100, unit: '' },
 
-    init() {
-      this.tickClock();
-      setInterval(() => this.tickClock(), 1000);
-      this.connectWS();
-      setInterval(() => this.pollHealth(), 5000);
+    async init() {
+      this.mode = (await fetch('/api/mode').then(r=>r.json()).catch(()=>({mode:'command'}))).mode;
+      await this.fetchAll();
+      setInterval(() => this.fetchAll(), 15000);
     },
-    tickClock() {
-      this.clock = new Date().toLocaleTimeString('en-GB', {hour12:false});
+
+    async fetchAll() {
+      const [fin, g, p, a] = await Promise.allSettled([
+        fetch('/api/finance/summary').then(r=>r.json()),
+        fetch('/api/goals').then(r=>r.json()),
+        fetch('/api/projects').then(r=>r.json()),
+        fetch('/api/agents').then(r=>r.json()),
+      ]);
+      const F = fin.status==='fulfilled' ? fin.value : {};
+      const G = g.status==='fulfilled' ? g.value : {};
+      const P = p.status==='fulfilled' ? p.value : {};
+      const A = a.status==='fulfilled' ? a.value : {};
+
+      this.goals = G.goals || [];
+      this.projects = P.projects || [];
+      this.projectSummary = P.summary || {};
+      this.agentCount = A.count || 0;
+      this.recentAgents = (A.agents || []).slice(0,8);
+
+      const cf = F.monthly_cashflow || 0;
+      const onTrack = this.goals.filter(x=>x.status==='on_track').length;
+      this.kpis = [
+        { label:'Net Worth',  value:'$'+((F.net_worth||0)/1000).toFixed(1)+'K', color:'text-cyan', trendColor:'bg-cyan', trend:[40,55,48,62,58,70,65], deltaPositive:true, deltaLabel:'↑ growing' },
+        { label:'Cashflow',   value:'$'+cf.toFixed(0)+'/mo', color: cf>=0?'text-emerald-400':'text-red-400', trendColor: cf>=0?'bg-emerald-400':'bg-red-400', trend:[30,45,40,55,50,60,65], deltaPositive:cf>=0, deltaLabel: cf>=0?'▲ positive':'▼ negative' },
+        { label:'Projects',   value:String(P.summary?.total||this.projects.length), color:'text-violet-400', trendColor:'bg-violet-400', trend:[60,65,70,68,72,75,80], deltaPositive:true, deltaLabel:(P.summary?.active||0)+' active' },
+        { label:'Goals',      value:String(this.goals.length), color:'text-amber-400', trendColor:'bg-amber-400', trend:[50,55,58,62,65,70,72], deltaPositive:onTrack>0, deltaLabel:onTrack+' on-track' },
+      ];
     },
-    connectWS() {
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      this.ws = new WebSocket(`${proto}//${location.host}/ws`);
-      this.ws.onmessage = e => this.handleMsg(JSON.parse(e.data));
-      this.ws.onopen = () => this.pollHealth();
-      this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
-    },
-    handleMsg(msg) {
-      if (msg.type === 'agent_status') {
-        this.activity.unshift({
-          agent_id: msg.agent_id, status: msg.status,
-          message: `Status: ${msg.status}`, time: new Date().toLocaleTimeString()
-        });
-        if (this.activity.length > 50) this.activity.pop();
-      }
-      if (msg.type === 'health') this.applyHealth(msg.data);
-      if (msg.type === 'stream_done') this.updateTokens(msg);
-    },
-    pollHealth() {
-      if (this.ws && this.ws.readyState === 1)
-        this.ws.send(JSON.stringify({type:'health_poll'}));
-    },
-    applyHealth(data) {
-      if (!data) return;
-      const ok = data.status === 'healthy';
-      this.healthPct = ok ? 98 : 45;
-      this.healthColor = ok ? '#10b981' : '#f43f5e';
-      this.healthItems[0].value = ok ? 'OK' : 'ERR';
-      this.healthItems[0].ok = ok;
-      this.healthItems[1].value = (data.memory_domains || 14) + ' domains';
-      this.healthItems[2].value = ok ? 'running' : 'error';
-      this.healthItems[2].ok = ok;
-      this.healthItems[3].value = data.operating_mode || '—';
-      this.kpis[0].value = String(data.agents_registered || 0);
-    },
-    updateTokens(msg) {
-      if (!msg.tokens) return;
-      const t = this.tokenStats;
-      const total = msg.tokens;
-      t[0].value = total; t[0].pct = 60;
-      t[1].value = Math.round(total * 0.3); t[1].pct = 30;
-      t[2].value = Math.round(total * 0.5); t[2].pct = 50;
-    },
-    statusClass(s) {
-      return {active:'active running':true, done:'idle', failed:'error', waiting_approval:'warn'}[s] || 'idle';
-    },
-    badgeClass(s) {
-      const m = {running:'bg-cyan/10 text-cyan', done:'bg-emerald/10 text-emerald',
-                 failed:'bg-rose/10 text-rose', waiting_approval:'bg-amber/10 text-amber'};
-      return m[s] || 'bg-surface text-muted';
-    },
-    fmtNum(n) {
-      if (n >= 1_000_000) return (n/1_000_000).toFixed(1)+'M';
-      if (n >= 1_000) return (n/1_000).toFixed(1)+'K';
-      return String(n);
+
+    goalColor(s) { return {done:'text-emerald-400',on_track:'text-cyan',at_risk:'text-amber-400',overdue:'text-red-400'}[s]||'text-gray-400'; },
+    goalBarColor(s) { return {done:'bg-emerald-400',on_track:'bg-cyan',at_risk:'bg-amber-400',overdue:'bg-red-500'}[s]||'bg-gray-600'; },
+
+    async submitGoal() {
+      if (!this.newGoal.title.trim()) return;
+      const token = localStorage.getItem('sovereign_token') || '';
+      await fetch('/api/goals', {
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body: JSON.stringify({title:this.newGoal.title, target_value:this.newGoal.target||100, unit:this.newGoal.unit}),
+      }).catch(console.error);
+      this.newGoal={title:'',target:100,unit:''};
+      this.addGoalModal=false;
+      await this.fetchAll();
     },
   };
 }

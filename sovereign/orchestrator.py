@@ -175,6 +175,29 @@ class SovereignOrchestrator:
                 pass
 
     # ------------------------------------------------------------------
+    # Mode management
+    # ------------------------------------------------------------------
+
+    _VALID_MODES = frozenset({
+        "command", "business", "personal", "finance",
+        "study", "travel", "research", "builder", "local_offline", "survival",
+    })
+
+    def set_mode(self, mode_name: str) -> bool:
+        """Switch operating mode at runtime. Returns True if valid."""
+        if mode_name not in self._VALID_MODES:
+            logger.warning("set_mode: unknown mode %r", mode_name)
+            return False
+        self.config.default_operating_mode = mode_name
+        logger.info("Operating mode switched to %s", mode_name)
+        self._emit("mode_changed", {"mode": mode_name})
+        return True
+
+    @property
+    def current_mode(self) -> str:
+        return self.config.default_operating_mode
+
+    # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
 
