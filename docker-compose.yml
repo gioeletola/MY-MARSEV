@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  sovereign:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sovereign-ai-os:latest
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./prompts:/app/prompts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - sovereign-net
+
+  sovereign-worker:
+    image: sovereign-ai-os:latest
+    command: ["python", "main.py", "run", "--interactive"]
+    stdin_open: false
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./prompts:/app/prompts
+    restart: unless-stopped
+    networks:
+      - sovereign-net
+    profiles:
+      - worker
+
+networks:
+  sovereign-net:
+    driver: bridge
+
+volumes:
+  sovereign-data:
+    external: false
