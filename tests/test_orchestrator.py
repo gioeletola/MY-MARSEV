@@ -81,12 +81,16 @@ class TestToolRegistry:
 
     @pytest.mark.asyncio
     async def test_execute_web_search_stub(self):
+        from unittest.mock import patch
         from sovereign.tools.builtin.web_search import WebSearchTool
         registry = ToolRegistry()
         registry.register(WebSearchTool())
-        result = await registry.execute("web_search", {"query": "test"})
+        fake_results = [{"title": "Test Result", "url": "https://example.com", "snippet": "snippet"}]
+        with patch.object(WebSearchTool, "_search_sync", return_value=fake_results):
+            result = await registry.execute("web_search", {"query": "test"})
         assert isinstance(result, list)
         assert len(result) >= 1
+        assert result[0]["title"] == "Test Result"
 
 
 class TestEscalationThresholds:
