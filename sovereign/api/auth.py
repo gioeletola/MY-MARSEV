@@ -1,0 +1,100 @@
+"""JWT auth — HMAC-SHA256, no external library.
+
+Usage::
+    token = create_token({"sub": "admin"})
+    payload = verify_token(token)                 # raises ValueError if invalid
+
+FastAPI dependency::
+    @app.get("/private")
+    async def private(user=Depends(require_auth)):
+        ...
+"""
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+import json
+import logging
+import os
+import time
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+logger = logging.getLogger(__name__)
+
+_bearer = HTTPBearer(auto_error=False)
+
+_DEFAULT_SECRET = "sovereign-change-me-in-production"
+
+
+def _secret() -> str:
+    return os.environ.get("AUTH_SECRET_KEY", _DEFAULT_SECRET)
+
+
+def _b64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def _b64url_decode(s: str) -> bytes:
+    pad = "=" * (4 - len(s) % 4)
+    return base64.urlsafe_b64decode(s + pad)
+
+
+def create_token(payload: dict, exp_seconds: int = 86_400) -> str:
+    """Create a signed JWT string."""
+    header = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
+    body_data = dict(payload, iat=int(time.time()), exp=int(time.time()) + exp_seconds)
+    body = _b64url_encode(json.dumps(body_data).encode())
+    sig_input = f"{header}.{body}".encode()
+    sig = _b64url_encode(
+        hmac.new(_secret().encode(), sig_input, hashlib.sha256).digest()
+    )
+    return f"{header}.{body}.{sig}"
+
+
+def verify_token(token: str) -> dict:
+    """Verify and decode a JWT. Raises ValueError on any failure."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            raise ValueError("Invalid token format")
+        header, body, sig = parts
+        expected_sig = _b64url_encode(
+            hmac.new(
+                _secret().encode(),
+                f"{header}.{body}".encode(),
+                hashlib.sha256,
+            ).digest()
+        )
+        if not hmac.compare_digest(sig, expected_sig):
+            raise ValueError("Invalid signature")
+        payload = json.loads(_b64url_decode(body))
+        if payload.get("exp", 0) < time.time():
+            raise ValueError("Token expired")
+        return payload
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Token error: {exc}") from exc
+
+
+async def require_auth(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> dict:
+    """FastAPI dependency — enforces JWT auth on protected routes."""
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        return verify_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        )

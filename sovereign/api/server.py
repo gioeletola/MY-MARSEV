@@ -20,11 +20,13 @@ import pathlib
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from sovereign.api.auth import create_token, require_auth
 from sovereign.api.ws_handler import WebSocketSessionManager
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Paths
 _HERE = pathlib.Path(__file__).parent
 _TEMPLATES_DIR = _HERE / "templates"
+_STATIC_DIR = _HERE / "static"
 
 # Global singletons (initialised in lifespan)
 _orchestrator: Any = None
@@ -68,9 +71,64 @@ app = FastAPI(
 
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
+# Serve PWA static assets (manifest.json, sw.js)
+if _STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
 
 # ---------------------------------------------------------------------------
-# Routes
+# Public routes (no auth required)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/auth/login")
+async def login(request: Request) -> JSONResponse:
+    """Issue a JWT. Body: {"password": "<SOVEREIGN_PASSWORD env var>"}."""
+    import os
+    body = await request.json()
+    password = body.get("password", "")
+    expected = os.environ.get("SOVEREIGN_PASSWORD", "sovereign")
+    if password != expected:
+        return JSONResponse({"error": "Invalid password"}, status_code=401)
+    token = create_token({"sub": "admin", "role": "admin"})
+    return JSONResponse({"token": token})
+
+
+@app.get("/api/status")
+async def public_status() -> JSONResponse:
+    """Public health/status — no auth required."""
+    import platform
+    return JSONResponse({
+        "service": "SOVEREIGN AI OS",
+        "version": "0.2.0",
+        "status": "online" if _orchestrator is not None else "initialising",
+        "python": platform.python_version(),
+    })
+
+
+@app.get("/manifest.json")
+async def pwa_manifest() -> FileResponse:
+    """PWA web app manifest."""
+    path = _STATIC_DIR / "manifest.json"
+    if path.exists():
+        return FileResponse(str(path), media_type="application/manifest+json")
+    return JSONResponse({"error": "manifest not found"}, status_code=404)
+
+
+@app.get("/sw.js")
+async def service_worker() -> FileResponse:
+    """PWA service worker."""
+    path = _STATIC_DIR / "sw.js"
+    if path.exists():
+        return FileResponse(
+            str(path),
+            media_type="application/javascript",
+            headers={"Service-Worker-Allowed": "/"},
+        )
+    return JSONResponse({"error": "service worker not found"}, status_code=404)
+
+
+# ---------------------------------------------------------------------------
+# Main UI (public — auth handled client-side via WS token)
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
@@ -104,7 +162,7 @@ async def health() -> JSONResponse:
 
 
 @app.get("/api/usage")
-async def usage() -> JSONResponse:
+async def usage(_: dict = Depends(require_auth)) -> JSONResponse:
     """Token usage statistics."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -144,7 +202,7 @@ async def jarvis_hud(request: Request) -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/budget")
-async def budget() -> JSONResponse:
+async def budget(_: dict = Depends(require_auth)) -> JSONResponse:
     """Daily and monthly token / cost budget summary."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -152,7 +210,7 @@ async def budget() -> JSONResponse:
 
 
 @app.get("/api/escalations")
-async def list_escalations() -> JSONResponse:
+async def list_escalations(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return all pending escalation events."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -164,7 +222,7 @@ class ResolveRequest(BaseModel):
 
 
 @app.post("/api/escalations/{event_id}/resolve")
-async def resolve_escalation(event_id: str, body: ResolveRequest) -> JSONResponse:
+async def resolve_escalation(event_id: str, body: ResolveRequest, _: dict = Depends(require_auth)) -> JSONResponse:
     """Resolve an escalation event by ID."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)

@@ -149,6 +149,8 @@ def _to_class_name(s: str) -> str:
 
 def _to_snake(s: str) -> str:
     import re
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", s)
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
     s = re.sub(r"[^a-zA-Z0-9]", "_", s)
     s = re.sub(r"_+", "_", s)
     return s.lower().strip("_")
