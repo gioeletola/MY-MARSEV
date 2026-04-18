@@ -12,6 +12,7 @@ Maintains an eval database for regression tracking.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import pathlib
@@ -187,6 +188,19 @@ class EvalAgent:
             "failing_agents": self.failing_agents(),
         }
 
+    def schedule_nightly(self, scheduler: Any) -> None:
+        """Register a nightly eval job with the scheduler."""
+        from sovereign.infra.scheduler import ScheduleFrequency
+        existing = {j.name for j in scheduler.list_jobs()}
+        if "nightly_eval" not in existing:
+            scheduler.schedule(
+                "nightly_eval",
+                "eval_agent",
+                "Run nightly regression evaluation of agent outputs.",
+                ScheduleFrequency.DAILY,
+            )
+            logger.info("EvalAgent: nightly eval job registered")
+
     # ------------------------------------------------------------------
 
     def _load(self) -> None:
@@ -209,3 +223,239 @@ class EvalAgent:
                 f.write(json.dumps(asdict(ev), default=str) + "\n")
         except Exception as exc:
             logger.error("EvalAgent append failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# RegressionTracker
+# ---------------------------------------------------------------------------
+
+class RegressionTracker:
+    """
+    Tracks eval history across sessions, computes per-agent trends,
+    and flags degrading agents.
+    """
+
+    def __init__(self, data_path: str | pathlib.Path = _DEFAULT_PATH) -> None:
+        self._path = pathlib.Path(data_path)
+
+    def record(self, eval_result: EvalResult) -> None:
+        """Append an EvalResult to the persistent JSONL store."""
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            with self._path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(asdict(eval_result), default=str) + "\n")
+        except Exception as exc:
+            logger.error("RegressionTracker.record failed: %s", exc)
+
+    def get_history(self, agent_id: str, last_n: int = 50) -> list[dict]:
+        """Return the last N eval records for a specific agent."""
+        records: list[dict] = []
+        if not self._path.exists():
+            return records
+        try:
+            with self._path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                        if rec.get("agent_id") == agent_id:
+                            records.append(rec)
+                    except json.JSONDecodeError:
+                        pass
+        except Exception as exc:
+            logger.warning("RegressionTracker.get_history error: %s", exc)
+        return records[-last_n:]
+
+    def regression_report(self) -> dict[str, Any]:
+        """
+        Returns:
+          avg_scores: {agent_id: avg_overall}
+          trends:     {agent_id: "improving"|"degrading"|"stable"}
+          worst_agents: [agent_id, ...] sorted by avg score asc
+        """
+        all_records: dict[str, list[float]] = {}
+        if not self._path.exists():
+            return {"avg_scores": {}, "trends": {}, "worst_agents": []}
+        try:
+            with self._path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                        aid = rec.get("agent_id", "unknown")
+                        overall = float(rec.get("overall", 0.0))
+                        all_records.setdefault(aid, []).append(overall)
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+        except Exception as exc:
+            logger.warning("RegressionTracker.regression_report error: %s", exc)
+            return {"avg_scores": {}, "trends": {}, "worst_agents": []}
+
+        avg_scores: dict[str, float] = {}
+        trends: dict[str, str] = {}
+        for aid, scores in all_records.items():
+            avg_scores[aid] = round(sum(scores) / len(scores), 3)
+            if len(scores) >= 4:
+                half = len(scores) // 2
+                first_half = sum(scores[:half]) / half
+                second_half = sum(scores[half:]) / (len(scores) - half)
+                diff = second_half - first_half
+                if diff > 0.05:
+                    trends[aid] = "improving"
+                elif diff < -0.05:
+                    trends[aid] = "degrading"
+                else:
+                    trends[aid] = "stable"
+            else:
+                trends[aid] = "stable"
+
+        worst_agents = sorted(avg_scores.keys(), key=lambda a: avg_scores[a])
+        return {
+            "avg_scores": avg_scores,
+            "trends": trends,
+            "worst_agents": worst_agents,
+        }
+
+
+# ---------------------------------------------------------------------------
+# NightlyEvalRunner
+# ---------------------------------------------------------------------------
+
+class NightlyEvalRunner:
+    """
+    Pulls last 50 sessions from the decision ledger, re-evaluates outputs,
+    records results via RegressionTracker, and sends a Telegram alert if
+    average score drops more than 10% compared to the previous run.
+    """
+
+    ALERT_DROP_THRESHOLD = 0.10  # 10% drop triggers alert
+
+    def __init__(
+        self,
+        eval_agent: EvalAgent,
+        regression_tracker: RegressionTracker,
+        ledger_path: str | pathlib.Path = "data/ledger/decisions.jsonl",
+        prev_avg_path: str | pathlib.Path = "data/ledger/nightly_prev_avg.json",
+    ) -> None:
+        self._eval_agent = eval_agent
+        self._tracker = regression_tracker
+        self._ledger_path = pathlib.Path(ledger_path)
+        self._prev_avg_path = pathlib.Path(prev_avg_path)
+
+    async def run_nightly(self, orchestrator: Any) -> dict[str, Any]:
+        """
+        Pull last 50 sessions, re-evaluate outputs, store regression records,
+        and send Telegram alert if avg score degraded > 10%.
+        """
+        logger.info("NightlyEvalRunner: starting nightly evaluation run")
+        sessions = self._load_recent_sessions(50)
+        new_evals: list[EvalResult] = []
+
+        for sess in sessions:
+            session_id = sess.get("session_id", "unknown")
+            agent_id = sess.get("agent_id", "orchestrator")
+            description = sess.get("description", "")
+            outcome = sess.get("outcome", "")
+            task_id = sess.get("decision_id", str(uuid.uuid4())[:8])
+
+            ev = self._eval_agent.evaluate(
+                session_id=session_id,
+                agent_id=agent_id,
+                task_id=task_id,
+                objective=description,
+                result=outcome,
+            )
+            self._tracker.record(ev)
+            new_evals.append(ev)
+
+        # Compute avg score for this run
+        current_avg = (
+            round(sum(e.overall for e in new_evals) / len(new_evals), 3)
+            if new_evals else 0.0
+        )
+
+        # Load previous avg and compare
+        prev_avg = self._load_prev_avg()
+        drop = prev_avg - current_avg if prev_avg > 0 else 0.0
+        alert_sent = False
+
+        if drop > self.ALERT_DROP_THRESHOLD:
+            msg = (
+                f"SOVEREIGN EVAL ALERT: nightly avg score dropped {drop:.1%} "
+                f"(prev={prev_avg:.3f}, current={current_avg:.3f}). "
+                f"Evaluated {len(new_evals)} sessions."
+            )
+            logger.warning(msg)
+            alert_sent = await self._send_telegram_alert(orchestrator, msg)
+
+        # Save current avg as new baseline
+        self._save_prev_avg(current_avg)
+
+        report = self._tracker.regression_report()
+        summary = {
+            "sessions_evaluated": len(new_evals),
+            "current_avg_score": current_avg,
+            "previous_avg_score": prev_avg,
+            "score_drop": round(drop, 3),
+            "alert_sent": alert_sent,
+            "regression_report": report,
+        }
+        logger.info("NightlyEvalRunner: complete — %s", summary)
+        return summary
+
+    def _load_recent_sessions(self, n: int) -> list[dict]:
+        records: list[dict] = []
+        if not self._ledger_path.exists():
+            return records
+        try:
+            with self._ledger_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            records.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+        except Exception as exc:
+            logger.warning("NightlyEvalRunner: ledger read error: %s", exc)
+        return records[-n:]
+
+    def _load_prev_avg(self) -> float:
+        if not self._prev_avg_path.exists():
+            return 0.0
+        try:
+            data = json.loads(self._prev_avg_path.read_text("utf-8"))
+            return float(data.get("avg", 0.0))
+        except Exception:
+            return 0.0
+
+    def _save_prev_avg(self, avg: float) -> None:
+        try:
+            self._prev_avg_path.parent.mkdir(parents=True, exist_ok=True)
+            self._prev_avg_path.write_text(
+                json.dumps({"avg": avg, "ts": datetime.now(timezone.utc).isoformat()}),
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            logger.warning("NightlyEvalRunner: save prev avg failed: %s", exc)
+
+    async def _send_telegram_alert(self, orchestrator: Any, message: str) -> bool:
+        """Attempt to send a Telegram alert via the NotificationService."""
+        try:
+            notif = getattr(orchestrator, "_notif", None)
+            if notif is None:
+                return False
+            send_fn = getattr(notif, "send_telegram", None)
+            if send_fn:
+                if asyncio.iscoroutinefunction(send_fn):
+                    await send_fn(message)
+                else:
+                    send_fn(message)
+                return True
+        except Exception as exc:
+            logger.warning("NightlyEvalRunner: Telegram alert failed: %s", exc)
+        return False

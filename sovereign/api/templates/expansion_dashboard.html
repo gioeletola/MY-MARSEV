@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en" x-data="expansion()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — Expansion Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
+                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
+                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
+        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>
+    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
+    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
+    .gradient-border {
+      background:linear-gradient(#11111a,#11111a) padding-box,
+                 linear-gradient(135deg,#06b6d4,#7c3aed) border-box;
+      border:1px solid transparent; border-radius:12px;
+    }
+    .pulse-dot::before { content:''; display:inline-block; width:6px; height:6px;
+      border-radius:50%; margin-right:6px; vertical-align:middle; animation:pulse 2s infinite; }
+    .pulse-dot.active::before { background:#06b6d4; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    th { text-transform:uppercase; font-size:0.65rem; letter-spacing:0.08em; color:#6b7280; padding:8px 12px; text-align:left; border-bottom:1px solid #1e1e2e; }
+    td { padding:8px 12px; font-size:0.8rem; border-bottom:1px solid #111120; vertical-align:top; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:rgba(6,182,212,0.03); }
+    .badge { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.65rem; font-weight:600; letter-spacing:0.05em; }
+    .badge-cyan   { background:rgba(6,182,212,0.15); color:#06b6d4; }
+    .badge-violet { background:rgba(124,58,237,0.15); color:#a78bfa; }
+    .badge-amber  { background:rgba(245,158,11,0.15); color:#f59e0b; }
+    .badge-emerald{ background:rgba(16,185,129,0.15); color:#10b981; }
+    .badge-rose   { background:rgba(244,63,94,0.15); color:#f43f5e; }
+    .section-title { font-size:0.7rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#06b6d4; }
+    .skeleton { background:linear-gradient(90deg,#1e1e2e 25%,#252535 50%,#1e1e2e 75%);
+                background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:4px; height:14px; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .metric-glow-cyan { box-shadow:0 0 24px rgba(6,182,212,0.10); }
+    .metric-glow-violet { box-shadow:0 0 24px rgba(124,58,237,0.10); }
+    .metric-glow-amber { box-shadow:0 0 24px rgba(245,158,11,0.10); }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<!-- Nav -->
+<header class="flex items-center justify-between mb-6 px-2">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg gradient-border flex items-center justify-center text-cyan font-mono font-bold text-sm">S</div>
+    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
+    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">EXPANSION DASHBOARD</span>
+  </div>
+  <div class="flex items-center gap-4 text-xs text-muted">
+    <span class="font-mono" x-text="clock"></span>
+    <span class="pulse-dot active text-cyan font-medium">LIVE</span>
+    <a href="/" class="hover:text-cyan transition-colors">← Chat</a>
+    <a href="/dashboard" class="hover:text-cyan transition-colors">Executive</a>
+    <a href="/finance" class="hover:text-cyan transition-colors">Finance</a>
+    <a href="/business" class="hover:text-cyan transition-colors">Business</a>
+    <a href="/hud" class="hover:text-cyan transition-colors">HUD</a>
+  </div>
+</header>
+
+<!-- Summary KPIs -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="card p-4 metric-glow-cyan">
+    <div class="text-xs text-muted mb-1">Capability Gaps</div>
+    <div class="text-2xl font-bold font-mono text-cyan" x-text="gaps.length || '—'"></div>
+    <div class="text-xs text-muted mt-1">detected gaps</div>
+  </div>
+  <div class="card p-4 metric-glow-violet">
+    <div class="text-xs text-muted mb-1">Top Gap Priority</div>
+    <div class="text-2xl font-bold font-mono text-violet-400"
+         x-text="gaps[0] ? gaps[0].priority.toFixed(2) : '—'"></div>
+    <div class="text-xs text-muted mt-1">highest priority score</div>
+  </div>
+  <div class="card p-4 metric-glow-amber">
+    <div class="text-xs text-muted mb-1">Models Tracked</div>
+    <div class="text-2xl font-bold font-mono text-amber-400"
+         x-text="Object.keys(modelPerf).length || '—'"></div>
+    <div class="text-xs text-muted mt-1">model variants</div>
+  </div>
+  <div class="card p-4 metric-glow-cyan">
+    <div class="text-xs text-muted mb-1">Total API Cost</div>
+    <div class="text-2xl font-bold font-mono text-emerald-400"
+         x-text="totalCost > 0 ? '$' + totalCost.toFixed(4) : '—'"></div>
+    <div class="text-xs text-muted mt-1">cumulative USD</div>
+  </div>
+</div>
+
+<!-- Main Panels -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+  <!-- Panel 1: Capability Gaps -->
+  <div class="card p-4 xl:col-span-3">
+    <div class="flex items-center justify-between mb-4">
+      <span class="section-title">Capability Gaps</span>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-muted font-mono">Auto-refresh 30s</span>
+        <button @click="loadGaps()" class="text-xs text-cyan hover:underline">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Loading skeleton -->
+    <template x-if="gapsLoading">
+      <div class="space-y-2">
+        <template x-for="i in [1,2,3,4,5]">
+          <div class="skeleton w-full" style="height:20px"></div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Table -->
+    <template x-if="!gapsLoading && gaps.length > 0">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr>
+              <th>Gap ID</th>
+              <th>Description</th>
+              <th>Priority</th>
+              <th>Frequency</th>
+              <th>Composite</th>
+              <th>Suggested Agent</th>
+              <th>Example Tasks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(gap, idx) in gaps.slice(0, 10)" :key="gap.gap_id">
+              <tr>
+                <td class="font-mono text-xs text-cyan" x-text="gap.gap_id"></td>
+                <td class="max-w-xs" x-text="gap.description"></td>
+                <td>
+                  <span class="badge" :class="gap.priority >= 0.7 ? 'badge-rose' : gap.priority >= 0.4 ? 'badge-amber' : 'badge-emerald'"
+                        x-text="gap.priority.toFixed(2)"></span>
+                </td>
+                <td class="font-mono text-violet-400" x-text="gap.frequency"></td>
+                <td class="font-mono text-amber-400"
+                    x-text="(gap.composite_score !== undefined ? gap.composite_score : (gap.priority * gap.frequency)).toFixed(3)"></td>
+                <td class="font-mono text-xs text-cyan" x-text="gap.suggested_agent_id || gap.suggested_agent || '—'"></td>
+                <td class="text-muted text-xs max-w-xs"
+                    x-text="(gap.example_tasks || []).slice(0, 2).join('; ') || '—'"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- Empty state -->
+    <template x-if="!gapsLoading && gaps.length === 0">
+      <div class="text-center py-12 text-muted text-sm">
+        No capability gaps detected yet.<br>
+        <span class="text-xs">Gaps appear when agent failures are recorded.</span>
+      </div>
+    </template>
+
+    <!-- Error state -->
+    <template x-if="gapsError">
+      <div class="text-rose text-xs mt-2 font-mono" x-text="gapsError"></div>
+    </template>
+  </div>
+
+  <!-- Panel 2: Agent Lifecycle -->
+  <div class="card p-4 xl:col-span-1">
+    <div class="flex items-center justify-between mb-4">
+      <span class="section-title">Agent Lifecycle</span>
+      <button @click="loadAgents()" class="text-xs text-cyan hover:underline">Refresh</button>
+    </div>
+
+    <template x-if="agentsLoading">
+      <div class="space-y-2">
+        <template x-for="i in [1,2,3]">
+          <div class="skeleton w-full" style="height:20px"></div>
+        </template>
+      </div>
+    </template>
+
+    <template x-if="!agentsLoading && Object.keys(agentsByStage).length > 0">
+      <div class="space-y-3">
+        <template x-for="[stage, agentList] in Object.entries(agentsByStage)" :key="stage">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="badge"
+                    :class="stage === 'production' ? 'badge-emerald' : stage === 'shadow' ? 'badge-amber' : 'badge-violet'"
+                    x-text="stage.toUpperCase()"></span>
+              <span class="text-xs font-mono text-muted" x-text="agentList.length + ' agents'"></span>
+            </div>
+            <div class="space-y-1 pl-2">
+              <template x-for="a in agentList.slice(0, 5)" :key="a.agent_id || a">
+                <div class="text-xs text-muted font-mono truncate" x-text="a.agent_id || a"></div>
+              </template>
+              <template x-if="agentList.length > 5">
+                <div class="text-xs text-muted">+ <span x-text="agentList.length - 5"></span> more</div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <template x-if="!agentsLoading && Object.keys(agentsByStage).length === 0">
+      <div class="text-center py-8 text-muted text-xs">
+        Loading agent lifecycle data&hellip;<br>
+        <span class="text-muted opacity-60">(endpoint coming online)</span>
+      </div>
+    </template>
+  </div>
+
+  <!-- Panel 3: Model Performance -->
+  <div class="card p-4 xl:col-span-2">
+    <div class="flex items-center justify-between mb-4">
+      <span class="section-title">Model Performance</span>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-muted font-mono">Auto-refresh 30s</span>
+        <button @click="loadModelPerf()" class="text-xs text-cyan hover:underline">Refresh</button>
+      </div>
+    </div>
+
+    <template x-if="modelPerfLoading">
+      <div class="space-y-2">
+        <template x-for="i in [1,2,3]">
+          <div class="skeleton w-full" style="height:20px"></div>
+        </template>
+      </div>
+    </template>
+
+    <template x-if="!modelPerfLoading && Object.keys(modelPerf).length > 0">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Calls</th>
+              <th>Avg Latency</th>
+              <th>P95 Latency</th>
+              <th>Error Rate</th>
+              <th>Avg Confidence</th>
+              <th>Total Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="[mid, stats] in Object.entries(modelPerf)" :key="mid">
+              <tr>
+                <td class="font-mono text-xs text-cyan" x-text="mid"></td>
+                <td class="font-mono text-muted" x-text="stats.total_calls || 0"></td>
+                <td class="font-mono"
+                    x-text="stats.latency_ms ? stats.latency_ms.mean + 'ms' : '—'"></td>
+                <td class="font-mono text-amber-400"
+                    x-text="stats.latency_ms ? stats.latency_ms.p95 + 'ms' : '—'"></td>
+                <td>
+                  <span class="badge"
+                        :class="(stats.error_rate || 0) > 0.1 ? 'badge-rose' : (stats.error_rate || 0) > 0.05 ? 'badge-amber' : 'badge-emerald'"
+                        x-text="stats.total_calls > 0 ? ((stats.error_rate || 0) * 100).toFixed(1) + '%' : '—'"></span>
+                </td>
+                <td class="font-mono"
+                    x-text="stats.avg_confidence !== undefined ? (stats.avg_confidence * 100).toFixed(1) + '%' : '—'"></td>
+                <td class="font-mono text-emerald-400"
+                    x-text="stats.total_cost_usd !== undefined ? '$' + Number(stats.total_cost_usd).toFixed(4) : '—'"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <template x-if="!modelPerfLoading && Object.keys(modelPerf).length === 0">
+      <div class="text-center py-8 text-muted text-xs">
+        No model performance data recorded yet.<br>
+        <span class="opacity-60">Data appears after the first Claude API calls.</span>
+      </div>
+    </template>
+
+    <template x-if="modelPerfError">
+      <div class="text-rose text-xs mt-2 font-mono" x-text="modelPerfError"></div>
+    </template>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<footer class="mt-8 text-center text-xs text-muted font-mono">
+  SOVEREIGN AI OS &mdash; Expansion Dashboard &mdash; Last updated: <span x-text="lastUpdated"></span>
+</footer>
+
+<script>
+function expansion() {
+  return {
+    clock: '',
+    lastUpdated: '—',
+
+    gaps: [],
+    gapsLoading: false,
+    gapsError: '',
+
+    agentsByStage: {},
+    agentsLoading: false,
+
+    modelPerf: {},
+    modelPerfLoading: false,
+    modelPerfError: '',
+
+    get totalCost() {
+      return Object.values(this.modelPerf).reduce((sum, s) => sum + (s.total_cost_usd || 0), 0);
+    },
+
+    async init() {
+      this.updateClock();
+      setInterval(() => this.updateClock(), 1000);
+      await Promise.all([this.loadGaps(), this.loadAgents(), this.loadModelPerf()]);
+      // Auto-refresh every 30 seconds
+      setInterval(() => this.loadGaps(), 30000);
+      setInterval(() => this.loadModelPerf(), 30000);
+    },
+
+    updateClock() {
+      this.clock = new Date().toLocaleTimeString('en-US', { hour12: false });
+    },
+
+    async loadGaps() {
+      this.gapsLoading = true;
+      this.gapsError = '';
+      try {
+        const resp = await fetch('/api/expansion/gaps');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        // Accept both array and {gaps: [...]} shapes
+        this.gaps = Array.isArray(data) ? data : (data.gaps || data.items || []);
+        this.lastUpdated = new Date().toLocaleTimeString('en-US', { hour12: false });
+      } catch (e) {
+        this.gapsError = 'Failed to load gaps: ' + e.message;
+        this.gaps = [];
+      } finally {
+        this.gapsLoading = false;
+      }
+    },
+
+    async loadAgents() {
+      this.agentsLoading = true;
+      try {
+        const resp = await fetch('/api/expansion/agents');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        this.agentsByStage = data.by_stage || data || {};
+      } catch (e) {
+        // Graceful degradation — show loading state
+        this.agentsByStage = {};
+      } finally {
+        this.agentsLoading = false;
+      }
+    },
+
+    async loadModelPerf() {
+      this.modelPerfLoading = true;
+      this.modelPerfError = '';
+      try {
+        const resp = await fetch('/api/expansion/model-perf');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        this.modelPerf = data;
+        this.lastUpdated = new Date().toLocaleTimeString('en-US', { hour12: false });
+      } catch (e) {
+        this.modelPerfError = 'Failed to load model performance: ' + e.message;
+        this.modelPerf = {};
+      } finally {
+        this.modelPerfLoading = false;
+      }
+    },
+  };
+}
+</script>
+</body>
+</html>

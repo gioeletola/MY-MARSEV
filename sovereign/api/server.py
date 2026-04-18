@@ -516,3 +516,65 @@ async def list_integrations() -> JSONResponse:
         return JSONResponse({"integrations": _orchestrator.integration_manager.list_all()})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Expansion (capability gaps + model performance)
+# ---------------------------------------------------------------------------
+
+@app.get("/expansion", response_class=HTMLResponse)
+async def expansion_dashboard(request: Request) -> HTMLResponse:
+    """Serve the Expansion Dashboard."""
+    return templates.TemplateResponse("expansion_dashboard.html", {"request": request})
+
+
+@app.get("/api/expansion/gaps")
+async def expansion_gaps() -> JSONResponse:
+    """Return top capability gaps from the CapabilityGapDetector."""
+    try:
+        from sovereign.expansion.capability_gap_detector import (
+            CapabilityGapDetector,
+            WeeklyGapReport,
+        )
+        from dataclasses import asdict
+        detector = CapabilityGapDetector()
+        all_gaps = detector.all_gaps()
+        report = WeeklyGapReport().generate(all_gaps)
+        return JSONResponse(report)
+    except Exception as exc:
+        logger.warning("expansion_gaps error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/expansion/agents")
+async def expansion_agents() -> JSONResponse:
+    """Return agents grouped by lifecycle stage (sandbox/shadow/production)."""
+    if _orchestrator is None:
+        return JSONResponse({"by_stage": {}})
+    try:
+        registry = _orchestrator._agent_registry
+        agents = registry.list_agents()
+        # Group by stage field if present, else bucket all into production
+        by_stage: dict[str, list] = {}
+        for a in agents:
+            stage = a.get("stage", "production") if isinstance(a, dict) else "production"
+            by_stage.setdefault(stage, []).append(a)
+        return JSONResponse({"by_stage": by_stage, "total": registry.count()})
+    except Exception as exc:
+        logger.warning("expansion_agents error: %s", exc)
+        return JSONResponse({"by_stage": {}, "error": str(exc)}, status_code=500)
+
+
+@app.get("/api/expansion/model-perf")
+async def expansion_model_perf() -> JSONResponse:
+    """Return per-model performance metrics from ModelPerformanceTracker."""
+    if _orchestrator is None:
+        return JSONResponse({})
+    try:
+        tracker = getattr(_orchestrator, "_model_perf_tracker", None)
+        if tracker is None:
+            return JSONResponse({})
+        return JSONResponse(tracker.to_dict())
+    except Exception as exc:
+        logger.warning("expansion_model_perf error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)

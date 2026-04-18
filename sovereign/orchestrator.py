@@ -45,7 +45,7 @@ from sovereign.tools.builtin.calculator_tool import CalculatorTool
 from sovereign.tools.builtin.clipboard_tool import ClipboardTool
 from sovereign.memory.memory_manager import MemoryManager
 from sovereign.registries.agent_registry import AgentRegistry
-from sovereign.registries.prompt_registry import PromptRegistry
+from sovereign.registries.prompt_registry import VersionedPromptRegistry
 from sovereign.registries.decision_ledger import DecisionLedger, DecisionRecord
 from sovereign.registries.experiment_registry import Experiment, ExperimentRegistry
 from sovereign.registries.policy_registry import build_default_policy_registry
@@ -84,6 +84,7 @@ from sovereign.layers.legacy_layer import LegacyLayer
 from sovereign.layers.human_layer import HumanLayer
 from sovereign.observability.eval_agent import EvalAgent
 from sovereign.observability.metrics import MetricsCollector, record_session
+from sovereign.observability.model_performance_tracker import ModelPerformanceTracker
 from sovereign.registries.integration_registry import IntegrationRegistry
 from sovereign.registries.incident_registry import IncidentRegistry
 from sovereign.registries.memory_schema_registry import MemorySchemaRegistry
@@ -591,7 +592,7 @@ class SovereignOrchestrator:
 
     def _init_registries(self) -> None:
         self._agent_registry = AgentRegistry()
-        self._prompt_registry = PromptRegistry(self.config.prompts_dir)
+        self._prompt_registry = VersionedPromptRegistry(self.config.prompts_dir)
         self._ledger = DecisionLedger(self.config.data_dir)
         self._experiment_registry = ExperimentRegistry()
         self._workflow_registry = WorkflowRegistry()
@@ -755,6 +756,7 @@ class SovereignOrchestrator:
         self._health = HealthMonitor()
         self._eval_agent = EvalAgent()
         self._metrics = MetricsCollector()
+        self._model_perf_tracker = ModelPerformanceTracker()
 
     def _init_v2(self) -> None:
         """Initialize V2 proactive intelligence layer."""
@@ -765,6 +767,14 @@ class SovereignOrchestrator:
         self._worker_manager = WorkerManager()
         self._integration_manager = IntegrationManager()
         self._bg_stop_event = asyncio.Event()
+
+        # Schedule nightly eval regression job
+        self._eval_agent.schedule_nightly(self._scheduler)
+
+        # Schedule weekly capability gap analysis job
+        from sovereign.expansion.capability_gap_detector import CapabilityGapDetector
+        _gap_detector = CapabilityGapDetector()
+        _gap_detector.schedule_weekly(self._scheduler)
 
         # Seed scheduler with V2 daily jobs (idempotent)
         existing = {j.name for j in self._scheduler.list_jobs()}
