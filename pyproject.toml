@@ -57,6 +57,14 @@ packages = ["sovereign"]
 target-version = "py311"
 line-length = 100
 
+[tool.ruff.lint]
+ignore = ["F821"]  # forward-reference string annotations; handled by type: ignore
+
+[tool.ruff.lint.per-file-ignores]
+# optional heavy dependencies loaded at runtime inside try/except
+"sovereign/hud/*.py" = ["F401"]
+"sovereign/perception/*.py" = ["F401"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
