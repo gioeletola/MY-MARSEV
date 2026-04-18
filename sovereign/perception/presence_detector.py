@@ -5,6 +5,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,50 @@ class PresenceDetector:
             last_seen_at=self._last_activity if present else self._last_activity,
             away_for_s=0.0 if present else now - self._last_activity,
         )
+
+    def get_presence_signal(self) -> dict:
+        """Return a structured presence signal dict.
+
+        Fields:
+            face_detected (bool): Whether a face is currently detected.
+            attention (float): Attention score 0.0–1.0.
+            gaze (str): Gaze direction string (e.g. "center", "away").
+            last_seen_s (float): Seconds since the user was last seen.
+        """
+        last_seen_s = time.time() - self._state.last_seen_at if self._state.last_seen_at else 0.0
+        return {
+            "face_detected": self._state.present,
+            "attention": self._state.confidence,
+            "gaze": "center" if self._state.present else "away",
+            "last_seen_s": last_seen_s,
+        }
+
+    async def run_continuous(
+        self,
+        stop_event: asyncio.Event,
+        callback: Callable[[dict], None],
+        interval_s: float = 2.0,
+    ) -> None:
+        """Async loop: call ``callback(presence_signal)`` every *interval_s* seconds.
+
+        Args:
+            stop_event: Set to stop the loop cleanly.
+            callback: Sync callable that receives the presence signal dict.
+            interval_s: Polling interval in seconds (default 2.0).
+        """
+        logger.info("PresenceDetector: run_continuous started")
+        while not stop_event.is_set():
+            try:
+                await self.detect()
+                signal = self.get_presence_signal()
+                try:
+                    callback(signal)
+                except Exception as exc:
+                    logger.warning("PresenceDetector callback error: %s", exc)
+            except Exception as exc:
+                logger.warning("PresenceDetector run_continuous error: %s", exc)
+            await asyncio.sleep(interval_s)
+        logger.info("PresenceDetector: run_continuous stopped")
 
     @property
     def state(self) -> PresenceState:
