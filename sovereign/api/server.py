@@ -47,12 +47,16 @@ async def lifespan(app: FastAPI):
         from sovereign.bootstrap import create_orchestrator
         _orchestrator = create_orchestrator(config_path)
         _manager = WebSocketSessionManager(_orchestrator)
+        await _orchestrator.start_background_tasks()
         logger.info("SOVEREIGN AI OS web server started")
     except Exception as exc:
         logger.error("Failed to start orchestrator", error=str(exc))
         raise
-    yield
-    logger.info("SOVEREIGN AI OS web server shutting down")
+    try:
+        yield
+    finally:
+        await _orchestrator.stop_background_tasks()
+        logger.info("SOVEREIGN AI OS web server shutting down")
 
 
 app = FastAPI(
@@ -186,3 +190,329 @@ async def metrics() -> JSONResponse:
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     return JSONResponse(_orchestrator.get_experiment_metrics("live_sessions"))
+
+
+# ---------------------------------------------------------------------------
+# REST API — Finance (V2)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/finance/summary")
+async def finance_summary() -> JSONResponse:
+    """Finance KPI summary: net worth, cashflow, portfolio total."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.financial import FinancialMemoryStore
+        store = FinancialMemoryStore()
+        return JSONResponse(store.get_summary())
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/finance/transactions")
+async def finance_transactions(limit: int = 50, date_from: str = "", date_to: str = "", category: str = "") -> JSONResponse:
+    """Recent transactions with optional filters."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.financial import FinancialMemoryStore
+        store = FinancialMemoryStore()
+        txs = store.get_transactions(limit=limit, date_from=date_from, date_to=date_to, category=category)
+        return JSONResponse({"transactions": txs, "count": len(txs)})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/finance/portfolio")
+async def finance_portfolio() -> JSONResponse:
+    """Portfolio holdings by asset class."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.financial import FinancialMemoryStore
+        store = FinancialMemoryStore()
+        return JSONResponse({
+            "holdings": store.get_portfolio(),
+            "by_class": store.get_portfolio_by_class(),
+            "total": sum(float(h.get("value", 0)) for h in store.get_portfolio()),
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/finance/cashflow")
+async def finance_cashflow(months: int = 12) -> JSONResponse:
+    """Monthly cashflow bars for the last N months."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.financial import FinancialMemoryStore
+        store = FinancialMemoryStore()
+        return JSONResponse({"cashflow": store.get_cashflow_by_month(months=months)})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class ImportCSVRequest(BaseModel):
+    csv_text:   str
+    date_col:   str = "date"
+    desc_col:   str = "description"
+    amount_col: str = "amount"
+
+
+@app.post("/api/finance/import")
+async def finance_import_csv(body: ImportCSVRequest) -> JSONResponse:
+    """Import bank statement CSV into the financial memory store."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.financial import FinancialMemoryStore
+        store = FinancialMemoryStore()
+        result = store.import_csv_transactions(
+            body.csv_text,
+            date_col=body.date_col,
+            desc_col=body.desc_col,
+            amount_col=body.amount_col,
+        )
+        return JSONResponse(result)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Projects (V2)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/projects")
+async def list_projects(status: str = "") -> JSONResponse:
+    """Return all projects, optionally filtered by status."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.project import ProjectMemoryStore
+        store = ProjectMemoryStore()
+        projects = store.get_projects(status=status)
+        summary  = store.get_summary()
+        return JSONResponse({"projects": projects, "summary": summary})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class CreateProjectRequest(BaseModel):
+    name:        str
+    description: str = ""
+    status:      str = "active"
+    owner:       str = ""
+    deadline:    str = ""
+    tags:        list[str] = []
+
+
+@app.post("/api/projects")
+async def create_project(body: CreateProjectRequest) -> JSONResponse:
+    """Create a new project."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.project import ProjectMemoryStore
+        store   = ProjectMemoryStore()
+        project = store.create_project(
+            name=body.name, description=body.description,
+            status=body.status, owner=body.owner,
+            deadline=body.deadline, tags=body.tags,
+        )
+        return JSONResponse(project, status_code=201)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class UpdateProjectRequest(BaseModel):
+    name:        str | None = None
+    description: str | None = None
+    status:      str | None = None
+    progress:    int | None = None
+    owner:       str | None = None
+    deadline:    str | None = None
+
+
+@app.patch("/api/projects/{project_id}")
+async def update_project(project_id: str, body: UpdateProjectRequest) -> JSONResponse:
+    """Update a project's fields."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.project import ProjectMemoryStore
+        store   = ProjectMemoryStore()
+        updates = {k: v for k, v in body.model_dump().items() if v is not None}
+        ok      = store.update_project(project_id, **updates)
+        if not ok:
+            return JSONResponse({"error": "Project not found"}, status_code=404)
+        return JSONResponse({"updated": project_id})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class AddTaskRequest(BaseModel):
+    title:    str
+    assignee: str = ""
+    due_date: str = ""
+    priority: int = 2
+    notes:    str = ""
+
+
+@app.post("/api/projects/{project_id}/tasks")
+async def add_task(project_id: str, body: AddTaskRequest) -> JSONResponse:
+    """Add a task to a project."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.project import ProjectMemoryStore
+        store = ProjectMemoryStore()
+        task  = store.add_task(project_id, body.title, body.assignee, body.due_date, body.priority, body.notes)
+        if task is None:
+            return JSONResponse({"error": "Project not found"}, status_code=404)
+        return JSONResponse(task, status_code=201)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/projects/{project_id}/tasks/{task_id}/complete")
+async def complete_task(project_id: str, task_id: str) -> JSONResponse:
+    """Mark a task as complete."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.memory.domains.project import ProjectMemoryStore
+        store = ProjectMemoryStore()
+        ok    = store.complete_task(project_id, task_id)
+        if not ok:
+            return JSONResponse({"error": "Project or task not found"}, status_code=404)
+        return JSONResponse({"completed": task_id})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Goals (V2)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/goals")
+async def list_goals() -> JSONResponse:
+    """Return all active goals and a summary."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        monitor = _orchestrator.goal_monitor
+        goals   = [
+            {
+                "goal_id":      g.goal_id,
+                "title":        g.title,
+                "description":  g.description,
+                "target_value": g.target_value,
+                "current_value":g.current_value,
+                "unit":         g.unit,
+                "progress_pct": g.progress_pct,
+                "status":       g.status.value,
+                "is_overdue":   g.is_overdue,
+                "deadline":     g.deadline,
+                "tags":         g.tags,
+            }
+            for g in monitor.active_goals()
+        ]
+        return JSONResponse({"goals": goals, "summary": monitor.summary()})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class AddGoalRequest(BaseModel):
+    title:        str
+    description:  str   = ""
+    target_value: float = 100.0
+    unit:         str   = ""
+    deadline:     float = 0.0
+    tags:         list[str] = []
+
+
+@app.post("/api/goals")
+async def add_goal(body: AddGoalRequest) -> JSONResponse:
+    """Add a new goal to the GoalMonitor."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        import uuid, time
+        from sovereign.proactive.goal_monitor import Goal
+        monitor = _orchestrator.goal_monitor
+        goal = Goal(
+            goal_id=str(uuid.uuid4())[:8],
+            title=body.title,
+            description=body.description,
+            target_value=body.target_value,
+            unit=body.unit,
+            deadline=body.deadline,
+            tags=body.tags,
+        )
+        monitor.add(goal)
+        return JSONResponse({"goal_id": goal.goal_id, "title": goal.title}, status_code=201)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class UpdateProgressRequest(BaseModel):
+    value: float
+
+
+@app.patch("/api/goals/{goal_id}/progress")
+async def update_goal_progress(goal_id: str, body: UpdateProgressRequest) -> JSONResponse:
+    """Update a goal's current progress value."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        monitor = _orchestrator.goal_monitor
+        goal    = monitor.update_progress(goal_id, body.value)
+        if goal is None:
+            return JSONResponse({"error": "Goal not found"}, status_code=404)
+        return JSONResponse({
+            "goal_id":     goal.goal_id,
+            "progress_pct":goal.progress_pct,
+            "status":      goal.status.value,
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Suggestions & Integrations (V2)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/suggestions")
+async def list_suggestions() -> JSONResponse:
+    """Return current proactive suggestions from SuggestionEngine."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        engine  = _orchestrator.suggestion_engine
+        snap    = await _orchestrator._memory.get_snapshot(domains=["financial","project","operational"])
+        suggestions = engine.evaluate(snap)
+        return JSONResponse({"suggestions": [
+            {
+                "id":          s.suggestion_id,
+                "title":       s.title,
+                "description": s.description,
+                "action":      s.action,
+                "priority":    s.priority,
+                "source":      s.source,
+            }
+            for s in suggestions
+        ]})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/integrations")
+async def list_integrations() -> JSONResponse:
+    """Return status of all integration connectors."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        return JSONResponse({"integrations": _orchestrator.integration_manager.list_all()})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)

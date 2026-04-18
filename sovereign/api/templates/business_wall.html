@@ -196,13 +196,48 @@ function bwall() {
     init() {
       this.tickClock();
       setInterval(() => this.tickClock(), 1000);
-      this.kpis[0].value = String(this.projects.filter(p=>p.status==='active').length);
-      this.kpis[3].value = String(this.projects.filter(p=>p.status==='blocked').length);
       this.populateAgents();
+      this.fetchLiveData();
+      setInterval(() => this.fetchLiveData(), 10000);
       this.connectWS();
     },
     tickClock() {
       this.clock = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    },
+    async fetchLiveData() {
+      try {
+        const [projRes, goalRes] = await Promise.all([
+          fetch('/api/projects'), fetch('/api/goals'),
+        ]);
+        if (projRes.ok) {
+          const data = await projRes.json();
+          const ps = data.projects || [];
+          if (ps.length) {
+            this.projects = ps.map(p => ({
+              id: p.project_id, name: p.name, agent: p.owner || 'sovereign',
+              status: p.status, pct: p.progress || 0,
+              description: p.description || '', due: p.deadline || '—',
+              tasks: (p.tasks || []).length,
+            }));
+          }
+          const s = data.summary || {};
+          this.kpis[0].value = String(s.active || 0);
+          this.kpis[3].value = String(s.blocked || 0);
+          this.kpis[2].value = String(s.done || 0);
+          const todayTasks = (data.projects || []).flatMap(p =>
+            (p.tasks || []).filter(t => t.status !== 'done')
+          );
+          this.kpis[1].value = String(todayTasks.length);
+          this.activeTasks = todayTasks.slice(0, 8).map(t => ({
+            title: t.title, agent: t.assignee || 'sovereign',
+            priority: t.priority >= 3 ? 'high' : t.priority === 2 ? 'med' : 'low',
+          }));
+        }
+        if (goalRes.ok) {
+          const data = await goalRes.json();
+          /* goals available for future goal panel — not yet rendered in business wall */
+        }
+      } catch(e) { /* silent — no live data yet */ }
     },
     populateAgents() {
       const ids = ['ceo_agent','chief_of_staff','marketing_strategist','sales_agent','hr_manager',

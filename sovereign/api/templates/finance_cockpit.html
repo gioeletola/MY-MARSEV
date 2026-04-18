@@ -202,23 +202,52 @@ function finance() {
     init() {
       this.tickClock();
       setInterval(() => this.tickClock(), 1000);
-      this.buildCashflowBars();
+      this.fetchLiveData();
+      setInterval(() => this.fetchLiveData(), 10000);
       this.connectWS();
     },
     tickClock() {
       this.clock = new Date().toLocaleTimeString('en-GB',{hour12:false});
     },
-    buildCashflowBars() {
-      const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-      const now = new Date().getMonth();
-      const demo = [3200,2800,-500,4100,3600,3900,2200,-800,4500,3100,5200,4800];
-      this.cashflowBars = months.slice(0,now+1).map((m,i) => {
-        const v = demo[i] || 0;
-        const maxAbs = 6000;
-        const h = Math.max(4, Math.abs(v) / maxAbs * 70);
-        return {label:m, v, h};
-      });
+    async fetchLiveData() {
+      try {
+        const [sumRes, portRes, cfRes] = await Promise.all([
+          fetch('/api/finance/summary'), fetch('/api/finance/portfolio'), fetch('/api/finance/cashflow?months=12'),
+        ]);
+        if (sumRes.ok) {
+          const s = await sumRes.json();
+          this.kpis[0].value = '$' + (s.net_worth || 0).toLocaleString();
+          this.kpis[1].value = '$' + (s.monthly_cashflow || 0).toLocaleString();
+          this.kpis[2].value = '$' + (s.monthly_expenses || 0).toLocaleString();
+          this.kpis[3].value = (s.savings_rate || 0).toFixed(1) + '%';
+        }
+        if (portRes.ok) {
+          const p = await portRes.json();
+          const byClass = p.by_class || {};
+          const labels = Object.keys(byClass);
+          if (labels.length) {
+            this.portfolio = labels.map(l => ({
+              label: l.charAt(0).toUpperCase() + l.slice(1),
+              value: '$' + (byClass[l]||0).toLocaleString(undefined,{maximumFractionDigits:0}),
+              chg: 0,
+            }));
+          }
+        }
+        if (cfRes.ok) {
+          const c = await cfRes.json();
+          const bars = c.cashflow || [];
+          if (bars.length) {
+            const maxAbs = Math.max(...bars.map(b => Math.abs(b.cashflow)), 1);
+            this.cashflowBars = bars.map(b => ({
+              label: b.month.slice(5),
+              v: b.cashflow,
+              h: Math.max(4, Math.abs(b.cashflow) / maxAbs * 70),
+            }));
+          }
+        }
+      } catch(e) { /* silent — no live data yet */ }
     },
+    buildCashflowBars() { /* superseded by fetchLiveData */ },
     connectWS() {
       const proto = location.protocol==='https:'?'wss:':'ws:';
       this.ws = new WebSocket(`${proto}//${location.host}/ws`);

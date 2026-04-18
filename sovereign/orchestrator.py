@@ -100,10 +100,17 @@ from sovereign.router.model_router import ModelRouter
 from sovereign.router.cost_estimator import estimate_from_usage
 from sovereign.infra.token_budget_enforcer import TokenBudgetEnforcer
 from sovereign.infra.notification_service import NotificationService
-from sovereign.infra.scheduler import Scheduler
+from sovereign.infra.scheduler import Scheduler, ScheduleFrequency
+from sovereign.infra.worker_manager import WorkerManager, WorkerSpec
 from sovereign.governance.escalation import EscalationChain, EscalationLevel
 from sovereign.governance.spending_limits import SpendingLimitsEngine
 from sovereign.governance.risk_scoring import RiskScoringEngine
+from sovereign.proactive.goal_monitor import GoalMonitor, Goal
+from sovereign.proactive.suggestion_engine import SuggestionEngine
+from sovereign.proactive.event_engine import EventEngine
+from sovereign.proactive.silent_ops import SilentOps, SilentTask
+from sovereign.integrations.integration_manager import IntegrationManager
+from sovereign.tools.builtin.csv_import_tool import CSVImportTool
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +142,7 @@ class SovereignOrchestrator:
         self._init_factory()
         self._init_input_pipeline()
         self._init_health()
+        self._init_v2()
 
         logger.info(
             "SOVEREIGN AI OS started",
@@ -620,6 +628,7 @@ class SovereignOrchestrator:
         self._tool_registry.register(NotificationTool())
         self._tool_registry.register(CalculatorTool())
         self._tool_registry.register(ClipboardTool())
+        self._tool_registry.register(CSVImportTool())
         self._tool_router = ToolRouter(self._tool_registry)
 
     def _init_prompt_builder(self) -> None:
@@ -746,3 +755,117 @@ class SovereignOrchestrator:
         self._health = HealthMonitor()
         self._eval_agent = EvalAgent()
         self._metrics = MetricsCollector()
+
+    def _init_v2(self) -> None:
+        """Initialize V2 proactive intelligence layer."""
+        self._goal_monitor = GoalMonitor()
+        self._suggestion_engine = SuggestionEngine()
+        self._event_engine = EventEngine()
+        self._silent_ops = SilentOps()
+        self._worker_manager = WorkerManager()
+        self._integration_manager = IntegrationManager()
+        self._bg_stop_event = asyncio.Event()
+
+        # Seed scheduler with V2 daily jobs (idempotent)
+        existing = {j.name for j in self._scheduler.list_jobs()}
+        if "morning_brief" not in existing:
+            self._scheduler.schedule(
+                "morning_brief", "ceo_agent",
+                "Prepare a concise morning briefing: top priorities, risks, and 3 recommended actions for today.",
+                ScheduleFrequency.DAILY,
+            )
+        if "cashflow_digest" not in existing:
+            self._scheduler.schedule(
+                "cashflow_digest", "cashflow_analyst",
+                "Analyze recent transactions and produce a daily cashflow digest with key spending insights.",
+                ScheduleFrequency.DAILY,
+            )
+
+        # Seed default quarterly goals (only if store is empty)
+        import time as _time
+        if not self._goal_monitor.active_goals():
+            q2_deadline = _time.mktime((2026, 6, 30, 23, 59, 0, 0, 0, -1))
+            self._goal_monitor.add(Goal(
+                goal_id="q2_revenue",
+                title="Q2 Revenue Target",
+                description="Reach $500K revenue by end of Q2 2026",
+                target_value=500_000.0, unit="USD", deadline=q2_deadline,
+                tags=["finance", "q2"],
+            ))
+            self._goal_monitor.add(Goal(
+                goal_id="q2_savings",
+                title="Monthly Savings Rate",
+                description="Maintain 30%+ monthly savings rate through Q2 2026",
+                target_value=30.0, unit="%", deadline=q2_deadline,
+                tags=["finance", "savings"],
+            ))
+            self._goal_monitor.add(Goal(
+                goal_id="q2_agents",
+                title="Agent Coverage Expansion",
+                description="Deploy all 200+ swarm agents and verify orchestration",
+                target_value=200.0, unit="agents", deadline=q2_deadline,
+                tags=["ops", "swarm"],
+            ))
+
+        # Register SilentOps background tasks
+        async def _noop_health():
+            logger.debug("SilentOps: health ping")
+
+        self._silent_ops.register(SilentTask(
+            task_id="bg_health_ping", name="Background Health Ping",
+            interval_s=300.0, callback=_noop_health,
+        ))
+
+        # Register WorkerManager workers (wrapping async run_loops)
+        self._worker_manager.register(WorkerSpec(
+            worker_id="event_engine",
+            coro_factory=lambda: self._event_engine.run_loop(self._bg_stop_event),
+            description="Time-triggered proactive event dispatcher",
+        ))
+        self._worker_manager.register(WorkerSpec(
+            worker_id="silent_ops",
+            coro_factory=lambda: self._silent_ops.run_loop(self._bg_stop_event),
+            description="Low-priority background maintenance tasks",
+        ))
+
+        logger.info("V2 proactive layer initialised")
+
+    # ------------------------------------------------------------------
+    # Background task lifecycle (called by FastAPI lifespan)
+    # ------------------------------------------------------------------
+
+    async def start_background_tasks(self) -> None:
+        """Start all V2 background workers (EventEngine, SilentOps)."""
+        try:
+            self._bg_stop_event.clear()
+            await self._worker_manager.start_all()
+            logger.info("SOVEREIGN V2 background tasks started")
+        except Exception as exc:
+            logger.warning("Background task startup warning: %s", exc)
+
+    async def stop_background_tasks(self) -> None:
+        """Gracefully stop all V2 background workers."""
+        try:
+            self._bg_stop_event.set()
+            self._event_engine.stop()
+            self._silent_ops.stop()
+            await self._worker_manager.stop_all()
+            logger.info("SOVEREIGN V2 background tasks stopped")
+        except Exception as exc:
+            logger.warning("Background task shutdown warning: %s", exc)
+
+    # ------------------------------------------------------------------
+    # V2 public properties
+    # ------------------------------------------------------------------
+
+    @property
+    def goal_monitor(self) -> GoalMonitor:
+        return self._goal_monitor
+
+    @property
+    def suggestion_engine(self) -> SuggestionEngine:
+        return self._suggestion_engine
+
+    @property
+    def integration_manager(self) -> IntegrationManager:
+        return self._integration_manager
