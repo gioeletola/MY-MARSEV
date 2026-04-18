@@ -136,26 +136,22 @@ class WorkerManager:
 
 
 # ---------------------------------------------------------------------------
-# H24 Worker Pool
+# H24 Worker Pool — always-on workers with auto-restart
 # ---------------------------------------------------------------------------
 
-
 class H24WorkerPool:
-    """Keeps N workers running continuously; auto-restarts crashed workers.
-
-    Workers drain items from *task_queue* (any object with an async ``get``
-    method, e.g. ``asyncio.Queue``).  When a worker raises an unhandled
-    exception the crash is counted and the loop continues immediately.
-    """
+    """Keeps N workers running 24/7; auto-restarts crashed workers."""
 
     def __init__(
         self,
         n_workers: int = 3,
-        task_queue: asyncio.Queue | None = None,  # type: ignore[type-arg]
+        task_queue: asyncio.Queue[Any] | None = None,
+        monitor_interval_s: float = 0.1,
     ) -> None:
+        self._workers: list[asyncio.Task[None]] = []
         self._n = n_workers
-        self._queue = task_queue
-        self._workers: list[asyncio.Task] = []  # type: ignore[type-arg]
+        self._queue: asyncio.Queue[Any] = task_queue or asyncio.Queue()
+        self._monitor_interval = monitor_interval_s
         self._stats: dict[str, int] = {
             "started": 0,
             "crashed": 0,
@@ -163,53 +159,69 @@ class H24WorkerPool:
         }
 
     async def start(self, stop_event: asyncio.Event) -> None:
-        """Launch all workers and supervise them until *stop_event* is set."""
-        self._workers = []
-        for worker_id in range(self._n):
-            task = asyncio.create_task(
-                self._worker_loop(worker_id, stop_event),
-                name=f"h24_worker_{worker_id}",
-            )
+        """Launch N workers; monitor and restart any that crash."""
+        for i in range(self._n):
+            task = asyncio.create_task(self._worker_loop(i, stop_event))
             self._workers.append(task)
             self._stats["started"] += 1
+            logger.info("H24WorkerPool: worker-%d started", i)
 
-        # Wait for all workers (they only exit when stop_event fires)
-        await asyncio.gather(*self._workers, return_exceptions=True)
+        # Monitor loop — restart crashed workers until stop_event is set
+        while not stop_event.is_set():
+            for idx, task in enumerate(self._workers):
+                if task.done() and not stop_event.is_set():
+                    exc = task.exception() if not task.cancelled() else None
+                    if exc is not None:
+                        self._stats["crashed"] += 1
+                        logger.error(
+                            "H24WorkerPool: worker-%d crashed: %s — restarting", idx, exc
+                        )
+                    self._stats["restarted"] += 1
+                    new_task = asyncio.create_task(
+                        self._worker_loop(idx, stop_event)
+                    )
+                    self._workers[idx] = new_task
+                    self._stats["started"] += 1
+            try:
+                await asyncio.wait_for(
+                    asyncio.shield(stop_event.wait()),
+                    timeout=self._monitor_interval,
+                )
+            except asyncio.TimeoutError:
+                pass
 
-    async def _worker_loop(self, worker_id: int, stop_event: asyncio.Event) -> None:
-        """Drain queue items; on exception log and increment stats, then continue."""
-        logger.info("H24WorkerPool: worker %d started", worker_id)
+        # Cancel all remaining workers
+        for task in self._workers:
+            if not task.done():
+                task.cancel()
+        if self._workers:
+            await asyncio.gather(*self._workers, return_exceptions=True)
+        logger.info("H24WorkerPool: all workers stopped")
+
+    async def _worker_loop(
+        self, worker_id: int, stop_event: asyncio.Event
+    ) -> None:
+        """Drain task_queue until stop_event fires; on unhandled crash bubble up."""
+        logger.debug("H24WorkerPool: worker-%d loop running", worker_id)
         while not stop_event.is_set():
             try:
-                if self._queue is not None:
-                    try:
-                        item = await asyncio.wait_for(
-                            self._queue.get(), timeout=1.0
-                        )
-                        # Process item — subclasses / callers can patch _process
-                        await self._process(worker_id, item)
-                        self._queue.task_done()
-                    except asyncio.TimeoutError:
-                        continue
-                else:
-                    # No queue supplied — idle loop
-                    await asyncio.sleep(1.0)
+                task = await asyncio.wait_for(self._queue.get(), timeout=1.0)
+                logger.debug("H24WorkerPool: worker-%d processing task", worker_id)
+                if callable(task):
+                    result = task()
+                    if asyncio.iscoroutine(result):
+                        await result
+                self._queue.task_done()
+            except asyncio.TimeoutError:
+                continue
             except asyncio.CancelledError:
-                break
+                return
             except Exception as exc:
-                self._stats["crashed"] += 1
-                self._stats["restarted"] += 1
                 logger.error(
-                    "H24WorkerPool: worker %d crashed: %s — restarting",
-                    worker_id,
-                    exc,
+                    "H24WorkerPool: worker-%d task error: %s", worker_id, exc
                 )
-                # Brief back-off before continuing
-                await asyncio.sleep(0.1)
-
-    async def _process(self, worker_id: int, item: object) -> None:  # noqa: ARG002
-        """Override in subclasses to handle queue items."""
+                # Signal crash so monitor loop can restart
+                raise
 
     def get_stats(self) -> dict[str, int]:
-        """Return a snapshot of pool statistics."""
         return dict(self._stats)

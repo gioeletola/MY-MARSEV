@@ -9,6 +9,27 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+# ---------------------------------------------------------------------------
+# Pricing tables (USD per 1M tokens)
+# ---------------------------------------------------------------------------
+
+_PROVIDER_PRICING: dict[str, dict[str, tuple[float, float]]] = {
+    "anthropic": {
+        "claude-opus-4-6":          (15.00, 75.00),
+        "claude-sonnet-4-6":        (3.00,  15.00),
+        "claude-haiku-4-5-20251001": (0.80,   4.00),
+    },
+    "openai": {
+        "gpt-4o":      (5.00,  15.00),
+        "gpt-4o-mini": (0.15,   0.60),
+        "o1-mini":     (3.00,  12.00),
+    },
+    "gemini": {
+        "gemini-1.5-flash": (0.00,  0.00),
+        "gemini-1.5-pro":   (3.50, 10.50),
+    },
+}
+
 
 class ModelTier(str, Enum):
     FRONTIER = "frontier"   # claude-opus-4-6 — strategic, complex, sensitive
@@ -103,76 +124,49 @@ class ModelRouter:
     # Multi-provider routing
     # ------------------------------------------------------------------
 
-    # Pricing per 1M tokens: {provider: {model: {input, output}}}
-    _PRICING: dict[str, dict[str, dict[str, float]]] = {
-        "anthropic": {
-            "claude-opus-4-7":           {"input": 15.0, "output": 75.0},
-            "claude-sonnet-4-6":         {"input": 3.0,  "output": 15.0},
-            "claude-haiku-4-5-20251001": {"input": 0.25, "output": 1.25},
-        },
-        "openai": {
-            "gpt-4o":      {"input": 5.0,  "output": 15.0},
-            "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-            "o1-mini":     {"input": 3.0,  "output": 12.0},
-        },
-        "gemini": {
-            "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-            "gemini-1.5-pro":   {"input": 3.50,  "output": 10.50},
-        },
-    }
-
     def route_to_provider(
         self,
-        task_complexity: float,
-        budget_limit_usd: float,
+        task_complexity: float = 0.5,
+        budget_limit_usd: float = 1.0,
         preferred_provider: str = "anthropic",
     ) -> tuple[str, str]:
-        """Select (provider, model) based on complexity and budget.
-
-        Rules (evaluated in order):
-        1. If preferred_provider != 'anthropic' → try to satisfy with preferred.
-        2. budget < 0.001 AND complexity < 0.5  → ("openai", "gpt-4o-mini")
-        3. complexity >= 0.8                     → ("anthropic", "claude-opus-4-7")
-        4. else                                  → ("anthropic", "claude-sonnet-4-6")
         """
-        if preferred_provider != "anthropic":
-            result = self._preferred_route(preferred_provider, task_complexity)
-            if result is not None:
-                return result
+        Select (provider, model) based on complexity and budget.
 
-        if budget_limit_usd < 0.001 and task_complexity < 0.5:
+        Returns a (provider_id, model_id) tuple.
+
+        Rules:
+        - budget_limit_usd < 0.001  → openai / gpt-4o-mini  (cheapest)
+        - task_complexity >= 0.8    → anthropic / claude-opus-4-6  (most capable)
+        - otherwise                 → anthropic / claude-sonnet-4-6  (default)
+
+        The *preferred_provider* hint is respected only when no other rule fires.
+        """
+        if budget_limit_usd < 0.001:
             return ("openai", "gpt-4o-mini")
         if task_complexity >= 0.8:
-            return ("anthropic", "claude-opus-4-7")
+            return ("anthropic", "claude-opus-4-6")
+        # Default: respect preferred_provider hint
+        if preferred_provider == "openai":
+            return ("openai", "gpt-4o-mini")
+        if preferred_provider == "gemini":
+            return ("gemini", "gemini-1.5-flash")
         return ("anthropic", "claude-sonnet-4-6")
 
-    def _preferred_route(
-        self, provider: str, task_complexity: float
-    ) -> tuple[str, str] | None:
-        """Return a sensible (provider, model) pair for a non-Anthropic provider."""
-        if provider == "openai":
-            if task_complexity >= 0.8:
-                return ("openai", "gpt-4o")
-            return ("openai", "gpt-4o-mini")
-        if provider == "gemini":
-            if task_complexity >= 0.8:
-                return ("gemini", "gemini-1.5-pro")
-            return ("gemini", "gemini-1.5-flash")
-        return None
-
+    @staticmethod
     def estimate_cost(
-        self,
         provider: str,
         model: str,
         input_tokens: int,
         output_tokens: int,
     ) -> float:
-        """Return estimated cost in USD using the built-in pricing table."""
-        provider_pricing = self._PRICING.get(provider, {})
-        pricing = provider_pricing.get(model)
-        if pricing is None:
+        """Return estimated USD cost for the given provider/model/token counts."""
+        provider_table = _PROVIDER_PRICING.get(provider, {})
+        prices = provider_table.get(model)
+        if not prices:
             return 0.0
-        return (
-            input_tokens * pricing["input"] / 1_000_000
-            + output_tokens * pricing["output"] / 1_000_000
+        return round(
+            (input_tokens / 1_000_000) * prices[0]
+            + (output_tokens / 1_000_000) * prices[1],
+            6,
         )
