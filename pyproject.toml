@@ -4,10 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sovereign-ai-os"
-version = "0.1.0"
-description = "Multi-agent orchestration OS built on the Anthropic Claude API"
+version = "0.2.0"
+description = "Multi-agent AI operating system — 200+ specialized agents"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
+readme = "README.md"
 dependencies = [
     "anthropic>=0.40.0",
     "pydantic>=2.7.0",
@@ -74,3 +75,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["sovereign"]
+omit = ["tests/*", "sovereign/*/migrations/*"]

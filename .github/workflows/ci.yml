@@ -29,7 +29,10 @@ jobs:
         run: ruff check sovereign/ tests/
 
       - name: Run tests
-        run: python -m pytest tests/ -q --tb=short --cov=sovereign --cov-report=term-missing
+        run: python -m pytest tests/ -q --tb=short --cov=sovereign --cov-report=term-missing --cov-fail-under=35
+
+      - name: Import smoke test
+        run: python -c "import sovereign; print(sovereign.__version__)"
 
   build:
     runs-on: ubuntu-latest

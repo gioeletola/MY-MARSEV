@@ -98,3 +98,81 @@ class ModelRouter:
             "system":         MODEL_IDS[ModelTier.FAST],
         }
         return AGENT_MODELS.get(agent_id, MODEL_IDS[ModelTier.BALANCED])
+
+    # ------------------------------------------------------------------
+    # Multi-provider routing
+    # ------------------------------------------------------------------
+
+    # Pricing per 1M tokens: {provider: {model: {input, output}}}
+    _PRICING: dict[str, dict[str, dict[str, float]]] = {
+        "anthropic": {
+            "claude-opus-4-7":           {"input": 15.0, "output": 75.0},
+            "claude-sonnet-4-6":         {"input": 3.0,  "output": 15.0},
+            "claude-haiku-4-5-20251001": {"input": 0.25, "output": 1.25},
+        },
+        "openai": {
+            "gpt-4o":      {"input": 5.0,  "output": 15.0},
+            "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+            "o1-mini":     {"input": 3.0,  "output": 12.0},
+        },
+        "gemini": {
+            "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
+            "gemini-1.5-pro":   {"input": 3.50,  "output": 10.50},
+        },
+    }
+
+    def route_to_provider(
+        self,
+        task_complexity: float,
+        budget_limit_usd: float,
+        preferred_provider: str = "anthropic",
+    ) -> tuple[str, str]:
+        """Select (provider, model) based on complexity and budget.
+
+        Rules (evaluated in order):
+        1. If preferred_provider != 'anthropic' → try to satisfy with preferred.
+        2. budget < 0.001 AND complexity < 0.5  → ("openai", "gpt-4o-mini")
+        3. complexity >= 0.8                     → ("anthropic", "claude-opus-4-7")
+        4. else                                  → ("anthropic", "claude-sonnet-4-6")
+        """
+        if preferred_provider != "anthropic":
+            result = self._preferred_route(preferred_provider, task_complexity)
+            if result is not None:
+                return result
+
+        if budget_limit_usd < 0.001 and task_complexity < 0.5:
+            return ("openai", "gpt-4o-mini")
+        if task_complexity >= 0.8:
+            return ("anthropic", "claude-opus-4-7")
+        return ("anthropic", "claude-sonnet-4-6")
+
+    def _preferred_route(
+        self, provider: str, task_complexity: float
+    ) -> tuple[str, str] | None:
+        """Return a sensible (provider, model) pair for a non-Anthropic provider."""
+        if provider == "openai":
+            if task_complexity >= 0.8:
+                return ("openai", "gpt-4o")
+            return ("openai", "gpt-4o-mini")
+        if provider == "gemini":
+            if task_complexity >= 0.8:
+                return ("gemini", "gemini-1.5-pro")
+            return ("gemini", "gemini-1.5-flash")
+        return None
+
+    def estimate_cost(
+        self,
+        provider: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> float:
+        """Return estimated cost in USD using the built-in pricing table."""
+        provider_pricing = self._PRICING.get(provider, {})
+        pricing = provider_pricing.get(model)
+        if pricing is None:
+            return 0.0
+        return (
+            input_tokens * pricing["input"] / 1_000_000
+            + output_tokens * pricing["output"] / 1_000_000
+        )

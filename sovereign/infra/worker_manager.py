@@ -133,3 +133,83 @@ class WorkerManager:
 
     def failed_workers(self) -> list[str]:
         return [wid for wid, s in self._workers.items() if s.status == WorkerStatus.FAILED]
+
+
+# ---------------------------------------------------------------------------
+# H24 Worker Pool
+# ---------------------------------------------------------------------------
+
+
+class H24WorkerPool:
+    """Keeps N workers running continuously; auto-restarts crashed workers.
+
+    Workers drain items from *task_queue* (any object with an async ``get``
+    method, e.g. ``asyncio.Queue``).  When a worker raises an unhandled
+    exception the crash is counted and the loop continues immediately.
+    """
+
+    def __init__(
+        self,
+        n_workers: int = 3,
+        task_queue: asyncio.Queue | None = None,  # type: ignore[type-arg]
+    ) -> None:
+        self._n = n_workers
+        self._queue = task_queue
+        self._workers: list[asyncio.Task] = []  # type: ignore[type-arg]
+        self._stats: dict[str, int] = {
+            "started": 0,
+            "crashed": 0,
+            "restarted": 0,
+        }
+
+    async def start(self, stop_event: asyncio.Event) -> None:
+        """Launch all workers and supervise them until *stop_event* is set."""
+        self._workers = []
+        for worker_id in range(self._n):
+            task = asyncio.create_task(
+                self._worker_loop(worker_id, stop_event),
+                name=f"h24_worker_{worker_id}",
+            )
+            self._workers.append(task)
+            self._stats["started"] += 1
+
+        # Wait for all workers (they only exit when stop_event fires)
+        await asyncio.gather(*self._workers, return_exceptions=True)
+
+    async def _worker_loop(self, worker_id: int, stop_event: asyncio.Event) -> None:
+        """Drain queue items; on exception log and increment stats, then continue."""
+        logger.info("H24WorkerPool: worker %d started", worker_id)
+        while not stop_event.is_set():
+            try:
+                if self._queue is not None:
+                    try:
+                        item = await asyncio.wait_for(
+                            self._queue.get(), timeout=1.0
+                        )
+                        # Process item — subclasses / callers can patch _process
+                        await self._process(worker_id, item)
+                        self._queue.task_done()
+                    except asyncio.TimeoutError:
+                        continue
+                else:
+                    # No queue supplied — idle loop
+                    await asyncio.sleep(1.0)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                self._stats["crashed"] += 1
+                self._stats["restarted"] += 1
+                logger.error(
+                    "H24WorkerPool: worker %d crashed: %s — restarting",
+                    worker_id,
+                    exc,
+                )
+                # Brief back-off before continuing
+                await asyncio.sleep(0.1)
+
+    async def _process(self, worker_id: int, item: object) -> None:  # noqa: ARG002
+        """Override in subclasses to handle queue items."""
+
+    def get_stats(self) -> dict[str, int]:
+        """Return a snapshot of pool statistics."""
+        return dict(self._stats)
