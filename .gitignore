@@ -36,3 +36,4 @@ data/ledger/*.jsonl
 
 # macOS
 .DS_Store
+.claude/
