@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en" x-data="entitiesApp()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — Connected Entities</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
+                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
+                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
+        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>
+    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
+    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
+    .gradient-border {
+      background:linear-gradient(#11111a,#11111a) padding-box,
+                 linear-gradient(135deg,#06b6d4,#7c3aed) border-box;
+      border:1px solid transparent; border-radius:12px;
+    }
+    .pulse-dot::before { content:''; display:inline-block; width:6px; height:6px;
+      border-radius:50%; margin-right:6px; vertical-align:middle; animation:pulse 2s infinite; }
+    .pulse-dot.active::before { background:#06b6d4; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:0.65rem; font-weight:600; letter-spacing:0.05em; }
+    .badge-active  { background:rgba(16,185,129,0.15); color:#10b981; }
+    .badge-paused  { background:rgba(245,158,11,0.15); color:#f59e0b; }
+    .badge-error   { background:rgba(244,63,94,0.15); color:#f43f5e; }
+    .badge-cyan    { background:rgba(6,182,212,0.15); color:#06b6d4; }
+    .badge-violet  { background:rgba(124,58,237,0.15); color:#a78bfa; }
+    .section-title { font-size:0.7rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#06b6d4; }
+    .skeleton { background:linear-gradient(90deg,#1e1e2e 25%,#252535 50%,#1e1e2e 75%);
+                background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:4px; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .btn { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px;
+           font-size:0.7rem; font-weight:500; cursor:pointer; transition:all 0.15s; }
+    .btn-cyan   { background:rgba(6,182,212,0.15); color:#06b6d4; border:1px solid rgba(6,182,212,0.3); }
+    .btn-cyan:hover { background:rgba(6,182,212,0.25); }
+    .btn-violet { background:rgba(124,58,237,0.15); color:#a78bfa; border:1px solid rgba(124,58,237,0.3); }
+    .btn-violet:hover { background:rgba(124,58,237,0.25); }
+    .btn-rose   { background:rgba(244,63,94,0.12); color:#f43f5e; border:1px solid rgba(244,63,94,0.3); }
+    .btn-rose:hover { background:rgba(244,63,94,0.22); }
+    .btn-primary { background:linear-gradient(135deg,#06b6d4,#7c3aed); color:#fff; border:none; padding:6px 16px; font-size:0.8rem; border-radius:8px; }
+    .btn-primary:hover { opacity:0.9; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:50;
+                     display:flex; align-items:center; justify-content:center; }
+    .modal { background:#11111a; border:1px solid #1e1e2e; border-radius:16px; padding:28px;
+             width:min(560px,95vw); max-height:90vh; overflow-y:auto; }
+    input, select, textarea {
+      background:#0a0a0f; border:1px solid #1e1e2e; border-radius:6px; color:#e2e8f0;
+      padding:6px 10px; font-size:0.8rem; width:100%; outline:none; transition:border 0.15s;
+    }
+    input:focus, select:focus { border-color:#06b6d4; }
+    label { display:block; font-size:0.7rem; font-weight:500; color:#6b7280; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.06em; }
+    .entity-card { position:relative; }
+    .entity-card:hover { border-color:rgba(6,182,212,0.3); }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<!-- Nav -->
+<header class="flex items-center justify-between mb-6 px-2">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg gradient-border flex items-center justify-center text-cyan font-mono font-bold text-sm">S</div>
+    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
+    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">CONNECTED ENTITIES</span>
+  </div>
+  <div class="flex items-center gap-4 text-xs text-muted">
+    <span class="font-mono" x-text="clock"></span>
+    <span class="pulse-dot active text-cyan font-medium">LIVE</span>
+    <a href="/" class="hover:text-cyan transition-colors">← Chat</a>
+    <a href="/dashboard" class="hover:text-cyan transition-colors">Executive</a>
+    <a href="/finance" class="hover:text-cyan transition-colors">Finance</a>
+    <a href="/expansion" class="hover:text-cyan transition-colors">Expansion</a>
+  </div>
+</header>
+
+<!-- KPI bar -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="card p-4" style="box-shadow:0 0 24px rgba(6,182,212,0.08)">
+    <div class="text-xs text-muted mb-1">Total Entities</div>
+    <div class="text-2xl font-bold font-mono text-cyan" x-text="entities.length || '—'"></div>
+    <div class="text-xs text-muted mt-1">connected</div>
+  </div>
+  <div class="card p-4" style="box-shadow:0 0 24px rgba(16,185,129,0.08)">
+    <div class="text-xs text-muted mb-1">Active</div>
+    <div class="text-2xl font-bold font-mono text-emerald-400"
+         x-text="entities.filter(e=>e.status==='active').length || '0'"></div>
+    <div class="text-xs text-muted mt-1">running</div>
+  </div>
+  <div class="card p-4" style="box-shadow:0 0 24px rgba(124,58,237,0.08)">
+    <div class="text-xs text-muted mb-1">Categories</div>
+    <div class="text-2xl font-bold font-mono text-violet-400"
+         x-text="new Set(entities.map(e=>e.category)).size || '—'"></div>
+    <div class="text-xs text-muted mt-1">domains</div>
+  </div>
+  <div class="card p-4" style="box-shadow:0 0 24px rgba(245,158,11,0.08)">
+    <div class="text-xs text-muted mb-1">Errors</div>
+    <div class="text-2xl font-bold font-mono text-rose-400"
+         x-text="entities.filter(e=>e.status==='error').length || '0'"></div>
+    <div class="text-xs text-muted mt-1">need attention</div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center gap-3">
+    <span class="section-title">Connected Entities</span>
+    <select x-model="filterCat" @change="applyFilter()"
+            style="width:160px;padding:4px 8px;font-size:0.72rem">
+      <option value="">All Categories</option>
+      <option value="business">🏢 Business</option>
+      <option value="device">📡 Device</option>
+      <option value="account">🔑 Account</option>
+      <option value="social">🌐 Social</option>
+      <option value="external_ai">🤖 External AI</option>
+      <option value="personal">👤 Personal</option>
+      <option value="data_source">💾 Data Source</option>
+    </select>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="text-xs text-muted font-mono">Auto-refresh 30s</span>
+    <button @click="loadEntities()" class="btn btn-cyan">↻ Refresh</button>
+    <button @click="openProvisionModal()" class="btn btn-primary">+ Provision New Entity</button>
+  </div>
+</div>
+
+<!-- Loading skeleton -->
+<template x-if="loading">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <template x-for="i in [1,2,3,4,5,6]">
+      <div class="card p-5">
+        <div class="skeleton h-4 w-2/3 mb-3"></div>
+        <div class="skeleton h-3 w-1/3 mb-4"></div>
+        <div class="skeleton h-3 w-full mb-2"></div>
+        <div class="skeleton h-3 w-4/5"></div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<!-- Empty state -->
+<template x-if="!loading && filtered.length === 0">
+  <div class="card p-12 text-center">
+    <div class="text-4xl mb-4">🔌</div>
+    <div class="text-muted text-sm mb-4">No connected entities yet.</div>
+    <button @click="openProvisionModal()" class="btn btn-primary">+ Provision Your First Entity</button>
+  </div>
+</template>
+
+<!-- Entity cards grid -->
+<template x-if="!loading && filtered.length > 0">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <template x-for="entity in filtered" :key="entity.entity_id">
+      <div class="card entity-card p-5 transition-all duration-200">
+        <!-- Header -->
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl" x-text="categoryIcon(entity.category)"></span>
+            <div>
+              <div class="font-semibold text-sm" x-text="entity.name"></div>
+              <div class="text-xs text-muted font-mono" x-text="entity.entity_id"></div>
+            </div>
+          </div>
+          <span class="badge" :class="statusBadge(entity.status)" x-text="entity.status.toUpperCase()"></span>
+        </div>
+
+        <!-- Meta row -->
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="badge badge-cyan" x-text="entity.category"></span>
+          <span class="badge badge-violet" x-text="entity.ui_panel"></span>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+          <div class="bg-surface rounded p-2">
+            <div class="text-xs font-mono text-cyan" x-text="(entity.agent_bindings||[]).length"></div>
+            <div class="text-xs text-muted">agents</div>
+          </div>
+          <div class="bg-surface rounded p-2">
+            <div class="text-xs font-mono text-violet-400" x-text="(entity.file_attachments||[]).length"></div>
+            <div class="text-xs text-muted">files</div>
+          </div>
+          <div class="bg-surface rounded p-2">
+            <div class="text-xs font-mono text-amber-400" x-text="entity.sync_interval_s > 0 ? Math.round(entity.sync_interval_s/60)+'m' : 'manual'"></div>
+            <div class="text-xs text-muted">sync</div>
+          </div>
+        </div>
+
+        <!-- Last sync -->
+        <div class="text-xs text-muted mb-4">
+          <span>Last sync: </span>
+          <span class="font-mono" x-text="entity.last_synced > 0 ? relativeTime(entity.last_synced) : 'Never'"></span>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="flex gap-2">
+          <button @click="syncEntity(entity.entity_id)" class="btn btn-cyan flex-1">⚡ Sync Now</button>
+          <button @click="editEntity(entity)" class="btn btn-violet">✏ Edit</button>
+          <button @click="confirmDeprovision(entity.entity_id, entity.name)" class="btn btn-rose">✕</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<!-- ========== PROVISION MODAL ========== -->
+<div x-show="showProvisionModal" class="modal-overlay" @click.self="showProvisionModal=false">
+  <div class="modal">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="font-bold text-lg">Provision New Entity</h2>
+      <button @click="showProvisionModal=false" class="text-muted hover:text-white text-xl leading-none">✕</button>
+    </div>
+
+    <form @submit.prevent="provisionEntity()">
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="col-span-2">
+          <label>Entity Name *</label>
+          <input x-model="form.name" required placeholder="e.g. Stripe Account, Home PC, Twitter" />
+        </div>
+        <div>
+          <label>Category *</label>
+          <select x-model="form.category" required>
+            <option value="">Select category…</option>
+            <option value="business">🏢 Business</option>
+            <option value="device">📡 Device</option>
+            <option value="account">🔑 Account</option>
+            <option value="social">🌐 Social</option>
+            <option value="external_ai">🤖 External AI</option>
+            <option value="personal">👤 Personal</option>
+            <option value="data_source">💾 Data Source</option>
+          </select>
+        </div>
+        <div>
+          <label>UI Panel</label>
+          <select x-model="form.ui_panel">
+            <option value="dashboard">Dashboard</option>
+            <option value="sidebar">Sidebar</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </div>
+        <div>
+          <label>Connector Type</label>
+          <input x-model="form.connector_type" placeholder="e.g. email, crm, telegram" />
+        </div>
+        <div>
+          <label>Sync Interval (seconds)</label>
+          <input x-model.number="form.sync_interval_s" type="number" min="0" step="60" placeholder="3600" />
+        </div>
+        <div class="col-span-2">
+          <label>Agent Bindings (comma-separated IDs)</label>
+          <input x-model="form.agent_bindings_raw" placeholder="e.g. ceo,worker,finance_analyst" />
+        </div>
+        <div class="col-span-2">
+          <label>Metadata (JSON, optional)</label>
+          <textarea x-model="form.metadata_raw" rows="2" placeholder='{"key": "value"}'></textarea>
+        </div>
+      </div>
+
+      <div x-show="formError" class="text-rose-400 text-xs mb-3 p-2 rounded bg-rose-900/20 border border-rose-900/30" x-text="formError"></div>
+      <div x-show="formSuccess" class="text-emerald-400 text-xs mb-3 p-2 rounded bg-emerald-900/20 border border-emerald-900/30" x-text="formSuccess"></div>
+
+      <div class="flex gap-3 justify-end">
+        <button type="button" @click="showProvisionModal=false" class="btn btn-cyan">Cancel</button>
+        <button type="submit" :disabled="provisioning" class="btn btn-primary" x-text="provisioning ? 'Provisioning…' : 'Provision Entity'"></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========== DEPROVISION CONFIRM MODAL ========== -->
+<div x-show="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal=false">
+  <div class="modal" style="max-width:400px">
+    <h2 class="font-bold text-lg mb-3 text-rose-400">Deprovision Entity</h2>
+    <p class="text-sm text-muted mb-5">
+      Remove <strong class="text-white" x-text="confirmName"></strong>?
+      This will delete its vault, file attachments, and scheduled sync jobs.
+    </p>
+    <div class="flex gap-3 justify-end">
+      <button @click="showConfirmModal=false" class="btn btn-cyan">Cancel</button>
+      <button @click="deprovisionEntity(confirmId)" class="btn btn-rose">Deprovision</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== EDIT MODAL (status update) ========== -->
+<div x-show="showEditModal" class="modal-overlay" @click.self="showEditModal=false">
+  <div class="modal" style="max-width:380px">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="font-bold text-lg">Edit Entity</h2>
+      <button @click="showEditModal=false" class="text-muted hover:text-white text-xl">✕</button>
+    </div>
+    <div class="mb-4">
+      <label>Status</label>
+      <select x-model="editForm.status">
+        <option value="active">Active</option>
+        <option value="paused">Paused</option>
+        <option value="error">Error</option>
+      </select>
+    </div>
+    <div class="flex gap-3 justify-end">
+      <button @click="showEditModal=false" class="btn btn-cyan">Cancel</button>
+      <button @click="saveEdit()" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function entitiesApp() {
+  return {
+    entities: [],
+    filtered: [],
+    filterCat: '',
+    loading: true,
+    clock: '',
+    showProvisionModal: false,
+    showConfirmModal: false,
+    showEditModal: false,
+    confirmId: '',
+    confirmName: '',
+    editForm: { entity_id: '', status: 'active' },
+    provisioning: false,
+    formError: '',
+    formSuccess: '',
+    form: {
+      name: '', category: '', connector_type: '',
+      agent_bindings_raw: '', ui_panel: 'dashboard',
+      sync_interval_s: 3600, metadata_raw: ''
+    },
+
+    async init() {
+      this.updateClock();
+      setInterval(() => this.updateClock(), 1000);
+      await this.loadEntities();
+      setInterval(() => this.loadEntities(), 30000);
+    },
+
+    updateClock() {
+      this.clock = new Date().toLocaleTimeString('en-GB', { hour12: false });
+    },
+
+    async loadEntities() {
+      this.loading = true;
+      try {
+        const r = await fetch('/api/entities');
+        const data = await r.json();
+        this.entities = data.entities || [];
+        this.applyFilter();
+      } catch(e) {
+        console.error('Failed to load entities', e);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    applyFilter() {
+      if (this.filterCat) {
+        this.filtered = this.entities.filter(e => e.category === this.filterCat);
+      } else {
+        this.filtered = [...this.entities];
+      }
+    },
+
+    categoryIcon(cat) {
+      const icons = {
+        business: '🏢', device: '📡', account: '🔑',
+        social: '🌐', external_ai: '🤖', personal: '👤', data_source: '💾'
+      };
+      return icons[cat] || '🔗';
+    },
+
+    statusBadge(status) {
+      return { active: 'badge-active', paused: 'badge-paused', error: 'badge-error' }[status] || 'badge-cyan';
+    },
+
+    relativeTime(ts) {
+      const diff = Math.floor((Date.now() / 1000) - ts);
+      if (diff < 60) return diff + 's ago';
+      if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+      return Math.floor(diff/86400) + 'd ago';
+    },
+
+    openProvisionModal() {
+      this.form = { name:'', category:'', connector_type:'', agent_bindings_raw:'',
+                    ui_panel:'dashboard', sync_interval_s:3600, metadata_raw:'' };
+      this.formError = '';
+      this.formSuccess = '';
+      this.showProvisionModal = true;
+    },
+
+    async provisionEntity() {
+      this.formError = '';
+      this.formSuccess = '';
+      this.provisioning = true;
+      try {
+        let metadata = {};
+        if (this.form.metadata_raw.trim()) {
+          try { metadata = JSON.parse(this.form.metadata_raw); }
+          catch { this.formError = 'Invalid JSON in Metadata field'; this.provisioning = false; return; }
+        }
+        const agent_bindings = this.form.agent_bindings_raw
+          .split(',').map(s => s.trim()).filter(Boolean);
+
+        const body = {
+          name: this.form.name,
+          category: this.form.category,
+          connector_config: this.form.connector_type
+            ? { type: this.form.connector_type } : null,
+          agent_bindings,
+          ui_panel: this.form.ui_panel,
+          sync_interval_s: Number(this.form.sync_interval_s) || 0,
+          metadata
+        };
+
+        const token = localStorage.getItem('sovereign_token') || '';
+        const r = await fetch('/api/entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(body)
+        });
+        const data = await r.json();
+        if (!r.ok) { this.formError = data.error || 'Provision failed'; return; }
+        this.formSuccess = `Entity "${data.name}" provisioned (ID: ${data.entity_id})`;
+        await this.loadEntities();
+        setTimeout(() => { this.showProvisionModal = false; }, 1500);
+      } catch(e) {
+        this.formError = 'Network error: ' + e.message;
+      } finally {
+        this.provisioning = false;
+      }
+    },
+
+    async syncEntity(entityId) {
+      const token = localStorage.getItem('sovereign_token') || '';
+      try {
+        const r = await fetch(`/api/entities/${entityId}/sync`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const d = await r.json();
+        if (d.ok || d.keys_synced !== undefined) {
+          await this.loadEntities();
+        }
+      } catch(e) { console.error('Sync error', e); }
+    },
+
+    editEntity(entity) {
+      this.editForm = { entity_id: entity.entity_id, status: entity.status };
+      this.showEditModal = true;
+    },
+
+    async saveEdit() {
+      const token = localStorage.getItem('sovereign_token') || '';
+      try {
+        const r = await fetch(`/api/entities/${this.editForm.entity_id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ status: this.editForm.status })
+        });
+        if (r.ok) { await this.loadEntities(); this.showEditModal = false; }
+      } catch(e) { console.error('Edit error', e); }
+    },
+
+    confirmDeprovision(id, name) {
+      this.confirmId = id;
+      this.confirmName = name;
+      this.showConfirmModal = true;
+    },
+
+    async deprovisionEntity(entityId) {
+      const token = localStorage.getItem('sovereign_token') || '';
+      try {
+        await fetch(`/api/entities/${entityId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        this.showConfirmModal = false;
+        await this.loadEntities();
+      } catch(e) { console.error('Deprovision error', e); }
+    }
+  }
+}
+</script>
+</body>
+</html>

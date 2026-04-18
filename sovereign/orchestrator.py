@@ -143,6 +143,7 @@ class SovereignOrchestrator:
         self._init_input_pipeline()
         self._init_health()
         self._init_v2()
+        self._init_entities()
 
         logger.info(
             "SOVEREIGN AI OS started",
@@ -878,3 +879,28 @@ class SovereignOrchestrator:
     @property
     def integration_manager(self) -> IntegrationManager:
         return self._integration_manager
+
+    @property
+    def entity_provisioner(self) -> "EntityProvisioner":  # type: ignore[name-defined]
+        return self._entity_provisioner
+
+    # ------------------------------------------------------------------
+    # Entity provisioning
+    # ------------------------------------------------------------------
+
+    def _init_entities(self) -> None:
+        """Initialize the Connected Entity Provisioning System."""
+        from sovereign.entities.entity_registry import EntityRegistry
+        from sovereign.entities.vault_manager import EntityVault
+        from sovereign.entities.provisioner import EntityProvisioner
+
+        self._entity_registry = EntityRegistry()
+        self._entity_vault = EntityVault()
+        self._entity_provisioner = EntityProvisioner(
+            self._entity_registry,
+            self._entity_vault,
+            self._integration_manager,
+            self._agent_registry,
+            self._scheduler,
+        )
+        logger.info("Connected Entity Provisioning System initialised")
