@@ -8,13 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 COPY sovereign/ ./sovereign/
 COPY main.py ./
-COPY __init__.py ./
+COPY config/ ./config/
+COPY prompts/ ./prompts/
 
 RUN pip install --upgrade pip && \
-    pip install --prefix=/install -e ".[dev]"
+    pip install --no-cache-dir .
 
 # Stage 2: production
 FROM python:3.11-slim AS production
@@ -23,18 +24,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder
-COPY --from=builder /install /usr/local
-
 WORKDIR /app
 
-# Copy source
+# Copy installed packages from builder
+COPY --from=builder /usr/local /usr/local
+
+# Copy source and runtime config
 COPY --from=builder /app ./
 
 # Create non-root user
 RUN groupadd -g 1000 sovereign && \
     useradd -u 1000 -g sovereign -s /bin/sh -m sovereign && \
-    mkdir -p /app/data /app/config /app/prompts && \
+    mkdir -p /app/data/memory /app/data/ledger && \
     chown -R sovereign:sovereign /app
 
 USER sovereign
