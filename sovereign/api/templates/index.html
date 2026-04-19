@@ -105,11 +105,13 @@
     </select>
     <!-- Dashboard nav -->
     <div class="flex items-center gap-1">
-      <a href="/dashboard" target="_blank" class="text-xs text-muted hover:text-cyan font-mono border border-border rounded px-2 py-1 transition-colors" title="Executive Dashboard">exec</a>
-      <a href="/finance"   target="_blank" class="text-xs text-muted hover:text-amber font-mono border border-border rounded px-2 py-1 transition-colors" title="Finance Cockpit">fin</a>
-      <a href="/business"  target="_blank" class="text-xs text-muted hover:text-violet font-mono border border-border rounded px-2 py-1 transition-colors" title="Business Wall">biz</a>
-      <a href="/approvals" target="_blank" class="text-xs text-muted hover:text-rose font-mono border border-border rounded px-2 py-1 transition-colors" title="Approvals Center">appr</a>
-      <a href="/hud"       target="_blank" class="text-xs text-muted hover:text-cyan font-mono border border-border rounded px-2 py-1 transition-colors" title="Jarvis HUD">hud</a>
+      <a href="/dashboard"  target="_blank" class="text-xs text-muted hover:text-cyan font-mono border border-border rounded px-2 py-1 transition-colors" title="Executive Dashboard">exec</a>
+      <a href="/finance"    target="_blank" class="text-xs text-muted hover:text-amber font-mono border border-border rounded px-2 py-1 transition-colors" title="Finance Cockpit">fin</a>
+      <a href="/business"   target="_blank" class="text-xs text-muted hover:text-violet font-mono border border-border rounded px-2 py-1 transition-colors" title="Business Wall">biz</a>
+      <a href="/approvals"  target="_blank" class="text-xs text-muted hover:text-rose font-mono border border-border rounded px-2 py-1 transition-colors" title="Approvals Center">appr</a>
+      <a href="/hud"        target="_blank" class="text-xs text-muted hover:text-cyan font-mono border border-border rounded px-2 py-1 transition-colors" title="Jarvis HUD">hud</a>
+      <a href="/expansion"  target="_blank" class="text-xs text-muted hover:text-emerald-400 font-mono border border-border rounded px-2 py-1 transition-colors" title="Expansion Dashboard">exp</a>
+      <a href="/entities"   target="_blank" class="text-xs text-muted hover:text-orange-400 font-mono border border-border rounded px-2 py-1 transition-colors" title="Entities Panel">ent</a>
     </div>
     <!-- WS status -->
     <div class="flex items-center gap-1.5">
@@ -463,7 +465,7 @@ function sovereign() {
           this.handleToolCall(msg);
           break;
         case 'health':
-          this.health = msg.data || {};
+          this.health = msg;
           break;
         case 'memory_data':
           this.handleMemoryData(msg);
@@ -490,15 +492,16 @@ function sovereign() {
           streaming: true, agent: msg.agent || 'sovereign', mode: this.mode
         });
       }
-      this.streamingMsg.content += msg.text;
+      this.streamingMsg.content += msg.delta || '';
       this.$nextTick(() => this.scrollToBottom());
     },
     handleDone(msg) {
       if (this.streamingMsg) {
         this.streamingMsg.streaming = false;
         this.streamingMsg.confidence = msg.confidence;
-        this.streamingMsg.tokens    = msg.tokens_total;
-        if (msg.tokens_used) this.usage = { ...this.usage, ...msg.tokens_used };
+        this.streamingMsg.tokens = msg.tokens
+          ? Object.values(msg.tokens).reduce((a, b) => a + (b || 0), 0) : 0;
+        if (msg.tokens) this.usage = { ...this.usage, ...msg.tokens };
         if (msg.cost_usd) this.totalCost += msg.cost_usd;
         this.streamingMsg = null;
       }
@@ -506,7 +509,7 @@ function sovereign() {
       this.activeTasks = [];
     },
     handleAgentStatus(msg) {
-      this.updateAgentStatus(msg.agent_id, msg.status);
+      this.updateAgentStatus(msg.agent || msg.agent_id, msg.phase || msg.status);
     },
     handleToolCall(msg) {
       this.addDecisionLog(msg.tool || 'tool', 'TOOL', msg.input_preview || '');
@@ -514,9 +517,9 @@ function sovereign() {
     handleMemoryData(msg) {
       const domain = this.memoryDomains.find(d => d.name === msg.domain);
       if (domain) {
-        domain.count = Object.keys(msg.data || {}).length;
+        domain.count = Object.keys(msg.records || {}).length;
         if (this.activeDomain?.name === msg.domain)
-          this.activeDomainData = msg.data || {};
+          this.activeDomainData = msg.records || {};
       }
     },
 
@@ -541,7 +544,7 @@ function sovereign() {
       this.addMessage('user', text);
       this.isStreaming = true;
       this.streamingMsg = null;
-      this.sendWs({ type: 'chat', content: text, mode: this.selectedMode });
+      this.sendWs({ type: 'chat', message: text, session_id: String(this.currentSession), mode: this.selectedMode });
 
       // Save session
       const session = { id: Date.now(), preview: text.slice(0, 40), ts: new Date().toLocaleTimeString() };
@@ -553,7 +556,7 @@ function sovereign() {
     // Mode
     switchMode() {
       this.mode = this.selectedMode;
-      this.sendWs({ type: 'mode_switch', mode: this.selectedMode });
+      this.sendWs({ type: 'mode_change', mode: this.selectedMode });
       this.addDecisionLog('system', 'MODE', 'Switched to ' + this.selectedMode);
     },
 

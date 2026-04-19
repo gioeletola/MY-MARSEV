@@ -1,9 +1,11 @@
 """Health alerter — sends Telegram or log alerts when health checks fail."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-from typing import Any
+import time
+from typing import Any, Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,28 @@ class HealthAlerter:
         self._consecutive_failures = 0
         self._total_checks = 0
         self._total_alerts_sent = 0
+        self._last_check_at: float = 0.0
+
+    async def run_loop(
+        self,
+        check_fn: Callable[[], Awaitable[dict[str, Any]] | dict[str, Any]],
+        interval_s: float = 30.0,
+    ) -> None:
+        """Run *check_fn* every *interval_s* seconds and pass the result to
+        :meth:`check_and_alert`.  Runs until cancelled."""
+        while True:
+            try:
+                result = check_fn()
+                if asyncio.iscoroutine(result):
+                    health = await result
+                else:
+                    health = result  # type: ignore[assignment]
+                await self.check_and_alert(health)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error("HealthAlerter.run_loop check error: %s", exc)
+            await asyncio.sleep(interval_s)
 
     async def check_and_alert(self, health: dict[str, Any]) -> None:
         """
@@ -32,6 +56,7 @@ class HealthAlerter:
         consecutive checks.
         """
         self._total_checks += 1
+        self._last_check_at = time.time()
         overall = health.get("overall", "unknown")
 
         if overall != "healthy":
@@ -90,10 +115,12 @@ class HealthAlerter:
             logger.warning("HealthAlerter: Telegram send failed: %s", exc)
             return False
 
-    def get_stats(self) -> dict[str, int]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "total_checks": self._total_checks,
             "consecutive_failures": self._consecutive_failures,
+            "alerts_sent": self._total_alerts_sent,
             "total_alerts_sent": self._total_alerts_sent,
+            "last_check_at": self._last_check_at,
             "threshold": self._threshold,
         }

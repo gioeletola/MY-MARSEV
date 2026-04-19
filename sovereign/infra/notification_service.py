@@ -60,7 +60,7 @@ class NotificationService:
         self.register_handler(NotificationChannel.CONSOLE, self._console_handler)
 
     def register_handler(self, channel: NotificationChannel | str, handler: Handler) -> None:
-        ch = str(channel)
+        ch = channel.value if isinstance(channel, NotificationChannel) else str(channel)
         self._handlers.setdefault(ch, []).append(handler)
 
     async def send(
@@ -71,7 +71,12 @@ class NotificationService:
         channels: list[str] | None = None,
         source_agent: str = "",
         metadata: dict | None = None,
-    ) -> Notification:
+    ) -> dict:
+        """Send a notification.
+
+        Writes to JSONL log first (before channel dispatch).
+        Returns ``{ok: bool, channel: str, error: str|None}``.
+        """
         import uuid
         notif = Notification(
             notification_id=str(uuid.uuid4())[:8],
@@ -83,16 +88,23 @@ class NotificationService:
             metadata=metadata or {},
         )
         self._history.append(notif)
+        # Write to JSONL log BEFORE dispatching to any channel
         self._persist(notif)
 
+        last_error: str | None = None
+        dispatched_channel: str = ""
+        ok = False
         for ch in notif.channels:
+            dispatched_channel = ch
             for handler in self._handlers.get(ch, []):
                 try:
                     await handler(notif)
+                    ok = True
                 except Exception as exc:
+                    last_error = str(exc)
                     logger.error("Notification handler %s failed: %s", ch, exc)
 
-        return notif
+        return {"ok": ok, "channel": dispatched_channel, "error": last_error}
 
     async def broadcast(self, title: str, body: str, level: NotificationLevel = NotificationLevel.INFO) -> None:
         await self.send(title, body, level, channels=list(self._handlers.keys()))
@@ -116,6 +128,14 @@ class NotificationService:
 
     def unread(self) -> list[Notification]:
         return [n for n in self._history if not n.read]
+
+    def get_unread(self, level: NotificationLevel | str | None = None) -> list[Notification]:
+        """Return unread notifications, optionally filtered by *level*."""
+        items = [n for n in self._history if not n.read]
+        if level is not None:
+            level_val = level.value if isinstance(level, NotificationLevel) else str(level)
+            items = [n for n in items if n.level == level_val or str(n.level) == level_val or n.level.value == level_val]
+        return items
 
     def mark_read(self, notification_id: str) -> bool:
         for n in self._history:

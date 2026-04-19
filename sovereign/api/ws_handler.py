@@ -95,7 +95,11 @@ class WebSocketSessionManager:
             asyncio.create_task(self._handle_memory_fetch(ws, msg))
 
         elif mtype == "health_poll":
-            await self._send(ws, {"type": "health", **self._orch.health()})
+            health = self._orch.health()
+            await self._send(ws, {"type": "health", **health})
+            # Push escalation event if pending approvals exist
+            if health.get("escalations_pending", 0) > 0:
+                await self._send(ws, {"type": "escalation", "count": health["escalations_pending"]})
 
         elif mtype == "mode_change":
             mode = msg.get("mode", "")
@@ -207,7 +211,15 @@ class WebSocketSessionManager:
             })
 
             # Push updated health after each request
-            await self._send(ws, {"type": "health", **self._orch.health()})
+            health = self._orch.health()
+            await self._send(ws, {"type": "health", **health})
+            # Push escalation event if new approvals appeared after this request
+            if output.requires_human_review or health.get("escalations_pending", 0) > 0:
+                await self._send(ws, {
+                    "type": "escalation",
+                    "count": health.get("escalations_pending", 0),
+                    "session_id": session_id,
+                })
 
         except asyncio.CancelledError:
             await self._send(ws, {

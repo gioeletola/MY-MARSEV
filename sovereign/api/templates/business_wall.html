@@ -252,16 +252,17 @@ function bwall() {
     },
     handleMsg(msg) {
       if (msg.type === 'agent_status') {
-        const a = this.agents.find(x => x.id === msg.agent_id);
-        if (a) a.status = msg.status;
+        const agentId = msg.agent || msg.agent_id;
+        const a = this.agents.find(x => x.id === agentId);
+        if (a) a.status = msg.phase || msg.status;
         this.kpis[4].value = String(this.runningCount);
       }
-      if (msg.type === 'stream_delta') this.briefingOutput += msg.content;
+      if (msg.type === 'stream_delta') this.briefingOutput += msg.delta || msg.content || '';
     },
     runBriefing() {
       this.briefingOutput = '';
       if (this.ws?.readyState === 1)
-        this.ws.send(JSON.stringify({type:'chat', content:'Give me a concise morning business briefing: key priorities, risks, and recommended actions for today.', mode:'business'}));
+        this.ws.send(JSON.stringify({type:'chat', message:'Give me a concise morning business briefing: key priorities, risks, and recommended actions for today.', mode:'business'}));
     },
     statusBadge(s) {
       return {

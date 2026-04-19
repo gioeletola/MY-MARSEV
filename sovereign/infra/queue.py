@@ -7,7 +7,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional
+from typing import Callable, Awaitable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ class TaskQueue:
         self._enqueued_total: int = 0
         self._dequeued_total: int = 0
         self._failed_total: int = 0
+        self._dlq_callbacks: list[Callable[[QueuedTask], Awaitable[None] | None]] = []
 
     # ------------------------------------------------------------------
     # Public API
@@ -128,6 +129,15 @@ class TaskQueue:
                 task.max_attempts,
             )
             self.dead_letters.append(task)
+            # Fire DLQ callbacks
+            for cb in self._dlq_callbacks:
+                try:
+                    import asyncio as _asyncio
+                    result = cb(task)
+                    if _asyncio.iscoroutine(result):
+                        _asyncio.ensure_future(result)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("DLQ callback error: %s", exc)
         else:
             logger.info(
                 "Task %s failed (attempt %d/%d)",
@@ -135,6 +145,43 @@ class TaskQueue:
                 task.attempts,
                 task.max_attempts,
             )
+
+    # ------------------------------------------------------------------
+    # DLQ management
+    # ------------------------------------------------------------------
+
+    def dead_letter_count(self) -> int:
+        """Count items currently in the dead-letter queue."""
+        return len(self.dead_letters)
+
+    def purge_dead_letters(self) -> int:
+        """Clear all items from the dead-letter queue; returns count removed."""
+        count = len(self.dead_letters)
+        self.dead_letters.clear()
+        logger.info("Purged %d dead-letter tasks", count)
+        return count
+
+    def on_dead_letter(
+        self, callback: Callable[[QueuedTask], Awaitable[None] | None]
+    ) -> None:
+        """Register a callback invoked whenever a task is moved to the DLQ."""
+        self._dlq_callbacks.append(callback)
+
+    async def drain(self, timeout_s: float = 10.0) -> bool:
+        """Wait up to *timeout_s* for all pending tasks to be dequeued.
+
+        Returns True if the queue drained fully within the timeout, False
+        if tasks remain.
+        """
+        deadline = time.time() + timeout_s
+        while self._pq.qsize() > 0:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                logger.warning("Queue drain timed out with %d items remaining", self._pq.qsize())
+                return False
+            await asyncio.sleep(min(0.1, remaining))
+        logger.info("Queue drained successfully")
+        return True
 
     async def requeue_dead_letters(self) -> int:
         """Re-enqueue all dead-letter tasks with incremented attempt counters."""

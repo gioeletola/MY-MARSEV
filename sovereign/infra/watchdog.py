@@ -20,8 +20,16 @@ class ProcessWatchdog:
         self._registry: dict[str, dict[str, Any]] = {}
         self._alert_callback = alert_callback
 
-    def register(self, name: str, factory: Callable[[], Coroutine[Any, Any, Any]]) -> None:
-        """Register a coroutine factory under *name*."""
+    def register(
+        self,
+        name: str,
+        factory: Callable[[], Coroutine[Any, Any, Any]],
+        alert_threshold: int = 3,
+    ) -> None:
+        """Register a coroutine factory under *name*.
+
+        *alert_threshold* — call ``alert_callback`` after this many restarts.
+        """
         if name in self._registry:
             logger.warning("ProcessWatchdog: '%s' already registered — overwriting", name)
         self._registry[name] = {
@@ -30,6 +38,8 @@ class ProcessWatchdog:
             "restart_count": 0,
             "last_fail": 0.0,
             "last_error": "",
+            "alert_threshold": alert_threshold,
+            "state": "registered",
         }
         logger.debug("ProcessWatchdog: registered '%s'", name)
 
@@ -45,28 +55,33 @@ class ProcessWatchdog:
     async def _supervise(self, name: str, stop_event: asyncio.Event) -> None:
         """Supervise a single coroutine; restart with exponential backoff on failure."""
         entry = self._registry[name]
+        entry["state"] = "starting"
         while not stop_event.is_set():
             try:
                 logger.info("ProcessWatchdog: starting '%s'", name)
+                entry["state"] = "running"
                 coro = entry["factory"]()
                 entry["task"] = asyncio.create_task(coro)
                 await entry["task"]
                 logger.info("ProcessWatchdog: '%s' finished normally", name)
+                entry["state"] = "finished"
                 return
             except asyncio.CancelledError:
                 logger.info("ProcessWatchdog: '%s' cancelled", name)
+                entry["state"] = "cancelled"
                 return
             except Exception as exc:
                 entry["restart_count"] += 1
                 entry["last_fail"] = time.time()
                 entry["last_error"] = str(exc)
+                entry["state"] = "crashed"
                 logger.error(
                     "ProcessWatchdog: '%s' crashed (restart #%d): %s",
                     name,
                     entry["restart_count"],
                     exc,
                 )
-                # Alert callback
+                # Alert callback — fired immediately on every crash
                 if self._alert_callback is not None:
                     try:
                         result = self._alert_callback(name, exc)
@@ -85,6 +100,7 @@ class ProcessWatchdog:
                 logger.info(
                     "ProcessWatchdog: restarting '%s' in %.1fs", name, backoff
                 )
+                entry["state"] = "restarting"
                 try:
                     await asyncio.wait_for(
                         asyncio.shield(stop_event.wait()), timeout=backoff
@@ -114,3 +130,35 @@ class ProcessWatchdog:
                 "last_error": entry["last_error"],
             }
         return result
+
+    def health_summary(self) -> dict[str, Any]:
+        """Return a comprehensive health summary for all watched processes.
+
+        Returns a dict with:
+          - ``names``: list of registered names
+          - ``details``: per-name dict with restart_count, last_error, state
+          - ``total_restarts``: aggregate restart count
+          - ``crashed_names``: names currently in a crashed/failed state
+        """
+        details: dict[str, dict[str, Any]] = {}
+        total_restarts = 0
+        crashed: list[str] = []
+        for name, entry in self._registry.items():
+            state = entry.get("state", "unknown")
+            restart_count = entry["restart_count"]
+            total_restarts += restart_count
+            if state in ("crashed",):
+                crashed.append(name)
+            details[name] = {
+                "state": state,
+                "restart_count": restart_count,
+                "last_error": entry["last_error"],
+                "last_fail": entry["last_fail"],
+                "alert_threshold": entry.get("alert_threshold", 3),
+            }
+        return {
+            "names": list(self._registry.keys()),
+            "details": details,
+            "total_restarts": total_restarts,
+            "crashed_names": crashed,
+        }

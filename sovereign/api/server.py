@@ -134,7 +134,7 @@ async def service_worker() -> FileResponse:
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request) -> HTMLResponse:
     """Serve the single-page UI."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 
 @app.websocket("/ws")
@@ -174,27 +174,27 @@ async def usage(_: dict = Depends(require_auth)) -> JSONResponse:
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def executive_dashboard(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("executive_dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "executive_dashboard.html")
 
 
 @app.get("/finance", response_class=HTMLResponse)
 async def finance_cockpit(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("finance_cockpit.html", {"request": request})
+    return templates.TemplateResponse(request, "finance_cockpit.html")
 
 
 @app.get("/business", response_class=HTMLResponse)
 async def business_wall(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("business_wall.html", {"request": request})
+    return templates.TemplateResponse(request, "business_wall.html")
 
 
 @app.get("/approvals", response_class=HTMLResponse)
 async def approvals_center(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("approvals_center.html", {"request": request})
+    return templates.TemplateResponse(request, "approvals_center.html")
 
 
 @app.get("/hud", response_class=HTMLResponse)
 async def jarvis_hud(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("jarvis_hud.html", {"request": request})
+    return templates.TemplateResponse(request, "jarvis_hud.html")
 
 
 # ---------------------------------------------------------------------------
@@ -583,7 +583,7 @@ async def list_integrations() -> JSONResponse:
 @app.get("/expansion", response_class=HTMLResponse)
 async def expansion_dashboard(request: Request) -> HTMLResponse:
     """Serve the Expansion Dashboard."""
-    return templates.TemplateResponse("expansion_dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "expansion_dashboard.html")
 
 
 @app.get("/api/expansion/gaps")
@@ -686,7 +686,7 @@ async def set_mode(body: SetModeRequest, _: dict = Depends(require_auth)) -> JSO
 
 @app.get("/entities", response_class=HTMLResponse)
 async def entities_panel(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("entities_panel.html", {"request": request})
+    return templates.TemplateResponse(request, "entities_panel.html")
 
 
 class ProvisionRequest(BaseModel):
@@ -752,6 +752,28 @@ async def sync_entity(entity_id: str, _: dict = Depends(require_auth)) -> JSONRe
     try:
         result = _orchestrator.entity_provisioner.sync(entity_id)
         return JSONResponse(result)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.patch("/api/entities/{entity_id}")
+async def update_entity(entity_id: str, body: dict, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Update entity status or metadata."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        reg = _orchestrator.entity_provisioner._registry
+        entity = reg.get(entity_id)
+        if entity is None:
+            return JSONResponse({"error": "Entity not found"}, status_code=404)
+        if "status" in body:
+            entity.status = body["status"]
+        if "metadata" in body:
+            entity.metadata.update(body["metadata"])
+        if "sync_interval_s" in body:
+            entity.sync_interval_s = float(body["sync_interval_s"])
+        reg._save()
+        return JSONResponse({"updated": entity_id, "status": entity.status})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
 

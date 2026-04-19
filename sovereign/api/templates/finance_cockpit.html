@@ -256,21 +256,22 @@ function finance() {
     },
     handleMsg(msg) {
       if (msg.type === 'agent_status') {
-        const a = this.financeAgents.find(x => x.id === msg.agent_id);
-        if (a) a.status = msg.status;
+        const agentId = msg.agent || msg.agent_id;
+        const a = this.financeAgents.find(x => x.id === agentId);
+        if (a) a.status = msg.phase || msg.status;
       }
       if (msg.type === 'memory_data' && msg.domain === 'financial') {
-        const d = msg.data || {};
-        if (d.net_worth)       this.kpis[0].value = '$' + Number(d.net_worth).toLocaleString();
+        const d = msg.records || msg.data || {};
+        if (d.net_worth)        this.kpis[0].value = '$' + Number(d.net_worth).toLocaleString();
         if (d.monthly_cashflow) this.kpis[1].value = '$' + Number(d.monthly_cashflow).toLocaleString();
       }
-      if (msg.type === 'stream_delta') this.analysisOutput += msg.content;
+      if (msg.type === 'stream_delta') this.analysisOutput += msg.delta || msg.content || '';
       if (msg.type === 'stream_done') { /* done */ }
     },
     runAnalysis() {
       this.analysisOutput = '';
       if (this.ws && this.ws.readyState === 1)
-        this.ws.send(JSON.stringify({type:'chat', content:'Provide a brief financial analysis and key recommendations.', mode:'finance'}));
+        this.ws.send(JSON.stringify({type:'chat', message:'Provide a brief financial analysis and key recommendations.', mode:'finance'}));
     },
     pingAgent(id) {
       const a = this.financeAgents.find(x => x.id === id);

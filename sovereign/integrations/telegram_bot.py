@@ -92,6 +92,12 @@ class TelegramBot:
         self._modes: dict[str, str] = {}   # per-chat active mode
         self._stop_event = asyncio.Event()
 
+        # Build whitelist from arg or env var
+        raw_ids = allowed_chat_ids or __import__("os").environ.get("TELEGRAM_WHITELIST_CHAT_IDS", "")
+        self.allowed_chat_ids: list[int] = [
+            int(x.strip()) for x in raw_ids.split(",") if x.strip().isdigit()
+        ]
+
         config = IntegrationConfig(
             integration_id="telegram",
             name="Telegram Bot",
@@ -103,12 +109,17 @@ class TelegramBot:
         self._register_handlers()
 
     def _register_handlers(self) -> None:
-        self._connector.on_command("/start",  self._cmd_start)
-        self._connector.on_command("/status", self._cmd_status)
-        self._connector.on_command("/mode",   self._cmd_mode)
-        self._connector.on_command("/memory", self._cmd_memory)
-        self._connector.on_command("/clear",  self._cmd_clear)
-        self._connector.on_command("/help",   self._cmd_help)
+        self._connector.on_command("/start",     self._cmd_start)
+        self._connector.on_command("/status",    self._cmd_status)
+        self._connector.on_command("/health",    self._cmd_health)
+        self._connector.on_command("/mode",      self._cmd_mode)
+        self._connector.on_command("/memory",    self._cmd_memory)
+        self._connector.on_command("/clear",     self._cmd_clear)
+        self._connector.on_command("/help",      self._cmd_help)
+        self._connector.on_command("/approvals", self._cmd_approvals)
+        self._connector.on_command("/approve",   self._cmd_approve)
+        self._connector.on_command("/queue",     self._cmd_queue)
+        self._connector.on_command("/budget",    self._cmd_budget)
         self._connector.on_message(self._handle_message)
 
     # ── Command handlers ──────────────────────────────────────────────────
@@ -185,13 +196,121 @@ class TelegramBot:
         self._history.clear(str(chat_id))
         await self._connector.send_message(chat_id, "✓ Conversation history cleared.")
 
+    async def _cmd_health(self, msg: dict) -> None:
+        chat_id = msg["chat_id"]
+        if self.allowed_chat_ids and chat_id not in self.allowed_chat_ids:
+            await self._connector.send_message(chat_id, "⛔ Unauthorized")
+            return
+        try:
+            h = self._orchestrator.health()
+            text = f"🏥 Health: {h.get('overall', '?').upper()}\n"
+            for k, v in h.get("checks", {}).items():
+                icon = "✅" if v == "healthy" else "⚠️"
+                text += f"{icon} {k}: {v}\n"
+            text += f"\nAgents: {h.get('agents_registered', 0)} | Tools: {h.get('tools_registered', 0)}"
+        except Exception as exc:
+            text = f"❌ Health check failed: {exc}"
+        await self._connector.send_message(chat_id, text)
+
+    async def _cmd_approvals(self, msg: dict) -> None:
+        chat_id = msg["chat_id"]
+        if self.allowed_chat_ids and chat_id not in self.allowed_chat_ids:
+            await self._connector.send_message(chat_id, "⛔ Unauthorized")
+            return
+        try:
+            orch = self._orchestrator
+            pending = (orch.get_pending_approvals() if hasattr(orch, "get_pending_approvals") else None) or []
+            text = f"⚡ Pending Approvals: {len(pending)}\n"
+            for p in pending[:5]:
+                text += f"• {p.get('event_id', '?')[:8]}: {p.get('description', '?')[:50]}\n"
+            if not pending:
+                text = "✅ No pending approvals"
+        except Exception as exc:
+            text = f"❌ Approvals error: {exc}"
+        await self._connector.send_message(chat_id, text)
+
+    async def _cmd_approve(self, msg: dict) -> None:
+        chat_id = msg["chat_id"]
+        if self.allowed_chat_ids and chat_id not in self.allowed_chat_ids:
+            await self._connector.send_message(chat_id, "⛔ Unauthorized")
+            return
+        args = msg.get("args", "").strip().split()
+        if not args:
+            await self._connector.send_message(chat_id, "Usage: /approve <id>")
+            return
+        approval_id = args[0]
+        try:
+            orch = self._orchestrator
+            if hasattr(orch, "approve_escalation"):
+                orch.approve_escalation(approval_id)
+                text = f"✅ Approved: {approval_id}"
+            else:
+                text = "⚠ Not available"
+        except Exception as exc:
+            text = f"❌ Approve error: {exc}"
+        await self._connector.send_message(chat_id, text)
+
+    async def _cmd_queue(self, msg: dict) -> None:
+        chat_id = msg["chat_id"]
+        if self.allowed_chat_ids and chat_id not in self.allowed_chat_ids:
+            await self._connector.send_message(chat_id, "⛔ Unauthorized")
+            return
+        try:
+            orch = self._orchestrator
+            q_stats = orch.infra_stats() if hasattr(orch, "infra_stats") else {}
+            text = (
+                f"📋 Queue Stats\n"
+                f"Pending: {q_stats.get('queue_pending', 0)}\n"
+                f"Dead letters: {q_stats.get('dlq_count', 0)}\n"
+                f"Workers: {q_stats.get('workers', 0)}"
+            )
+        except Exception as exc:
+            text = f"❌ Queue stats error: {exc}"
+        await self._connector.send_message(chat_id, text)
+
+    async def _cmd_budget(self, msg: dict) -> None:
+        chat_id = msg["chat_id"]
+        if self.allowed_chat_ids and chat_id not in self.allowed_chat_ids:
+            await self._connector.send_message(chat_id, "⛔ Unauthorized")
+            return
+        try:
+            budget = self._orchestrator.health().get("budget", {})
+            text = (
+                f"💰 Budget\n"
+                f"Daily spent: ${budget.get('daily_spent_usd', 0):.4f}\n"
+                f"Monthly spent: ${budget.get('monthly_spent_usd', 0):.4f}\n"
+                f"Limit: ${budget.get('daily_limit_usd', 9999):.2f}"
+            )
+        except Exception as exc:
+            text = f"❌ Budget error: {exc}"
+        await self._connector.send_message(chat_id, text)
+
     async def _cmd_help(self, msg: dict) -> None:
         await self._cmd_start(msg)
+
+    # ── Alert routing ─────────────────────────────────────────────────────
+
+    async def send_alert(self, message: str, level: str = "warning") -> bool:
+        """Send alert to all whitelisted chat IDs."""
+        icons = {"info": "ℹ️", "warning": "⚠️", "critical": "🚨", "success": "✅"}
+        text = f"{icons.get(level, '📢')} ALERT [{level.upper()}]\n{message}"
+        sent = False
+        for chat_id in (self.allowed_chat_ids or []):
+            try:
+                await self._connector.send_message(chat_id, text)
+                sent = True
+            except Exception:
+                pass
+        return sent
 
     # ── Main message handler ──────────────────────────────────────────────
 
     async def _handle_message(self, msg: dict) -> None:
         chat_id = msg["chat_id"]
+        # Whitelist enforcement
+        if self.allowed_chat_ids and chat_id not in self.allowed_chat_ids:
+            await self._connector.send_message(chat_id, "⛔ Unauthorized")
+            return
         text = msg.get("text", "").strip()
         if not text:
             return
@@ -230,12 +349,17 @@ class TelegramBot:
     async def start(self) -> None:
         logger.info("TelegramBot starting long-poll loop")
         await self._connector.set_commands([
-            ("start",  "Welcome and capabilities"),
-            ("status", "System health check"),
-            ("mode",   "Switch operating mode"),
-            ("memory", "View memory snapshot"),
-            ("clear",  "Clear conversation history"),
-            ("help",   "Show help"),
+            ("start",     "Welcome and capabilities"),
+            ("status",    "System health check"),
+            ("health",    "Detailed health with checks breakdown"),
+            ("mode",      "Switch operating mode"),
+            ("memory",    "View memory snapshot"),
+            ("clear",     "Clear conversation history"),
+            ("approvals", "List pending approvals"),
+            ("approve",   "Approve an escalation by ID"),
+            ("queue",     "Queue and worker stats"),
+            ("budget",    "Spending budget overview"),
+            ("help",      "Show help"),
         ])
         await self._connector.start_polling(stop_event=self._stop_event)
 

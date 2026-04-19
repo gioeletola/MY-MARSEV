@@ -6,7 +6,7 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -157,9 +157,46 @@ class H24WorkerPool:
             "crashed": 0,
             "restarted": 0,
         }
+        self._shutdown_event: asyncio.Event = asyncio.Event()
+        self._restart_counts: list[int] = [0] * n_workers
+        self._sovereign_queue: Any | None = None  # SovereignQueue with .drain()
+        self._started_at: float = 0.0
+        self._last_success: list[float] = [0.0] * n_workers
+
+    def register_queue(self, queue: Any) -> None:
+        """Connect a SovereignQueue (with .drain()) for graceful shutdown draining."""
+        self._sovereign_queue = queue
+
+    async def stop(self) -> None:
+        """Signal shutdown, drain the connected queue, then cancel all workers."""
+        self._shutdown_event.set()
+        if self._sovereign_queue is not None and hasattr(self._sovereign_queue, "drain"):
+            try:
+                await self._sovereign_queue.drain(timeout_s=10.0)
+            except Exception as exc:
+                logger.warning("H24WorkerPool: queue drain error: %s", exc)
+        for task in self._workers:
+            if not task.done():
+                task.cancel()
+        if self._workers:
+            await asyncio.gather(*self._workers, return_exceptions=True)
+        logger.info("H24WorkerPool: graceful stop complete")
+
+    def status(self) -> dict:
+        """Return pool status dict with running_workers, restart_counts, uptime_s."""
+        running = sum(1 for t in self._workers if not t.done())
+        uptime = time.time() - self._started_at if self._started_at else 0.0
+        return {
+            "running_workers": running,
+            "restart_counts": list(self._restart_counts),
+            "uptime_s": uptime,
+        }
 
     async def start(self, stop_event: asyncio.Event) -> None:
         """Launch N workers; monitor and restart any that crash."""
+        self._started_at = time.time()
+        self._restart_counts = [0] * self._n
+        self._last_success = [0.0] * self._n
         for i in range(self._n):
             task = asyncio.create_task(self._worker_loop(i, stop_event))
             self._workers.append(task)
@@ -167,12 +204,13 @@ class H24WorkerPool:
             logger.info("H24WorkerPool: worker-%d started", i)
 
         # Monitor loop — restart crashed workers until stop_event is set
-        while not stop_event.is_set():
+        while not stop_event.is_set() and not self._shutdown_event.is_set():
             for idx, task in enumerate(self._workers):
-                if task.done() and not stop_event.is_set():
+                if task.done() and not stop_event.is_set() and not self._shutdown_event.is_set():
                     exc = task.exception() if not task.cancelled() else None
                     if exc is not None:
                         self._stats["crashed"] += 1
+                        self._restart_counts[idx] += 1
                         logger.error(
                             "H24WorkerPool: worker-%d crashed: %s — restarting", idx, exc
                         )
@@ -203,7 +241,7 @@ class H24WorkerPool:
     ) -> None:
         """Drain task_queue until stop_event fires; on unhandled crash bubble up."""
         logger.debug("H24WorkerPool: worker-%d loop running", worker_id)
-        while not stop_event.is_set():
+        while not stop_event.is_set() and not self._shutdown_event.is_set():
             try:
                 task = await asyncio.wait_for(self._queue.get(), timeout=1.0)
                 logger.debug("H24WorkerPool: worker-%d processing task", worker_id)
@@ -212,6 +250,8 @@ class H24WorkerPool:
                     if asyncio.iscoroutine(result):
                         await result
                 self._queue.task_done()
+                if worker_id < len(self._last_success):
+                    self._last_success[worker_id] = time.time()
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -225,3 +265,43 @@ class H24WorkerPool:
 
     def get_stats(self) -> dict[str, int]:
         return dict(self._stats)
+
+
+# ---------------------------------------------------------------------------
+# ManagedWorker — single tracked worker with success timestamp
+# ---------------------------------------------------------------------------
+
+class ManagedWorker:
+    """A single supervised worker coroutine with run-time tracking."""
+
+    def __init__(
+        self,
+        worker_id: str,
+        coro_factory: Callable[[], Awaitable[None]],
+        description: str = "",
+    ) -> None:
+        self.worker_id = worker_id
+        self.description = description
+        self._factory = coro_factory
+        self._task: asyncio.Task[None] | None = None
+        self.last_successful_run: float = 0.0
+        self._started_at: float = 0.0
+
+    def time_since_last_success(self) -> float:
+        """Seconds since the last successful iteration completed (0 if never run)."""
+        if self.last_successful_run == 0.0:
+            return 0.0
+        return time.time() - self.last_successful_run
+
+    async def run(self, stop_event: asyncio.Event) -> None:
+        """Run the worker coroutine, updating last_successful_run after each success."""
+        self._started_at = time.time()
+        while not stop_event.is_set():
+            try:
+                await self._factory()
+                self.last_successful_run = time.time()
+            except asyncio.CancelledError:
+                return
+            except Exception as exc:
+                logger.error("ManagedWorker %s error: %s", self.worker_id, exc)
+                await asyncio.sleep(2.0)
