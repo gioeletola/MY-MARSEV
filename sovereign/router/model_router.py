@@ -1,13 +1,19 @@
 """
-Model router — selects the appropriate Claude model tier for each task.
+Model router — selects the appropriate model+provider for each task.
 
-Routing decision is based on task complexity, sensitivity, latency budget,
-cost constraints, and the required action class.
+Routing considers: task complexity, sensitivity, latency budget, cost,
+privacy constraints (PII), and provider health. Supports fallback chains
+and an offline/caveman mode when all providers are unavailable.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+import time
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Pricing tables (USD per 1M tokens)
@@ -15,9 +21,9 @@ from enum import Enum
 
 _PROVIDER_PRICING: dict[str, dict[str, tuple[float, float]]] = {
     "anthropic": {
-        "claude-opus-4-6":          (15.00, 75.00),
-        "claude-sonnet-4-6":        (3.00,  15.00),
-        "claude-haiku-4-5-20251001": (0.80,   4.00),
+        "claude-opus-4-6":           (15.00, 75.00),
+        "claude-sonnet-4-6":         (3.00,  15.00),
+        "claude-haiku-4-5-20251001":  (0.80,   4.00),
     },
     "openai": {
         "gpt-4o":      (5.00,  15.00),
@@ -27,6 +33,14 @@ _PROVIDER_PRICING: dict[str, dict[str, tuple[float, float]]] = {
     "gemini": {
         "gemini-1.5-flash": (0.00,  0.00),
         "gemini-1.5-pro":   (3.50, 10.50),
+    },
+    "perplexity": {
+        "sonar":     (1.00, 1.00),
+        "sonar-pro": (3.00, 15.00),
+    },
+    "local": {
+        "ollama-mistral": (0.00, 0.00),
+        "ollama-llama3":  (0.00, 0.00),
     },
 }
 
@@ -46,63 +60,289 @@ MODEL_IDS: dict[ModelTier, str] = {
 
 @dataclass
 class RoutingCriteria:
-    """
-    All inputs considered when selecting a model tier.
-
-    task_complexity:     0.0 (trivial) → 1.0 (highly complex)
-    is_sensitive:        True for PII, financial, legal, or strategic content
-    latency_budget_ms:   Maximum tolerable latency (0 = no constraint)
-    cost_budget_tokens:  Maximum token budget (0 = no constraint)
-    action_class:        The ActionClass requested for this task
-    requires_reasoning:  True if deep chain-of-thought reasoning is needed
-    """
-
+    """All inputs considered when selecting a model tier."""
     task_complexity: float = 0.5
     is_sensitive: bool = False
-    latency_budget_ms: int = 0
-    cost_budget_tokens: int = 0
+    latency_budget_ms: int = 0      # 0 = no constraint
+    cost_budget_tokens: int = 0     # 0 = no constraint
     action_class: str = "SUGGEST"
     requires_reasoning: bool = False
+    contains_pii: bool = False      # must stay on-premise if True
+    preferred_provider: str = "anthropic"
+    budget_limit_usd: float = 1.0
 
+
+# ---------------------------------------------------------------------------
+# Provider health tracking
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ProviderHealth:
+    """Tracks real-time health of a provider."""
+    provider: str
+    available: bool = True
+    error_count: int = 0
+    last_error_at: float = 0.0
+    latency_p50_ms: float = 0.0
+    circuit_open: bool = False   # True = provider is blocked
+    _error_window: list[float] = field(default_factory=list, repr=False)
+
+    ERROR_THRESHOLD = 3          # errors within window to open circuit
+    WINDOW_SECONDS = 60.0
+    RECOVERY_SECONDS = 120.0     # how long circuit stays open
+
+    def record_success(self, latency_ms: float = 0.0) -> None:
+        self.available = True
+        if latency_ms > 0:
+            self.latency_p50_ms = (self.latency_p50_ms * 0.8 + latency_ms * 0.2)
+        self._prune_window()
+
+    def record_error(self) -> None:
+        now = time.time()
+        self._error_window.append(now)
+        self._prune_window()
+        self.error_count += 1
+        self.last_error_at = now
+        if len(self._error_window) >= self.ERROR_THRESHOLD:
+            self.circuit_open = True
+            self.available = False
+            logger.warning("ProviderHealth: circuit OPEN for %s", self.provider)
+
+    def check_recovery(self) -> bool:
+        """Allow recovery if circuit has been open long enough."""
+        if not self.circuit_open:
+            return True
+        elapsed = time.time() - self.last_error_at
+        if elapsed >= self.RECOVERY_SECONDS:
+            self.circuit_open = False
+            self.available = True
+            self._error_window.clear()
+            logger.info("ProviderHealth: circuit CLOSED for %s (recovered)", self.provider)
+            return True
+        return False
+
+    def is_healthy(self) -> bool:
+        if self.circuit_open:
+            return self.check_recovery()
+        return self.available
+
+    def _prune_window(self) -> None:
+        cutoff = time.time() - self.WINDOW_SECONDS
+        self._error_window = [t for t in self._error_window if t > cutoff]
+
+
+class ProviderHealthTracker:
+    """Registry of all known provider health states."""
+
+    def __init__(self) -> None:
+        self._health: dict[str, ProviderHealth] = {
+            p: ProviderHealth(provider=p)
+            for p in _PROVIDER_PRICING
+        }
+
+    def get(self, provider: str) -> ProviderHealth:
+        if provider not in self._health:
+            self._health[provider] = ProviderHealth(provider=provider)
+        return self._health[provider]
+
+    def is_healthy(self, provider: str) -> bool:
+        return self.get(provider).is_healthy()
+
+    def record_success(self, provider: str, latency_ms: float = 0.0) -> None:
+        self.get(provider).record_success(latency_ms)
+
+    def record_error(self, provider: str) -> None:
+        self.get(provider).record_error()
+
+    def healthy_providers(self) -> list[str]:
+        return [p for p in self._health if self._health[p].is_healthy()]
+
+    def report(self) -> dict[str, Any]:
+        return {
+            p: {
+                "available": h.available,
+                "circuit_open": h.circuit_open,
+                "error_count": h.error_count,
+                "latency_p50_ms": round(h.latency_p50_ms, 1),
+            }
+            for p, h in self._health.items()
+        }
+
+
+# ---------------------------------------------------------------------------
+# Fallback chain builder
+# ---------------------------------------------------------------------------
+
+def build_fallback_chain(
+    primary_provider: str,
+    primary_model: str,
+    contains_pii: bool = False,
+    offline_only: bool = False,
+) -> list[tuple[str, str]]:
+    """
+    Build an ordered fallback chain: primary → alternatives → local.
+
+    PII-sensitive tasks never leave local/anthropic (on-premise options).
+    offline_only restricts to local models only.
+    """
+    if offline_only:
+        return [("local", "ollama-mistral")]
+
+    chain: list[tuple[str, str]] = [(primary_provider, primary_model)]
+
+    if contains_pii:
+        # PII: only allow anthropic (enterprise agreement) or local
+        if primary_provider != "anthropic":
+            chain = [("anthropic", MODEL_IDS[ModelTier.BALANCED])]
+        chain.append(("local", "ollama-mistral"))
+        return chain
+
+    # Standard fallback order
+    fallbacks: list[tuple[str, str]] = [
+        ("anthropic", "claude-sonnet-4-6"),
+        ("openai",    "gpt-4o-mini"),
+        ("gemini",    "gemini-1.5-flash"),
+        ("local",     "ollama-mistral"),
+    ]
+    for fb in fallbacks:
+        if fb not in chain:
+            chain.append(fb)
+    return chain
+
+
+# ---------------------------------------------------------------------------
+# Main router
+# ---------------------------------------------------------------------------
 
 class ModelRouter:
     """
-    Routes tasks to the appropriate Claude model tier.
+    Routes tasks to the best (provider, model) pair.
 
-    Rules (evaluated in priority order):
-    1. Sensitive + complex → FRONTIER
-    2. Requires deep reasoning → FRONTIER
-    3. Complexity > 0.8 → FRONTIER
-    4. Tight latency budget (< 2000ms) → FAST
-    5. Low complexity (< 0.3) → FAST
-    6. Default → BALANCED
+    Features:
+    - Multi-provider: Anthropic, OpenAI, Gemini, Perplexity, local
+    - Fallback chain with circuit-breaker per provider
+    - Privacy gate: PII tasks stay on anthropic/local
+    - Cost-aware: respects budget_limit_usd
+    - Latency-aware: tight budgets → FAST tier or local
+    - Offline/caveman mode: all cloud providers fail → local only
     """
 
+    def __init__(self) -> None:
+        self.health = ProviderHealthTracker()
+
+    # ------------------------------------------------------------------
+    # Primary API
+    # ------------------------------------------------------------------
+
     def route(self, criteria: RoutingCriteria) -> str:
-        """Return the model ID string for the given routing criteria."""
+        """Return the Claude model ID string for the given criteria."""
         tier = self._select_tier(criteria)
         return MODEL_IDS[tier]
 
     def route_tier(self, criteria: RoutingCriteria) -> ModelTier:
-        """Return the ModelTier enum (useful for logging and config)."""
         return self._select_tier(criteria)
 
+    def route_with_fallback(
+        self,
+        criteria: RoutingCriteria,
+    ) -> tuple[str, str, list[tuple[str, str]]]:
+        """
+        Return (provider, model, fallback_chain).
+
+        Selects the best healthy provider/model pair using the fallback chain.
+        Falls back through alternatives if the primary provider is unhealthy.
+        """
+        primary_provider, primary_model = self._select_provider_model(criteria)
+        chain = build_fallback_chain(
+            primary_provider, primary_model,
+            contains_pii=criteria.contains_pii,
+        )
+        for provider, model in chain:
+            if self.health.is_healthy(provider):
+                logger.debug("Router: selected %s/%s", provider, model)
+                return provider, model, chain
+
+        # All providers down → offline/caveman mode
+        logger.warning("Router: ALL providers down — caveman mode (local only)")
+        return "local", "ollama-mistral", chain
+
+    # ------------------------------------------------------------------
+    # Provider/model selection logic
+    # ------------------------------------------------------------------
+
+    def _select_provider_model(self, criteria: RoutingCriteria) -> tuple[str, str]:
+        """Choose (provider, model) before applying health/fallback."""
+        c = criteria
+
+        # Privacy constraint: PII must stay on anthropic or local
+        if c.contains_pii:
+            return ("anthropic", self._select_tier_model(c))
+
+        # Budget constraint: ultra-low budget → cheapest
+        if c.budget_limit_usd < 0.001:
+            return ("openai", "gpt-4o-mini")
+
+        # Latency constraint: very tight → local or haiku
+        if c.latency_budget_ms > 0 and c.latency_budget_ms < 500:
+            return ("local", "ollama-mistral")
+
+        # High complexity → frontier
+        if c.task_complexity >= 0.8 or c.requires_reasoning:
+            return ("anthropic", MODEL_IDS[ModelTier.FRONTIER])
+
+        # Preferred provider hint
+        if c.preferred_provider == "openai":
+            model = "gpt-4o" if c.task_complexity >= 0.5 else "gpt-4o-mini"
+            return ("openai", model)
+        if c.preferred_provider == "gemini":
+            model = "gemini-1.5-pro" if c.task_complexity >= 0.5 else "gemini-1.5-flash"
+            return ("gemini", model)
+        if c.preferred_provider == "perplexity":
+            return ("perplexity", "sonar")
+        if c.preferred_provider == "local":
+            return ("local", "ollama-mistral")
+
+        # Default: anthropic balanced/fast
+        return ("anthropic", self._select_tier_model(c))
+
+    def _select_tier_model(self, c: RoutingCriteria) -> str:
+        tier = self._select_tier(c)
+        return MODEL_IDS[tier]
+
     def _select_tier(self, c: RoutingCriteria) -> ModelTier:
-        # Hard escalation to frontier
         if c.is_sensitive and c.task_complexity > 0.5:
             return ModelTier.FRONTIER
         if c.requires_reasoning:
             return ModelTier.FRONTIER
         if c.task_complexity > 0.8:
             return ModelTier.FRONTIER
-
-        # Fast path for latency-sensitive or trivial tasks
         if c.latency_budget_ms > 0 and c.latency_budget_ms < 2000:
             return ModelTier.FAST
         if c.task_complexity < 0.3 and not c.is_sensitive:
             return ModelTier.FAST
-
         return ModelTier.BALANCED
+
+    # ------------------------------------------------------------------
+    # Legacy multi-provider method (kept for compatibility)
+    # ------------------------------------------------------------------
+
+    def route_to_provider(
+        self,
+        task_complexity: float = 0.5,
+        budget_limit_usd: float = 1.0,
+        preferred_provider: str = "anthropic",
+    ) -> tuple[str, str]:
+        criteria = RoutingCriteria(
+            task_complexity=task_complexity,
+            budget_limit_usd=budget_limit_usd,
+            preferred_provider=preferred_provider,
+        )
+        provider, model, _ = self.route_with_fallback(criteria)
+        return provider, model
+
+    # ------------------------------------------------------------------
+    # Agent shortcuts
+    # ------------------------------------------------------------------
 
     @classmethod
     def for_agent(cls, agent_id: str) -> str:
@@ -121,37 +361,8 @@ class ModelRouter:
         return AGENT_MODELS.get(agent_id, MODEL_IDS[ModelTier.BALANCED])
 
     # ------------------------------------------------------------------
-    # Multi-provider routing
+    # Cost estimation
     # ------------------------------------------------------------------
-
-    def route_to_provider(
-        self,
-        task_complexity: float = 0.5,
-        budget_limit_usd: float = 1.0,
-        preferred_provider: str = "anthropic",
-    ) -> tuple[str, str]:
-        """
-        Select (provider, model) based on complexity and budget.
-
-        Returns a (provider_id, model_id) tuple.
-
-        Rules:
-        - budget_limit_usd < 0.001  → openai / gpt-4o-mini  (cheapest)
-        - task_complexity >= 0.8    → anthropic / claude-opus-4-6  (most capable)
-        - otherwise                 → anthropic / claude-sonnet-4-6  (default)
-
-        The *preferred_provider* hint is respected only when no other rule fires.
-        """
-        if budget_limit_usd < 0.001:
-            return ("openai", "gpt-4o-mini")
-        if task_complexity >= 0.8:
-            return ("anthropic", "claude-opus-4-6")
-        # Default: respect preferred_provider hint
-        if preferred_provider == "openai":
-            return ("openai", "gpt-4o-mini")
-        if preferred_provider == "gemini":
-            return ("gemini", "gemini-1.5-flash")
-        return ("anthropic", "claude-sonnet-4-6")
 
     @staticmethod
     def estimate_cost(
@@ -170,3 +381,6 @@ class ModelRouter:
             + (output_tokens / 1_000_000) * prices[1],
             6,
         )
+
+    def provider_health_report(self) -> dict[str, Any]:
+        return self.health.report()
