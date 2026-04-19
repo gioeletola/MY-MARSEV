@@ -14,13 +14,8 @@ import pytest
 
 def _make_registry(tmp_path: pathlib.Path):
     """Return a fresh DeviceRegistry that writes to tmp_path."""
-    from sovereign.devices import device_registry as mod
-    data_file = tmp_path / "devices.json"
-    # Patch the module-level data file
-    import unittest.mock as mock
-    with mock.patch.object(mod, "_DATA_FILE", data_file):
-        from sovereign.devices.device_registry import DeviceRegistry
-        return DeviceRegistry()
+    from sovereign.devices.device_registry import DeviceRegistry
+    return DeviceRegistry(data_file=tmp_path / "devices.json")
 
 
 # ---------------------------------------------------------------------------
@@ -110,12 +105,8 @@ class TestSensorManager:
 class TestDeviceGateway:
     def _gw(self, tmp_path):
         from sovereign.devices.device_registry import DeviceRegistry
-        import unittest.mock as mock
-        from sovereign.devices import device_registry as dr_mod
-        data_file = tmp_path / "devices.json"
-        with mock.patch.object(dr_mod, "_DATA_FILE", data_file):
-            reg = DeviceRegistry()
         from sovereign.devices.device_gateway import DeviceGateway
+        reg = DeviceRegistry(data_file=tmp_path / "devices.json")
         return DeviceGateway(registry=reg), reg
 
     @pytest.mark.asyncio

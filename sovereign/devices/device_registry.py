@@ -47,16 +47,17 @@ class Device:
 
 
 class DeviceRegistry:
-    def __init__(self) -> None:
+    def __init__(self, data_file: Path | None = None) -> None:
+        self._data_file = data_file or _DATA_FILE
         self._devices: dict[str, Device] = {}
-        _DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        self._data_file.parent.mkdir(parents=True, exist_ok=True)
         self._load()
         self._auto_discover()
 
     def _load(self) -> None:
-        if _DATA_FILE.exists():
+        if self._data_file.exists():
             try:
-                raw = json.loads(_DATA_FILE.read_text())
+                raw = json.loads(self._data_file.read_text())
                 for d in raw:
                     d["device_type"] = DeviceType(d.get("device_type", "virtual"))
                     d["status"] = DeviceStatus(d.get("status", "unknown"))
@@ -67,7 +68,7 @@ class DeviceRegistry:
     def _save(self) -> None:
         data = [{**d.__dict__, "device_type": d.device_type.value, "status": d.status.value}
                 for d in self._devices.values()]
-        _DATA_FILE.write_text(json.dumps(data, indent=2))
+        self._data_file.write_text(json.dumps(data, indent=2))
 
     def _auto_discover(self) -> None:
         """Detect common devices on the host system."""
