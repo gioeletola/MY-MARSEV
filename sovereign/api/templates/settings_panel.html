@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en" x-data="settings()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — Settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
+                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
+                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
+        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>
+    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
+    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
+    .gradient-border {
+      background:linear-gradient(#11111a,#11111a) padding-box,
+                 linear-gradient(135deg,#06b6d4,#7c3aed) border-box;
+      border:1px solid transparent; border-radius:12px;
+    }
+    .section-title { font-size:0.7rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#06b6d4; }
+    .input-field { background:#0a0a0f; border:1px solid #1e1e2e; border-radius:6px; padding:6px 10px; font-size:0.8rem; color:#e2e8f0; width:100%; outline:none; transition:border-color .15s; }
+    .input-field:focus { border-color:#06b6d4; }
+    .select-field { background:#0a0a0f; border:1px solid #1e1e2e; border-radius:6px; padding:6px 10px; font-size:0.8rem; color:#e2e8f0; width:100%; outline:none; appearance:none; }
+    .select-field:focus { border-color:#06b6d4; }
+    .toggle { position:relative; width:40px; height:22px; cursor:pointer; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:#1e1e2e; border-radius:999px; transition:.3s; }
+    .toggle-slider:before { content:''; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#6b7280; border-radius:50%; transition:.3s; }
+    .toggle input:checked + .toggle-slider { background:rgba(6,182,212,0.2); }
+    .toggle input:checked + .toggle-slider:before { transform:translateX(18px); background:#06b6d4; }
+    .btn-primary { background:linear-gradient(135deg,#06b6d4,#7c3aed); color:white; border:none; border-radius:8px; padding:8px 20px; font-size:0.8rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+    .btn-primary:hover { opacity:0.9; }
+    .btn-ghost { background:transparent; border:1px solid #1e1e2e; color:#6b7280; border-radius:8px; padding:8px 16px; font-size:0.8rem; cursor:pointer; transition:all .15s; }
+    .btn-ghost:hover { border-color:#06b6d4; color:#06b6d4; }
+    .tab-btn { padding:6px 16px; font-size:0.75rem; font-weight:500; border-radius:6px; cursor:pointer; transition:all .15s; color:#6b7280; background:transparent; border:none; }
+    .tab-btn.active { background:#1e1e2e; color:#06b6d4; }
+    .tab-btn:hover:not(.active) { color:#e2e8f0; }
+    .toast { position:fixed; bottom:20px; right:20px; background:#11111a; border:1px solid #1e1e2e; border-radius:8px; padding:10px 16px; font-size:0.8rem; z-index:999; }
+    .toast.success { border-color:#10b981; color:#10b981; }
+    .toast.error { border-color:#f43f5e; color:#f43f5e; }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<!-- Nav -->
+<header class="flex items-center justify-between mb-6 px-2">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg gradient-border flex items-center justify-center text-cyan font-mono font-bold text-sm">S</div>
+    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
+    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">SETTINGS</span>
+  </div>
+  <div class="flex items-center gap-4 text-xs text-muted">
+    <span class="font-mono" x-text="clock"></span>
+    <a href="/" class="hover:text-cyan transition-colors">← Chat</a>
+    <a href="/dashboard" class="hover:text-cyan transition-colors">Executive</a>
+    <a href="/finance" class="hover:text-cyan transition-colors">Finance</a>
+    <a href="/business" class="hover:text-cyan transition-colors">Business</a>
+    <a href="/hud" class="hover:text-cyan transition-colors">HUD</a>
+    <a href="/approvals" class="hover:text-cyan transition-colors">Approvals</a>
+    <a href="/entities" class="hover:text-cyan transition-colors">Entities</a>
+    <a href="/expansion" class="hover:text-cyan transition-colors">Expansion</a>
+    <a href="/admin" class="hover:text-cyan transition-colors">Admin</a>
+  </div>
+</header>
+
+<!-- Toast -->
+<div x-show="toast.visible" x-transition class="toast" :class="toast.type" x-text="toast.msg"></div>
+
+<!-- Layout -->
+<div class="flex gap-4 max-w-5xl mx-auto">
+
+  <!-- Sidebar tabs -->
+  <div class="card p-3 w-40 flex-shrink-0 self-start">
+    <div class="space-y-1">
+      <template x-for="tab in tabs" :key="tab.id">
+        <button class="tab-btn w-full text-left" :class="{active: activeTab===tab.id}" @click="activeTab=tab.id" x-text="tab.label"></button>
+      </template>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="flex-1 space-y-4">
+
+    <!-- Loading -->
+    <div x-show="loading" class="card p-6 text-center text-muted text-sm">Loading settings…</div>
+
+    <!-- Profile -->
+    <template x-if="!loading && activeTab==='profile'">
+      <div class="card p-5 space-y-4">
+        <div class="section-title">Profile</div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-muted mb-1 block">Display Name</label>
+            <input class="input-field" x-model="s.profile.name" placeholder="Your name"/>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Language</label>
+            <select class="select-field" x-model="s.profile.language">
+              <option value="en">English</option>
+              <option value="it">Italiano</option>
+              <option value="es">Español</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Timezone</label>
+            <input class="input-field" x-model="s.profile.timezone" placeholder="UTC"/>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Bio</label>
+            <input class="input-field" x-model="s.profile.bio" placeholder="Short bio…"/>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn-primary" @click="save('profile')">Save Profile</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Mode Preferences -->
+    <template x-if="!loading && activeTab==='modes'">
+      <div class="card p-5 space-y-4">
+        <div class="section-title">Operating Mode</div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-muted mb-1 block">Default Mode</label>
+            <select class="select-field" x-model="s.modes.default_mode">
+              <template x-for="m in availableModes" :key="m">
+                <option :value="m" x-text="m"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Mode on Startup</label>
+            <select class="select-field" x-model="s.modes.mode_on_startup">
+              <template x-for="m in availableModes" :key="m">
+                <option :value="m" x-text="m"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn-primary" @click="save('modes')">Save Modes</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Provider Preferences -->
+    <template x-if="!loading && activeTab==='providers'">
+      <div class="card p-5 space-y-4">
+        <div class="section-title">Model Providers</div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-muted mb-1 block">Preferred Provider</label>
+            <select class="select-field" x-model="s.providers.preferred_provider">
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="openai">OpenAI (GPT)</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="qwen">Qwen (Local)</option>
+              <option value="perplexity">Perplexity</option>
+              <option value="local">Local (Ollama)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Qwen Backend</label>
+            <select class="select-field" x-model="s.providers.qwen_backend">
+              <option value="ollama">Ollama</option>
+              <option value="vllm">vLLM</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Qwen Base URL (optional)</label>
+            <input class="input-field" x-model="s.providers.qwen_base_url" placeholder="http://localhost:11434"/>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Offline Default Model</label>
+            <select class="select-field" x-model="s.providers.offline_default_model">
+              <option value="qwen2.5:7b">qwen2.5:7b</option>
+              <option value="qwen2.5:14b">qwen2.5:14b</option>
+              <option value="qwen3:8b">qwen3:8b</option>
+              <option value="qwen3:14b">qwen3:14b</option>
+              <option value="ollama-mistral">ollama-mistral</option>
+              <option value="ollama-llama3">ollama-llama3</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Daily Budget (USD)</label>
+            <input class="input-field" type="number" step="0.50" min="0" x-model.number="s.providers.budget_daily_usd"/>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Max Cost / Request (USD)</label>
+            <input class="input-field" type="number" step="0.05" min="0" x-model.number="s.providers.max_cost_per_request_usd"/>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 pt-1">
+          <label class="toggle"><input type="checkbox" x-model="s.providers.local_first"><span class="toggle-slider"></span></label>
+          <span class="text-xs text-muted">Local-first (prefer Qwen/Ollama when available)</span>
+        </div>
+        <!-- Live provider health -->
+        <div class="pt-2">
+          <div class="section-title mb-2">Live Provider Health</div>
+          <template x-if="providerHealth">
+            <div class="space-y-1">
+              <template x-for="[name, info] in Object.entries(providerHealth)" :key="name">
+                <div class="flex items-center justify-between text-xs px-2 py-1 rounded" :class="info.available ? 'bg-emerald/5' : 'bg-rose/5'">
+                  <span class="font-mono font-medium" x-text="name"></span>
+                  <div class="flex items-center gap-3 text-muted">
+                    <span x-show="info.circuit_open" class="text-rose">CIRCUIT OPEN</span>
+                    <span x-show="!info.circuit_open && info.available" class="text-emerald">HEALTHY</span>
+                    <span x-show="!info.circuit_open && !info.available" class="text-amber">UNAVAILABLE</span>
+                    <span x-text="'err:' + info.error_count"></span>
+                    <span x-text="info.latency_p50_ms + 'ms'"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn-primary" @click="save('providers')">Save Providers</button>
+          <button class="btn-ghost" @click="loadProviderHealth()">Refresh Health</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Privacy -->
+    <template x-if="!loading && activeTab==='privacy'">
+      <div class="card p-5 space-y-4">
+        <div class="section-title">Privacy &amp; Data</div>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium">PII Safe Mode</div>
+              <div class="text-xs text-muted">Route all data to local/Qwen only — never to cloud</div>
+            </div>
+            <label class="toggle"><input type="checkbox" x-model="s.privacy.pii_safe_mode"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium">Offline Only</div>
+              <div class="text-xs text-muted">Never use cloud providers</div>
+            </div>
+            <label class="toggle"><input type="checkbox" x-model="s.privacy.offline_only"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium">Redact Logs</div>
+              <div class="text-xs text-muted">Scrub PII from structured logs</div>
+            </div>
+            <label class="toggle"><input type="checkbox" x-model="s.privacy.redact_logs"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium">Share Usage Analytics</div>
+              <div class="text-xs text-muted">Anonymous usage data</div>
+            </div>
+            <label class="toggle"><input type="checkbox" x-model="s.privacy.share_usage_analytics"><span class="toggle-slider"></span></label>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Memory Retention (days)</label>
+            <input class="input-field" type="number" min="1" max="3650" x-model.number="s.privacy.memory_retention_days"/>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn-primary" @click="save('privacy')">Save Privacy</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Interface -->
+    <template x-if="!loading && activeTab==='interface'">
+      <div class="card p-5 space-y-4">
+        <div class="section-title">Interface</div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-muted mb-1 block">Theme</label>
+            <select class="select-field" x-model="s.interface.theme">
+              <option value="dark">Dark (default)</option>
+              <option value="dim">Dim</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Font Size</label>
+            <select class="select-field" x-model="s.interface.font_size">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Default Panel</label>
+            <select class="select-field" x-model="s.interface.default_panel">
+              <option value="chat">Chat</option>
+              <option value="dashboard">Executive Dashboard</option>
+              <option value="finance">Finance</option>
+            </select>
+          </div>
+        </div>
+        <div class="space-y-3 pt-1">
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Show Confidence Score</span>
+            <label class="toggle"><input type="checkbox" x-model="s.interface.show_confidence"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Show Agent Trace</span>
+            <label class="toggle"><input type="checkbox" x-model="s.interface.show_agent_trace"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Show Token Usage</span>
+            <label class="toggle"><input type="checkbox" x-model="s.interface.show_token_usage"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Compact Mode</span>
+            <label class="toggle"><input type="checkbox" x-model="s.interface.compact_mode"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn-primary" @click="save('interface')">Save Interface</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Notifications -->
+    <template x-if="!loading && activeTab==='notifications'">
+      <div class="card p-5 space-y-4">
+        <div class="section-title">Notifications</div>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium">Telegram Alerts</div>
+              <div class="text-xs text-muted">Send alerts via Telegram bot</div>
+            </div>
+            <label class="toggle"><input type="checkbox" x-model="s.notifications.telegram_enabled"><span class="toggle-slider"></span></label>
+          </div>
+          <template x-if="s.notifications.telegram_enabled">
+            <div>
+              <label class="text-xs text-muted mb-1 block">Telegram Chat ID</label>
+              <input class="input-field" x-model="s.notifications.telegram_chat_id" placeholder="123456789"/>
+            </div>
+          </template>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Alert on Critical Events</span>
+            <label class="toggle"><input type="checkbox" x-model="s.notifications.alert_on_critical"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Alert on Approval Needed</span>
+            <label class="toggle"><input type="checkbox" x-model="s.notifications.alert_on_approval_needed"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Daily Digest Email</span>
+            <label class="toggle"><input type="checkbox" x-model="s.notifications.daily_digest_enabled"><span class="toggle-slider"></span></label>
+          </div>
+          <template x-if="s.notifications.daily_digest_enabled">
+            <div>
+              <label class="text-xs text-muted mb-1 block">Digest Hour (0–23 UTC)</label>
+              <input class="input-field" type="number" min="0" max="23" x-model.number="s.notifications.daily_digest_hour"/>
+            </div>
+          </template>
+          <div>
+            <label class="text-xs text-muted mb-1 block">Budget Alert Threshold (%)</label>
+            <input class="input-field" type="number" min="10" max="100" step="5"
+              :value="Math.round(s.notifications.budget_alert_threshold_pct * 100)"
+              @input="s.notifications.budget_alert_threshold_pct = $event.target.value / 100"/>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn-primary" @click="save('notifications')">Save Notifications</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Reset -->
+    <div class="card p-4 flex items-center justify-between" x-show="!loading">
+      <div>
+        <div class="text-sm font-medium text-rose">Reset All Settings</div>
+        <div class="text-xs text-muted">Restore all settings to factory defaults</div>
+      </div>
+      <button class="btn-ghost border-rose/30 text-rose hover:border-rose hover:text-rose" @click="confirmReset()">Reset</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function settings() {
+  return {
+    clock: '',
+    loading: true,
+    activeTab: 'profile',
+    token: localStorage.getItem('sovereign_token') || '',
+    s: {},
+    toast: { visible: false, msg: '', type: 'success' },
+    providerHealth: null,
+    availableModes: [
+      'command','business','personal','finance','study','travel',
+      'research','builder','local_offline','survival',
+      'founder','war','prestige','silent','recovery','emergency'
+    ],
+    tabs: [
+      { id: 'profile',       label: 'Profile' },
+      { id: 'modes',         label: 'Modes' },
+      { id: 'providers',     label: 'Providers' },
+      { id: 'privacy',       label: 'Privacy' },
+      { id: 'interface',     label: 'Interface' },
+      { id: 'notifications', label: 'Alerts' },
+    ],
+
+    async init() {
+      setInterval(() => { this.clock = new Date().toLocaleTimeString() }, 1000)
+      await this.load()
+      this.loadProviderHealth()
+    },
+
+    async load() {
+      this.loading = true
+      try {
+        const r = await fetch('/api/settings', { headers: this._headers() })
+        if (r.ok) { this.s = await r.json() }
+        else { this.showToast('Login required — token missing or expired', 'error') }
+      } catch(e) { this.showToast('Failed to load settings', 'error') }
+      this.loading = false
+    },
+
+    async save(section) {
+      try {
+        const r = await fetch(`/api/settings/${section}`, {
+          method: 'PATCH',
+          headers: { ...this._headers(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: this.s[section] })
+        })
+        if (r.ok) { this.showToast('Saved ✓', 'success') }
+        else { this.showToast('Save failed', 'error') }
+      } catch(e) { this.showToast('Save failed', 'error') }
+    },
+
+    async loadProviderHealth() {
+      try {
+        const r = await fetch('/api/providers')
+        if (r.ok) { const d = await r.json(); this.providerHealth = d.providers }
+      } catch(e) {}
+    },
+
+    async confirmReset() {
+      if (!confirm('Reset ALL settings to defaults?')) return
+      try {
+        const r = await fetch('/api/settings/reset', { method: 'POST', headers: this._headers() })
+        if (r.ok) { this.s = await r.json(); this.showToast('Reset to defaults ✓', 'success') }
+      } catch(e) {}
+    },
+
+    showToast(msg, type = 'success') {
+      this.toast = { visible: true, msg, type }
+      setTimeout(() => { this.toast.visible = false }, 3000)
+    },
+
+    _headers() {
+      return this.token ? { Authorization: `Bearer ${this.token}` } : {}
+    }
+  }
+}
+</script>
+</body>
+</html>

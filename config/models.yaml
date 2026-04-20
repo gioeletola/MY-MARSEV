@@ -33,6 +33,50 @@ models:
       - bulk_operations
       - routing_decisions
 
+  # ── Qwen (local, privacy-safe) ──────────────────────────────────────
+  qwen_fast:
+    id: qwen2.5:7b
+    provider: qwen
+    description: "Fast local Qwen 2.5 7B — low VRAM, privacy-safe"
+    max_tokens: 8192
+    privacy_safe: true
+    use_for:
+      - offline_mode
+      - privacy_sensitive
+      - local_first_tasks
+
+  qwen_balanced:
+    id: qwen2.5:14b
+    provider: qwen
+    description: "Balanced local Qwen 2.5 14B — solid capability, privacy-safe"
+    max_tokens: 16384
+    privacy_safe: true
+    use_for:
+      - offline_mode
+      - local_reasoning
+      - code_tasks
+
+  qwen_frontier:
+    id: qwen3:32b
+    provider: qwen
+    description: "High-capability local Qwen 3 32B — near-frontier, privacy-safe"
+    max_tokens: 32768
+    privacy_safe: true
+    use_for:
+      - complex_local_tasks
+      - frontier_offline
+
+  qwen_coder:
+    id: qwen2.5-coder:14b
+    provider: qwen
+    description: "Code-specialized Qwen 2.5 Coder 14B"
+    max_tokens: 16384
+    privacy_safe: true
+    use_for:
+      - code_generation
+      - code_review
+      - debugging
+
 routing_rules:
   - if:
       complexity_above: 0.8

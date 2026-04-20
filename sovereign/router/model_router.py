@@ -38,6 +38,17 @@ _PROVIDER_PRICING: dict[str, dict[str, tuple[float, float]]] = {
         "sonar":     (1.00, 1.00),
         "sonar-pro": (3.00, 15.00),
     },
+    "qwen": {
+        "qwen2.5:7b":        (0.00, 0.00),
+        "qwen2.5:14b":       (0.00, 0.00),
+        "qwen2.5:32b":       (0.00, 0.00),
+        "qwen2.5:72b":       (0.00, 0.00),
+        "qwen2.5-coder:7b":  (0.00, 0.00),
+        "qwen2.5-coder:14b": (0.00, 0.00),
+        "qwen3:8b":          (0.00, 0.00),
+        "qwen3:14b":         (0.00, 0.00),
+        "qwen3:32b":         (0.00, 0.00),
+    },
     "local": {
         "ollama-mistral": (0.00, 0.00),
         "ollama-llama3":  (0.00, 0.00),
@@ -202,6 +213,7 @@ def build_fallback_chain(
         ("anthropic", "claude-sonnet-4-6"),
         ("openai",    "gpt-4o-mini"),
         ("gemini",    "gemini-1.5-flash"),
+        ("qwen",      "qwen2.5:14b"),
         ("local",     "ollama-mistral"),
     ]
     for fb in fallbacks:
@@ -262,7 +274,10 @@ class ModelRouter:
                 logger.debug("Router: selected %s/%s", provider, model)
                 return provider, model, chain
 
-        # All providers down → offline/caveman mode
+        # All cloud providers down → try qwen then local (caveman mode)
+        if self.health.is_healthy("qwen"):
+            logger.info("Router: cloud down — falling back to qwen")
+            return "qwen", "qwen2.5:14b", chain
         logger.warning("Router: ALL providers down — caveman mode (local only)")
         return "local", "ollama-mistral", chain
 
@@ -299,6 +314,11 @@ class ModelRouter:
             return ("gemini", model)
         if c.preferred_provider == "perplexity":
             return ("perplexity", "sonar")
+        if c.preferred_provider == "qwen":
+            model = "qwen3:32b" if c.task_complexity >= 0.8 else (
+                "qwen2.5:14b" if c.task_complexity >= 0.5 else "qwen2.5:7b"
+            )
+            return ("qwen", model)
         if c.preferred_provider == "local":
             return ("local", "ollama-mistral")
 

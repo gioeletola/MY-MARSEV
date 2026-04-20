@@ -303,7 +303,7 @@ class TestModelRouterFallback:
         assert provider == "anthropic"
 
     def test_pii_fallback_chain_no_third_party(self, router):
-        from sovereign.router.model_router import RoutingCriteria, build_fallback_chain
+        from sovereign.router.model_router import build_fallback_chain
         chain = build_fallback_chain("anthropic", "claude-sonnet-4-6", contains_pii=True)
         providers = [p for p, _ in chain]
         assert "openai" not in providers
@@ -311,7 +311,7 @@ class TestModelRouterFallback:
 
     def test_caveman_mode_when_all_down(self, router):
         from sovereign.router.model_router import RoutingCriteria
-        for provider in ["anthropic", "openai", "gemini", "perplexity"]:
+        for provider in ["anthropic", "openai", "gemini", "perplexity", "qwen"]:
             for _ in range(5):
                 router.health.record_error(provider)
         provider, model, _ = router.route_with_fallback(RoutingCriteria())

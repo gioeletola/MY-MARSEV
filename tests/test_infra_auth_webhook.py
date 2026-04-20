@@ -3,7 +3,6 @@ Tests for sovereign/infra/auth.py and sovereign/infra/webhooks.py.
 """
 from __future__ import annotations
 
-import asyncio
 import pytest
 
 

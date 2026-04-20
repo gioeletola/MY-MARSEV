@@ -541,6 +541,7 @@ class SovereignOrchestrator:
             "escalations_pending": len(self._escalation.pending_events()),
             "tools_registered": self._tool_registry.count(),
             "agents_registered": self._agent_registry.count(),
+            "provider_health": self._model_router.provider_health_report(),
         }
 
     def get_budget_summary(self) -> dict:

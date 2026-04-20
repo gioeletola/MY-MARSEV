@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en" x-data="admin()" x-init="init()">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOVEREIGN — Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
+                  cyan:'#06b6d4', violet:'#7c3aed', rose:'#f43f5e',
+                  amber:'#f59e0b', emerald:'#10b981', muted:'#6b7280' },
+        fontFamily: { sans:['Inter','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>
+    body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
+    .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
+    .gradient-border {
+      background:linear-gradient(#11111a,#11111a) padding-box,
+                 linear-gradient(135deg,#06b6d4,#7c3aed) border-box;
+      border:1px solid transparent; border-radius:12px;
+    }
+    .section-title { font-size:0.7rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#06b6d4; }
+    .badge { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.65rem; font-weight:600; }
+    .badge-cyan    { background:rgba(6,182,212,0.15); color:#06b6d4; }
+    .badge-emerald { background:rgba(16,185,129,0.15); color:#10b981; }
+    .badge-amber   { background:rgba(245,158,11,0.15); color:#f59e0b; }
+    .badge-rose    { background:rgba(244,63,94,0.15); color:#f43f5e; }
+    .badge-violet  { background:rgba(124,58,237,0.15); color:#a78bfa; }
+    th { text-transform:uppercase; font-size:0.65rem; letter-spacing:0.08em; color:#6b7280; padding:8px 12px; text-align:left; border-bottom:1px solid #1e1e2e; }
+    td { padding:8px 12px; font-size:0.8rem; border-bottom:1px solid #111120; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:rgba(6,182,212,0.03); }
+    .input-field { background:#0a0a0f; border:1px solid #1e1e2e; border-radius:6px; padding:5px 10px; font-size:0.8rem; color:#e2e8f0; outline:none; }
+    .input-field:focus { border-color:#06b6d4; }
+    .tab-btn { padding:6px 16px; font-size:0.75rem; font-weight:500; border-radius:6px; cursor:pointer; color:#6b7280; background:transparent; border:none; }
+    .tab-btn.active { background:#1e1e2e; color:#06b6d4; }
+    .tab-btn:hover:not(.active) { color:#e2e8f0; }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+
+<!-- Nav -->
+<header class="flex items-center justify-between mb-6 px-2">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg gradient-border flex items-center justify-center text-cyan font-mono font-bold text-sm">S</div>
+    <span class="font-semibold tracking-wide">SOVEREIGN AI OS</span>
+    <span class="text-xs text-muted font-mono px-2 py-0.5 rounded bg-surface border border-border">ADMIN</span>
+  </div>
+  <div class="flex items-center gap-4 text-xs text-muted">
+    <span class="font-mono" x-text="clock"></span>
+    <a href="/" class="hover:text-cyan transition-colors">← Chat</a>
+    <a href="/dashboard" class="hover:text-cyan transition-colors">Executive</a>
+    <a href="/finance" class="hover:text-cyan transition-colors">Finance</a>
+    <a href="/business" class="hover:text-cyan transition-colors">Business</a>
+    <a href="/hud" class="hover:text-cyan transition-colors">HUD</a>
+    <a href="/approvals" class="hover:text-cyan transition-colors">Approvals</a>
+    <a href="/entities" class="hover:text-cyan transition-colors">Entities</a>
+    <a href="/expansion" class="hover:text-cyan transition-colors">Expansion</a>
+    <a href="/settings" class="hover:text-cyan transition-colors">Settings</a>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div class="flex gap-1 mb-4 card p-1 w-fit">
+  <button class="tab-btn" :class="{active: tab==='providers'}" @click="tab='providers'">Provider Health</button>
+  <button class="tab-btn" :class="{active: tab==='agents'}" @click="tab='agents'">Agents</button>
+  <button class="tab-btn" :class="{active: tab==='tools'}" @click="tab='tools'">Tools</button>
+  <button class="tab-btn" :class="{active: tab==='system'}" @click="tab='system'">System</button>
+</div>
+
+<!-- Provider Health -->
+<div x-show="tab==='providers'" class="space-y-4">
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="section-title">Provider Health</div>
+      <button class="text-xs text-cyan hover:underline" @click="loadProviders()">Refresh</button>
+    </div>
+    <table class="w-full">
+      <thead><tr>
+        <th>Provider</th><th>Status</th><th>Circuit</th><th>Errors</th><th>Latency p50</th>
+      </tr></thead>
+      <tbody>
+        <template x-if="providers">
+          <template x-for="[name, info] in Object.entries(providers)" :key="name">
+            <tr>
+              <td class="font-mono font-medium text-cyan" x-text="name"></td>
+              <td>
+                <span class="badge" :class="info.available ? 'badge-emerald' : 'badge-rose'"
+                  x-text="info.available ? 'healthy' : 'unavailable'"></span>
+              </td>
+              <td>
+                <span x-show="info.circuit_open" class="badge badge-rose">OPEN</span>
+                <span x-show="!info.circuit_open" class="badge badge-emerald">CLOSED</span>
+              </td>
+              <td class="font-mono text-muted" x-text="info.error_count"></td>
+              <td class="font-mono text-muted" x-text="info.latency_p50_ms + 'ms'"></td>
+            </tr>
+          </template>
+        </template>
+        <tr x-show="!providers"><td colspan="5" class="text-muted text-center py-4">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card p-5">
+    <div class="section-title mb-3">Healthy Providers</div>
+    <div class="flex flex-wrap gap-2" x-show="healthyProviders.length > 0">
+      <template x-for="p in healthyProviders" :key="p">
+        <span class="badge badge-emerald" x-text="p"></span>
+      </template>
+    </div>
+    <div x-show="healthyProviders.length === 0" class="text-muted text-sm">No healthy providers detected</div>
+  </div>
+</div>
+
+<!-- Agents -->
+<div x-show="tab==='agents'" class="space-y-4">
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="section-title">Registered Agents (<span x-text="agentModules.length"></span>)</div>
+      <div class="flex items-center gap-2">
+        <input class="input-field" placeholder="Filter…" x-model="agentFilter"/>
+        <button class="text-xs text-cyan hover:underline" @click="loadModules()">Refresh</button>
+      </div>
+    </div>
+    <table class="w-full">
+      <thead><tr>
+        <th>Agent ID</th><th>Type</th><th>Model</th><th>Stage</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        <template x-for="m in filteredAgents" :key="m.id">
+          <tr>
+            <td class="font-mono text-cyan text-xs" x-text="m.id"></td>
+            <td><span class="badge badge-violet" x-text="m.type"></span></td>
+            <td class="font-mono text-xs text-muted" x-text="m.model || '—'"></td>
+            <td>
+              <span class="badge"
+                :class="{'badge-emerald':m.stage==='production','badge-amber':m.stage==='shadow','badge-cyan':m.stage==='sandbox'}"
+                x-text="m.stage || 'production'"></span>
+            </td>
+            <td>
+              <span class="badge" :class="m.status==='active' ? 'badge-emerald' : 'badge-rose'" x-text="m.status"></span>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="filteredAgents.length===0"><td colspan="5" class="text-muted text-center py-4">No agents match filter</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tools -->
+<div x-show="tab==='tools'" class="space-y-4">
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="section-title">Registered Tools (<span x-text="toolModules.length"></span>)</div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <template x-for="m in toolModules" :key="m.id">
+        <div class="flex items-center gap-1 bg-surface border border-border rounded-full px-3 py-1">
+          <span class="w-2 h-2 rounded-full bg-emerald"></span>
+          <span class="text-xs font-mono" x-text="m.id"></span>
+        </div>
+      </template>
+      <div x-show="toolModules.length===0" class="text-muted text-sm">No tools registered</div>
+    </div>
+  </div>
+</div>
+
+<!-- System -->
+<div x-show="tab==='system'" class="space-y-4">
+  <div class="card p-5" x-show="systemHealth">
+    <div class="section-title mb-4">System Health</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="text-center">
+        <div class="text-2xl font-bold font-mono" :class="systemHealth?.overall === 'ok' ? 'text-emerald' : 'text-amber'" x-text="(systemHealth?.overall || '—').toUpperCase()"></div>
+        <div class="text-xs text-muted mt-1">Overall</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold font-mono text-cyan" x-text="systemHealth?.agents_registered || '—'"></div>
+        <div class="text-xs text-muted mt-1">Agents</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold font-mono text-violet" x-text="systemHealth?.tools_registered || '—'"></div>
+        <div class="text-xs text-muted mt-1">Tools</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold font-mono text-amber" x-text="systemHealth?.escalations_pending || 0"></div>
+        <div class="text-xs text-muted mt-1">Escalations</div>
+      </div>
+    </div>
+    <div class="mt-4 space-y-2" x-show="systemHealth?.checks">
+      <div class="section-title mb-2">Health Checks</div>
+      <template x-for="[check, result] in Object.entries(systemHealth?.checks || {})" :key="check">
+        <div class="flex items-center justify-between text-xs px-3 py-2 rounded bg-surface">
+          <span class="font-mono" x-text="check"></span>
+          <span class="badge" :class="result === 'healthy' ? 'badge-emerald' : (result === 'ok' ? 'badge-cyan' : 'badge-amber')" x-text="result"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <div class="card p-5">
+    <div class="section-title mb-3">Budget</div>
+    <div class="text-xs text-muted" x-text="'Daily spent: $' + (systemHealth?.budget?.daily_spent_usd || 0).toFixed(4)"></div>
+    <div class="text-xs text-muted" x-text="'Monthly spent: $' + (systemHealth?.budget?.monthly_spent_usd || 0).toFixed(4)"></div>
+  </div>
+</div>
+
+<script>
+function admin() {
+  return {
+    clock: '',
+    tab: 'providers',
+    token: localStorage.getItem('sovereign_token') || '',
+    providers: null,
+    healthyProviders: [],
+    modules: [],
+    systemHealth: null,
+    agentFilter: '',
+
+    get agentModules() { return this.modules.filter(m => m.type === 'agent') },
+    get toolModules()  { return this.modules.filter(m => m.type === 'tool') },
+    get filteredAgents() {
+      const q = this.agentFilter.toLowerCase()
+      return this.agentModules.filter(m => !q || m.id.toLowerCase().includes(q))
+    },
+
+    async init() {
+      setInterval(() => { this.clock = new Date().toLocaleTimeString() }, 1000)
+      await Promise.all([this.loadProviders(), this.loadModules(), this.loadHealth()])
+      setInterval(() => this.loadProviders(), 30000)
+      setInterval(() => this.loadHealth(), 15000)
+    },
+
+    async loadProviders() {
+      try {
+        const r = await fetch('/api/admin/provider-health', { headers: this._headers() })
+        if (r.ok) {
+          const d = await r.json()
+          this.providers = d.providers
+          this.healthyProviders = d.healthy || []
+        }
+      } catch(e) {
+        // Fallback to public endpoint
+        const r = await fetch('/api/providers')
+        if (r.ok) { const d = await r.json(); this.providers = d.providers }
+      }
+    },
+
+    async loadModules() {
+      try {
+        const r = await fetch('/api/admin/modules', { headers: this._headers() })
+        if (r.ok) { const d = await r.json(); this.modules = d.modules || [] }
+      } catch(e) {}
+    },
+
+    async loadHealth() {
+      try {
+        const r = await fetch('/health')
+        if (r.ok) { this.systemHealth = await r.json() }
+      } catch(e) {}
+    },
+
+    _headers() {
+      return this.token ? { Authorization: `Bearer ${this.token}` } : {}
+    }
+  }
+}
+</script>
+</body>
+</html>

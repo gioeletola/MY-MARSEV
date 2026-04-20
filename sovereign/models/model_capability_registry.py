@@ -28,10 +28,23 @@ _BUILTIN: list[ModelCapability] = [
     # ── OpenAI ────────────────────────────────────────────────────────────
     ModelCapability("gpt-4o", "openai", 128_000, 16_000, True, True, False, 5.0, 15.0, "medium"),
     ModelCapability("gpt-4o-mini", "openai", 128_000, 16_000, True, True, False, 0.15, 0.60, "fast"),
+    # ── Gemini ────────────────────────────────────────────────────────────
+    ModelCapability("gemini-1.5-pro", "gemini", 1_000_000, 8_192, True, True, False, 3.5, 10.5, "medium"),
+    ModelCapability("gemini-1.5-flash", "gemini", 1_000_000, 8_192, True, True, False, 0.0, 0.0, "fast"),
+    # ── Qwen (local via Ollama / vLLM) ───────────────────────────────────
+    ModelCapability("qwen2.5:7b",  "qwen", 131_072,  8_192, True, False, False, 0.0, 0.0, "fast", True, "Ollama/vLLM"),
+    ModelCapability("qwen2.5:14b", "qwen", 131_072, 16_384, True, False, False, 0.0, 0.0, "medium", True, "Ollama/vLLM"),
+    ModelCapability("qwen2.5:32b", "qwen", 131_072, 16_384, True, False, False, 0.0, 0.0, "medium", True, "Ollama/vLLM"),
+    ModelCapability("qwen2.5:72b", "qwen", 131_072, 32_768, True, False, False, 0.0, 0.0, "slow",   True, "Ollama/vLLM"),
+    ModelCapability("qwen2.5-coder:7b",  "qwen", 32_768,  8_192, True, False, False, 0.0, 0.0, "fast",   True, "Ollama/vLLM — code"),
+    ModelCapability("qwen2.5-coder:14b", "qwen", 32_768, 16_384, True, False, False, 0.0, 0.0, "medium", True, "Ollama/vLLM — code"),
+    ModelCapability("qwen3:8b",  "qwen", 131_072,  8_192, True, False, False, 0.0, 0.0, "fast",   True, "Ollama/vLLM"),
+    ModelCapability("qwen3:14b", "qwen", 131_072, 16_384, True, False, False, 0.0, 0.0, "medium", True, "Ollama/vLLM"),
+    ModelCapability("qwen3:32b", "qwen", 131_072, 32_768, True, False, False, 0.0, 0.0, "slow",   True, "Ollama/vLLM"),
     # ── Local (Ollama) ────────────────────────────────────────────────────
-    ModelCapability("llama3", "local", 8_192, 4_096, False, False, False, 0.0, 0.0, "medium", True, "Ollama"),
-    ModelCapability("mistral", "local", 32_768, 8_192, False, False, False, 0.0, 0.0, "fast", True, "Ollama"),
-    ModelCapability("phi3", "local", 4_096, 2_048, False, False, False, 0.0, 0.0, "fast", True, "Ollama"),
+    ModelCapability("llama3",   "local", 8_192,  4_096, False, False, False, 0.0, 0.0, "medium", True, "Ollama"),
+    ModelCapability("mistral",  "local", 32_768, 8_192, False, False, False, 0.0, 0.0, "fast",   True, "Ollama"),
+    ModelCapability("phi3",     "local", 4_096,  2_048, False, False, False, 0.0, 0.0, "fast",   True, "Ollama"),
 ]
 
 

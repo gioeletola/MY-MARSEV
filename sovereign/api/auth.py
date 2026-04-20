@@ -26,6 +26,37 @@ logger = logging.getLogger(__name__)
 
 _bearer = HTTPBearer(auto_error=False)
 
+# ---------------------------------------------------------------------------
+# Rate limiter — simple in-memory sliding window (per IP)
+# ---------------------------------------------------------------------------
+
+import collections
+import threading
+
+_rate_lock = threading.Lock()
+_attempts: dict[str, list[float]] = collections.defaultdict(list)
+
+_RATE_WINDOW_S = 300.0   # 5-minute window
+_RATE_MAX      = 10      # max login attempts per window
+
+
+def check_rate_limit(ip: str) -> bool:
+    """Return True if the IP is within limits, False if rate-limited."""
+    now = time.time()
+    cutoff = now - _RATE_WINDOW_S
+    with _rate_lock:
+        _attempts[ip] = [t for t in _attempts[ip] if t > cutoff]
+        if len(_attempts[ip]) >= _RATE_MAX:
+            return False
+        _attempts[ip].append(now)
+        return True
+
+
+def reset_rate_limit(ip: str) -> None:
+    """Reset attempts after a successful login."""
+    with _rate_lock:
+        _attempts.pop(ip, None)
+
 _DEFAULT_SECRET = "sovereign-change-me-in-production"
 
 

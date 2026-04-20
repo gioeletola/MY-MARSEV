@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from sovereign.api.auth import create_token, require_auth
+from sovereign.api.auth import create_token, require_auth, check_rate_limit, reset_rate_limit
 from sovereign.api.ws_handler import WebSocketSessionManager
 
 logger = logging.getLogger(__name__)
@@ -84,11 +84,15 @@ if _STATIC_DIR.exists():
 async def login(request: Request) -> JSONResponse:
     """Issue a JWT. Body: {"password": "<SOVEREIGN_PASSWORD env var>"}."""
     import os
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(client_ip):
+        return JSONResponse({"error": "Too many login attempts"}, status_code=429)
     body = await request.json()
     password = body.get("password", "")
     expected = os.environ.get("SOVEREIGN_PASSWORD", "sovereign")
     if password != expected:
         return JSONResponse({"error": "Invalid password"}, status_code=401)
+    reset_rate_limit(client_ip)
     token = create_token({"sub": "admin", "role": "admin"})
     return JSONResponse({"token": token})
 
@@ -689,6 +693,16 @@ async def entities_panel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "entities_panel.html")
 
 
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_panel(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "settings_panel.html")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_panel(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "admin_panel.html")
+
+
 class ProvisionRequest(BaseModel):
     name: str
     category: str = "account"
@@ -774,6 +788,131 @@ async def update_entity(entity_id: str, body: dict, _: dict = Depends(require_au
             entity.sync_interval_s = float(body["sync_interval_s"])
         reg._save()
         return JSONResponse({"updated": entity_id, "status": entity.status})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Provider health
+# ---------------------------------------------------------------------------
+
+@app.get("/api/providers")
+async def list_providers() -> JSONResponse:
+    """Return health status for all model providers (Anthropic, OpenAI, Qwen, etc.)."""
+    if _orchestrator is None:
+        return JSONResponse({"providers": {}})
+    try:
+        report = _orchestrator._model_router.provider_health_report()
+        return JSONResponse({"providers": report})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — User settings
+# ---------------------------------------------------------------------------
+
+@app.get("/api/settings")
+async def get_settings(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Return all user settings."""
+    from sovereign.api.user_settings import get_settings_store
+    return JSONResponse(get_settings_store().get_all())
+
+
+@app.get("/api/settings/{section}")
+async def get_settings_section(section: str, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Return a single settings section."""
+    from sovereign.api.user_settings import get_settings_store
+    try:
+        return JSONResponse(get_settings_store().get_section(section))
+    except KeyError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+
+
+class SettingsUpdateRequest(BaseModel):
+    data: dict
+
+
+@app.patch("/api/settings/{section}")
+async def update_settings_section(
+    section: str, body: SettingsUpdateRequest, _: dict = Depends(require_auth)
+) -> JSONResponse:
+    """Update a settings section."""
+    from sovereign.api.user_settings import get_settings_store
+    try:
+        updated = get_settings_store().update_section(section, body.data)
+        return JSONResponse(updated)
+    except KeyError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/settings/reset")
+async def reset_settings(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Reset all settings to defaults."""
+    from sovereign.api.user_settings import get_settings_store
+    return JSONResponse(get_settings_store().reset())
+
+
+# ---------------------------------------------------------------------------
+# REST API — Module admin
+# ---------------------------------------------------------------------------
+
+@app.get("/api/admin/modules")
+async def list_modules(_: dict = Depends(require_auth)) -> JSONResponse:
+    """List all registered tools/agents as 'modules' with status info."""
+    if _orchestrator is None:
+        return JSONResponse({"modules": []})
+    try:
+        agents = _orchestrator._agent_registry.list_agents()
+        tools  = _orchestrator._tool_registry.list_tools() if hasattr(_orchestrator._tool_registry, "list_tools") else []
+        modules = []
+        for a in agents:
+            if isinstance(a, dict):
+                modules.append({
+                    "id":     a.get("agent_id", ""),
+                    "name":   a.get("agent_id", ""),
+                    "type":   "agent",
+                    "status": "active",
+                    "model":  a.get("model", ""),
+                    "stage":  a.get("stage", "production"),
+                })
+        for t in tools:
+            tid = t if isinstance(t, str) else t.get("tool_id", "")
+            modules.append({"id": tid, "name": tid, "type": "tool", "status": "active", "stage": "production"})
+        return JSONResponse({"modules": modules, "count": len(modules)})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/admin/modules/{module_id}")
+async def get_module(module_id: str, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Get details for a specific agent module."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        agent = _orchestrator._agent_registry.get(module_id)
+        if agent is None:
+            return JSONResponse({"error": f"Module {module_id!r} not found"}, status_code=404)
+        return JSONResponse({
+            "id":      module_id,
+            "type":    "agent",
+            "status":  "active",
+            "details": str(agent),
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/admin/provider-health")
+async def admin_provider_health(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Detailed provider health with circuit-breaker state."""
+    if _orchestrator is None:
+        return JSONResponse({"providers": {}})
+    try:
+        report = _orchestrator._model_router.provider_health_report()
+        return JSONResponse({"providers": report, "healthy": _orchestrator._model_router.health.healthy_providers()})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
 
