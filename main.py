@@ -286,5 +286,383 @@ def telegram(
     asyncio.run(_run())
 
 
+# ---------------------------------------------------------------------------
+# agent sub-commands
+# ---------------------------------------------------------------------------
+
+agent_app = typer.Typer(name="agent", help="Manage and inspect agents.", no_args_is_help=True)
+app.add_typer(agent_app)
+
+
+@agent_app.command("list")
+def agent_list(
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+) -> None:
+    """List all registered agents."""
+    from sovereign.bootstrap import create_orchestrator
+    orch = create_orchestrator(config)
+    agents = orch._agent_registry.list_all() if hasattr(orch, "_agent_registry") else []
+    table = Table(title="Registered Agents")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Model", style="dim")
+    for a in agents:
+        aid = getattr(a, "agent_id", str(a))
+        name = getattr(a, "agent_name", aid)
+        model = getattr(a, "model", "—")
+        table.add_row(aid, name, model)
+    console.print(table)
+
+
+@agent_app.command("info")
+def agent_info(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+) -> None:
+    """Show detailed info about a specific agent."""
+    from sovereign.bootstrap import create_orchestrator
+    orch = create_orchestrator(config)
+    reg = getattr(orch, "_agent_registry", None)
+    agent = reg.get(agent_id) if reg else None
+    if agent is None:
+        console.print(f"[red]Agent '{agent_id}' not found.[/red]")
+        raise typer.Exit(1)
+    console.print(Panel(
+        f"[bold]ID:[/bold] {agent.agent_id}\n"
+        f"[bold]Name:[/bold] {getattr(agent, 'agent_name', '—')}\n"
+        f"[bold]Model:[/bold] {getattr(agent, 'model', '—')}\n"
+        f"[bold]Requires review:[/bold] {getattr(agent, 'requires_review', False)}",
+        title=f"Agent: {agent_id}",
+        border_style="cyan",
+    ))
+
+
+# ---------------------------------------------------------------------------
+# connector sub-commands
+# ---------------------------------------------------------------------------
+
+connector_app = typer.Typer(name="connector", help="Manage data connectors.", no_args_is_help=True)
+app.add_typer(connector_app)
+
+
+@connector_app.command("list")
+def connector_list() -> None:
+    """List all registered connectors and their status."""
+    from sovereign.integrations.connectors import (
+        GitHubConnector, WeatherConnector, NotionConnector, GmailConnector,
+    )
+    connectors = [GitHubConnector(), WeatherConnector(), NotionConnector(), GmailConnector()]
+    table = Table(title="Connectors")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Status")
+    table.add_column("OAuth")
+    for c in connectors:
+        status_colour = {
+            "connected": "green", "beta": "yellow",
+            "disconnected": "red", "error": "red",
+        }.get(c.connector_status.value, "white")
+        table.add_row(
+            c.connector_id,
+            c.connector_name,
+            f"[{status_colour}]{c.connector_status.value}[/{status_colour}]",
+            "✓" if c.requires_oauth else "—",
+        )
+    console.print(table)
+
+
+@connector_app.command("sync")
+def connector_sync(
+    connector_id: str = typer.Argument(..., help="Connector ID to sync"),
+) -> None:
+    """Trigger an immediate sync for a connector."""
+    from sovereign.integrations.connectors import (
+        GitHubConnector, WeatherConnector, NotionConnector, GmailConnector,
+    )
+    from sovereign.integrations.connectors.sync_engine import SyncEngine
+
+    all_connectors = {
+        "github": GitHubConnector,
+        "weather": WeatherConnector,
+        "notion": NotionConnector,
+        "gmail": GmailConnector,
+    }
+    if connector_id not in all_connectors:
+        console.print(f"[red]Unknown connector: {connector_id}[/red]")
+        raise typer.Exit(1)
+
+    connector = all_connectors[connector_id]()
+    engine = SyncEngine()
+    engine.register(connector)
+
+    async def _run():
+        result = await engine.sync_one(connector_id)
+        if result and result.success:
+            console.print(f"[green]✓ Synced {connector_id}: {result.records_synced} records[/green]")
+        else:
+            err = result.errors if result else ["unknown"]
+            console.print(f"[red]✗ Sync failed: {err}[/red]")
+
+    asyncio.run(_run())
+
+
+@connector_app.command("health")
+def connector_health() -> None:
+    """Check health of all connectors."""
+    from sovereign.integrations.connectors import (
+        GitHubConnector, WeatherConnector, NotionConnector, GmailConnector,
+    )
+    connectors = [GitHubConnector(), WeatherConnector(), NotionConnector(), GmailConnector()]
+
+    async def _run():
+        table = Table(title="Connector Health")
+        table.add_column("ID", style="cyan")
+        table.add_column("Status")
+        table.add_column("Records")
+        for c in connectors:
+            h = await c.health()
+            sc = {"connected": "green", "beta": "yellow"}.get(h.status.value, "red")
+            table.add_row(
+                c.connector_id,
+                f"[{sc}]{h.status.value}[/{sc}]",
+                str(h.records_synced),
+            )
+        console.print(table)
+
+    asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# skill sub-commands
+# ---------------------------------------------------------------------------
+
+skill_app = typer.Typer(name="skill", help="Manage skills.", no_args_is_help=True)
+app.add_typer(skill_app)
+
+
+@skill_app.command("list")
+def skill_list() -> None:
+    """List all available skills."""
+    from sovereign.skills import get_skill_manager
+    mgr = get_skill_manager()
+    skills = mgr.list_all()
+    table = Table(title="Skills")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Status")
+    table.add_column("Approval")
+    table.add_column("Tags", style="dim")
+    for s in skills:
+        sc = "green" if s["status"] == "active" else "yellow"
+        table.add_row(
+            s["skill_id"],
+            s["name"],
+            f"[{sc}]{s['status']}[/{sc}]",
+            "[red]Yes[/red]" if s["requires_approval"] else "—",
+            ", ".join(s.get("tags", [])),
+        )
+    console.print(table)
+
+
+@skill_app.command("enable")
+def skill_enable(skill_id: str = typer.Argument(...)) -> None:
+    """Enable a skill."""
+    from sovereign.skills import get_skill_manager
+    try:
+        get_skill_manager().enable(skill_id)
+        console.print(f"[green]✓ Skill '{skill_id}' enabled.[/green]")
+    except Exception as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+
+
+@skill_app.command("disable")
+def skill_disable(skill_id: str = typer.Argument(...)) -> None:
+    """Disable a skill."""
+    from sovereign.skills import get_skill_manager
+    try:
+        get_skill_manager().disable(skill_id)
+        console.print(f"[yellow]✓ Skill '{skill_id}' disabled.[/yellow]")
+    except Exception as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+
+
+@skill_app.command("run")
+def skill_run(
+    skill_id: str = typer.Argument(..., help="Skill ID"),
+    input_json: str = typer.Option("{}", "--input", "-i", help="JSON input params"),
+) -> None:
+    """Run a skill with provided inputs."""
+    import json as _json
+    from sovereign.skills import get_skill_manager
+    try:
+        params = _json.loads(input_json)
+    except _json.JSONDecodeError as exc:
+        console.print(f"[red]Invalid JSON: {exc}[/red]")
+        raise typer.Exit(1)
+
+    async def _run():
+        mgr = get_skill_manager()
+        result = await mgr.execute(skill_id, params)
+        colour = "green" if result.success else "red"
+        console.print(Panel(
+            str(result.output or result.error),
+            title=f"[{colour}]Skill: {skill_id}[/{colour}]",
+            border_style=colour,
+        ))
+        console.print(f"[dim]Duration: {result.duration_ms:.0f}ms[/dim]")
+
+    asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# model sub-commands
+# ---------------------------------------------------------------------------
+
+model_app = typer.Typer(name="model", help="Browse the model catalog.", no_args_is_help=True)
+app.add_typer(model_app)
+
+
+@model_app.command("list")
+def model_list(
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Filter by provider"),
+    local: bool = typer.Option(False, "--local", help="Show only local/offline models"),
+    tier: Optional[str] = typer.Option(None, "--tier", "-t", help="Filter by tier"),
+) -> None:
+    """List all models in the catalog."""
+    from sovereign.intelligence import get_model_catalog, ModelTier
+
+    catalog = get_model_catalog()
+    if local:
+        models = catalog.local_models()
+    elif provider:
+        models = catalog.by_provider(provider)
+    elif tier:
+        try:
+            t = ModelTier(tier)
+            models = catalog.by_tier(t)
+        except ValueError:
+            console.print(f"[red]Unknown tier: {tier}. Options: frontier|balanced|fast|local[/red]")
+            raise typer.Exit(1)
+    else:
+        models = catalog.all()
+
+    table = Table(title="Model Catalog")
+    table.add_column("Model ID", style="cyan")
+    table.add_column("Provider")
+    table.add_column("Tier")
+    table.add_column("Context", justify="right")
+    table.add_column("Cost/1k in", justify="right", style="dim")
+    table.add_column("Private")
+    for m in models:
+        tier_colour = {
+            "frontier": "magenta", "balanced": "cyan",
+            "fast": "green", "local": "yellow",
+        }.get(m.tier.value, "white")
+        table.add_row(
+            m.model_id,
+            m.provider,
+            f"[{tier_colour}]{m.tier.value}[/{tier_colour}]",
+            f"{m.context_window_tokens // 1000}k",
+            f"${m.cost_per_1k_input_usd:.5f}" if m.cost_per_1k_input_usd > 0 else "free",
+            "[green]✓[/green]" if m.privacy_safe else "—",
+        )
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# health command (standalone)
+# ---------------------------------------------------------------------------
+
+@app.command()
+def health(
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+    engines: bool = typer.Option(False, "--engines", "-e", help="Also probe engine backends"),
+) -> None:
+    """Quick system health check."""
+    try:
+        from sovereign.bootstrap import create_orchestrator
+        orch = create_orchestrator(config)
+        h = orch.health()
+        colour = {"ok": "green", "degraded": "yellow", "critical": "red"}.get(h["overall"], "white")
+        console.print(f"[{colour}]System: {h['overall'].upper()}[/{colour}]")
+        for check, state in h.get("checks", {}).items():
+            c = "green" if state == "ok" else "yellow"
+            console.print(f"  [{c}]{check}[/{c}]: {state}")
+    except EnvironmentError as exc:
+        console.print(f"[red]Config error: {exc}[/red]")
+
+    if engines:
+        async def _probe():
+            from sovereign.engine.discovery import discover_engines
+            multi = await discover_engines()
+            h = await multi.health()
+            console.print(f"\nEngines: [{('green' if h.available_models else 'red')}]{h.status.value}[/]")
+            for m in h.available_models[:8]:
+                console.print(f"  · {m}")
+        asyncio.run(_probe())
+
+
+# ---------------------------------------------------------------------------
+# vault sub-commands
+# ---------------------------------------------------------------------------
+
+vault_app = typer.Typer(name="vault", help="Manage the secrets vault.", no_args_is_help=True)
+app.add_typer(vault_app)
+
+
+@vault_app.command("set")
+def vault_set(
+    key: str = typer.Argument(..., help="Secret key"),
+    value: str = typer.Argument(..., help="Secret value"),
+) -> None:
+    """Store a secret in the vault."""
+    try:
+        from sovereign.security.secrets import get_secret_manager
+        get_secret_manager().set(key, value)
+        console.print(f"[green]✓ Secret '{key}' stored.[/green]")
+    except Exception as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+
+
+@vault_app.command("get")
+def vault_get(key: str = typer.Argument(..., help="Secret key")) -> None:
+    """Retrieve a secret from the vault."""
+    try:
+        from sovereign.security.secrets import get_secret_manager
+        val = get_secret_manager().get(key)
+        if val is None:
+            console.print(f"[yellow]Key '{key}' not found.[/yellow]")
+        else:
+            console.print(f"[green]{key}[/green] = {val[:4]}{'*' * max(0, len(val) - 4)}")
+    except Exception as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+
+
+@vault_app.command("list")
+def vault_list() -> None:
+    """List all stored secret keys (values hidden)."""
+    try:
+        from sovereign.security.secrets import get_secret_manager
+        keys = get_secret_manager().list_keys()
+        if not keys:
+            console.print("[dim]No secrets stored.[/dim]")
+            return
+        for k in keys:
+            console.print(f"  · {k}")
+    except Exception as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+
+
+@vault_app.command("delete")
+def vault_delete(key: str = typer.Argument(..., help="Secret key to delete")) -> None:
+    """Delete a secret from the vault."""
+    try:
+        from sovereign.security.secrets import get_secret_manager
+        get_secret_manager().delete(key)
+        console.print(f"[yellow]✓ Secret '{key}' deleted.[/yellow]")
+    except Exception as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+
+
 if __name__ == "__main__":
     app()

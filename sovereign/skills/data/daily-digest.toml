@@ -1,0 +1,46 @@
+[skill]
+id = "daily-digest"
+name = "Daily Digest"
+description = "Compiles a structured daily briefing: system health, budget, goals, projects, pending approvals."
+version = "1.0.0"
+status = "active"
+permissions = ["read"]
+tools = ["memory_tool"]
+agents = ["ceo_agent"]
+tags = ["productivity", "digest", "morning", "scheduled"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "date"
+type = "string"
+description = "Date string (YYYY-MM-DD). Defaults to today."
+required = false
+default = ""
+
+[[inputs]]
+name = "sections"
+type = "string"
+description = "Comma-separated sections to include: health,budget,goals,projects,approvals,decisions"
+required = false
+default = "health,budget,goals,projects,approvals"
+
+[[outputs]]
+name = "digest"
+type = "string"
+description = "Formatted daily digest text"
+
+[prompt]
+template = """Generate a structured daily briefing for {{date}}.
+
+Include these sections: {{sections}}
+
+Format as a clean executive summary with sections:
+## System Health
+## Budget Status
+## Active Goals
+## Projects
+## Pending Approvals
+
+Be concise and actionable. Flag anything requiring immediate attention."""

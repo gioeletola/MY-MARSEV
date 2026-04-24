@@ -1,0 +1,69 @@
+[skill]
+id = "meeting-notes"
+name = "Meeting Notes"
+description = "Transforms raw meeting transcript or bullet points into structured notes with summary, decisions, and action items."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+agents = ["knowledge_capture"]
+tags = ["productivity", "meetings", "notes", "second-brain"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "transcript"
+type = "string"
+description = "Raw meeting transcript or rough notes"
+required = true
+
+[[inputs]]
+name = "meeting_title"
+type = "string"
+description = "Title or topic of the meeting"
+required = false
+default = "Meeting"
+
+[[inputs]]
+name = "participants"
+type = "string"
+description = "Comma-separated list of participants"
+required = false
+default = ""
+
+[[outputs]]
+name = "summary"
+type = "string"
+description = "Executive summary of the meeting"
+
+[[outputs]]
+name = "decisions"
+type = "list"
+description = "Key decisions made"
+
+[[outputs]]
+name = "action_items"
+type = "list"
+description = "Action items with owner and deadline"
+
+[prompt]
+template = """Process these meeting notes into a structured format.
+
+Meeting: {{meeting_title}}
+Participants: {{participants}}
+
+Raw notes:
+{{transcript}}
+
+Output a structured document with:
+## Summary (2-3 sentences)
+## Key Decisions
+- decision 1
+- decision 2
+## Action Items
+- [ ] [owner] action - deadline
+## Open Questions
+## Next Meeting Prep
+
+Be specific and actionable."""

@@ -1,0 +1,58 @@
+[skill]
+id = "dependency-audit"
+name = "Dependency Audit"
+description = "Audits a project's dependencies for outdated packages, known vulnerabilities, and licensing issues."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "execute"]
+tools = ["code_exec", "file_ops"]
+agents = []
+tags = ["security", "audit", "devops", "code"]
+author = "system"
+requires_approval = true
+enabled = true
+
+[[inputs]]
+name = "requirements_text"
+type = "string"
+description = "Content of requirements.txt or pyproject.toml dependencies section"
+required = false
+default = ""
+
+[[inputs]]
+name = "check_vulnerabilities"
+type = "boolean"
+description = "Whether to check for known CVEs (requires network)"
+required = false
+default = false
+
+[[outputs]]
+name = "audit_report"
+type = "string"
+description = "Structured audit report"
+
+[[outputs]]
+name = "outdated"
+type = "list"
+description = "Outdated packages"
+
+[[outputs]]
+name = "security_flags"
+type = "list"
+description = "Packages with known issues"
+
+[prompt]
+template = """Audit the following dependencies.
+
+Requirements:
+{{requirements_text}}
+
+Check vulnerabilities: {{check_vulnerabilities}}
+
+Produce an audit report:
+## Summary
+## Outdated Packages
+## Security Flags
+## License Issues
+## Recommendations
+## Priority Actions"""

@@ -1,0 +1,51 @@
+[skill]
+id = "file-organizer"
+name = "File Organizer"
+description = "Analyzes a file list and proposes an organized folder structure with move/rename suggestions."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "files"]
+tools = ["file_ops", "memory_tool"]
+agents = []
+tags = ["productivity", "files", "organization"]
+author = "system"
+requires_approval = true
+enabled = true
+
+[[inputs]]
+name = "file_list"
+type = "string"
+description = "Newline-separated list of file paths or names to organize"
+required = true
+
+[[inputs]]
+name = "target_structure"
+type = "string"
+description = "Desired structure (e.g. by-date, by-type, by-project)"
+required = false
+default = "by-type"
+
+[[outputs]]
+name = "proposed_structure"
+type = "string"
+description = "Proposed folder structure"
+
+[[outputs]]
+name = "move_commands"
+type = "list"
+description = "List of move/rename commands"
+
+[prompt]
+template = """Analyze this file list and propose an organized structure.
+
+Files:
+{{file_list}}
+
+Organize by: {{target_structure}}
+
+Output:
+## Proposed Structure (tree format)
+## Move/Rename Commands
+## Rationale
+
+Only propose — do not execute. User must confirm."""

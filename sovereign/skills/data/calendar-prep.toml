@@ -1,0 +1,62 @@
+[skill]
+id = "calendar-prep"
+name = "Calendar Prep"
+description = "Prepares for upcoming events: context research, talking points, materials checklist."
+version = "1.0.0"
+status = "active"
+permissions = ["read"]
+tools = ["memory_tool", "web_search"]
+agents = ["meeting_prep"]
+tags = ["calendar", "meetings", "productivity", "prep"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "event_title"
+type = "string"
+description = "Title of the upcoming event/meeting"
+required = true
+
+[[inputs]]
+name = "event_date"
+type = "string"
+description = "Date and time (ISO format or natural language)"
+required = false
+default = ""
+
+[[inputs]]
+name = "participants"
+type = "string"
+description = "Participants or organizations involved"
+required = false
+default = ""
+
+[[inputs]]
+name = "objective"
+type = "string"
+description = "Goal of the meeting/event"
+required = false
+default = ""
+
+[[outputs]]
+name = "prep_brief"
+type = "string"
+description = "Complete preparation brief"
+
+[prompt]
+template = """Prepare for the following event.
+
+Event: {{event_title}}
+Date: {{event_date}}
+Participants: {{participants}}
+Objective: {{objective}}
+
+Produce a preparation brief:
+## Context (who, what, why)
+## Talking Points (3-5 key points)
+## Questions to Ask
+## Materials Checklist
+## Potential Objections & Responses
+## Success Criteria
+## Pre-meeting Actions"""

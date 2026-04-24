@@ -1,0 +1,54 @@
+[skill]
+id = "web-summarize"
+name = "Web Summarize"
+description = "Fetches a URL and returns a structured summary with key points, credibility notes, and key quotes."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "network"]
+tools = ["web_search", "browser_tool"]
+agents = []
+tags = ["research", "web", "summarize"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "url"
+type = "string"
+description = "URL to fetch and summarize"
+required = true
+
+[[inputs]]
+name = "focus"
+type = "string"
+description = "What to focus on in the summary"
+required = false
+default = ""
+
+[[outputs]]
+name = "title"
+type = "string"
+description = "Page title"
+
+[[outputs]]
+name = "summary"
+type = "string"
+description = "Structured summary"
+
+[[outputs]]
+name = "key_points"
+type = "list"
+description = "Bullet point key takeaways"
+
+[prompt]
+template = """Summarize the content from: {{url}}
+
+Focus: {{focus}}
+
+Produce:
+## Title
+## One-sentence TL;DR
+## Key Points (5-7 bullets)
+## Credibility Notes
+## Relevant Quotes (max 2)
+## Source: {{url}}"""

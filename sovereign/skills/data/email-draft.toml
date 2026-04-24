@@ -1,0 +1,64 @@
+[skill]
+id = "email-draft"
+name = "Email Draft"
+description = "Draft a professional email from subject, context, and tone. Output is ready-to-send or ready-to-review text."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+agents = ["follow_up_agent", "proposal_agent"]
+tags = ["communication", "writing", "email"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "subject"
+type = "string"
+description = "Email subject line"
+required = true
+
+[[inputs]]
+name = "context"
+type = "string"
+description = "Background context about the email recipient and purpose"
+required = false
+default = ""
+
+[[inputs]]
+name = "tone"
+type = "string"
+description = "Tone: professional | friendly | formal | concise"
+required = false
+default = "professional"
+
+[[inputs]]
+name = "recipient_name"
+type = "string"
+description = "Name of the recipient"
+required = false
+default = ""
+
+[[outputs]]
+name = "subject"
+type = "string"
+description = "Final subject line"
+
+[[outputs]]
+name = "body"
+type = "string"
+description = "Email body text"
+
+[prompt]
+template = """Draft a {{tone}} email.
+
+Subject: {{subject}}
+Recipient: {{recipient_name}}
+Context: {{context}}
+
+Write a clear, well-structured email. Output ONLY:
+SUBJECT: <subject line>
+BODY:
+<email body>
+
+No extra commentary."""

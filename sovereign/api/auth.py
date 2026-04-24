@@ -12,11 +12,13 @@ FastAPI dependency::
 from __future__ import annotations
 
 import base64
+import collections
 import hashlib
 import hmac
 import json
 import logging
 import os
+import threading
 import time
 
 from fastapi import Depends, HTTPException, status
@@ -29,9 +31,6 @@ _bearer = HTTPBearer(auto_error=False)
 # ---------------------------------------------------------------------------
 # Rate limiter — simple in-memory sliding window (per IP)
 # ---------------------------------------------------------------------------
-
-import collections
-import threading
 
 _rate_lock = threading.Lock()
 _attempts: dict[str, list[float]] = collections.defaultdict(list)

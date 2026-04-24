@@ -1,0 +1,60 @@
+[skill]
+id = "topic-research"
+name = "Topic Research"
+description = "Multi-step research on a topic: search, synthesize, structure findings into a research brief."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "network"]
+tools = ["web_search", "memory_tool"]
+agents = ["investment_research", "knowledge_synthesis"]
+tags = ["research", "web", "knowledge", "analysis"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "topic"
+type = "string"
+description = "Topic or question to research"
+required = true
+
+[[inputs]]
+name = "depth"
+type = "string"
+description = "Research depth: quick | standard | deep"
+required = false
+default = "standard"
+
+[[inputs]]
+name = "output_format"
+type = "string"
+description = "Output format: brief | memo | structured"
+required = false
+default = "brief"
+
+[[outputs]]
+name = "research_brief"
+type = "string"
+description = "Structured research output"
+
+[[outputs]]
+name = "sources"
+type = "list"
+description = "Sources used"
+
+[prompt]
+template = """Research the following topic and compile a structured brief.
+
+Topic: {{topic}}
+Depth: {{depth}}
+Format: {{output_format}}
+
+Structure the output as:
+## Executive Summary (2-3 sentences)
+## Key Findings
+## Supporting Evidence
+## Competing Perspectives
+## Data Points & Statistics
+## Sources
+## Confidence Level (High/Medium/Low)
+## Recommended Next Steps"""
