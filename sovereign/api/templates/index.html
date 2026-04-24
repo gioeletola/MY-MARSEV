@@ -485,6 +485,14 @@ function sovereign() {
           this.updateAgentStatus(msg.agent, 'idle');
           this.addDecisionLog(msg.agent, msg.status);
           break;
+        case 'ping':
+          // Server heartbeat — respond with pong text frame
+          if (this.ws && this.ws.readyState === WebSocket.OPEN)
+            this.ws.send('__ping__');
+          break;
+        case 'pong':
+          // Acknowledge pong from server
+          break;
       }
     },
 

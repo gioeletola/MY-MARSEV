@@ -56,23 +56,42 @@ class WebSocketSessionManager:
     async def handle(self, ws: WebSocket) -> None:
         """
         Handle a single WebSocket connection until it disconnects.
-        Pushes initial health data on connect.
+        Pushes initial health data on connect; sends periodic heartbeat pings.
         """
         # Push health immediately on connect
         await self._send(ws, {"type": "health", **self._orch.health()})
 
-        async for raw in ws.iter_text():
-            try:
-                msg = json.loads(raw)
-            except json.JSONDecodeError:
-                await self._send(ws, {
-                    "type": "error",
-                    "code": "parse_error",
-                    "message": "Invalid JSON",
-                })
-                continue
+        # Start a heartbeat task: ping every 30 s
+        heartbeat_task = asyncio.create_task(self._heartbeat(ws))
 
-            await self._dispatch(ws, msg)
+        try:
+            async for raw in ws.iter_text():
+                if raw == "__ping__":
+                    await self._send(ws, {"type": "pong"})
+                    continue
+                try:
+                    msg = json.loads(raw)
+                except json.JSONDecodeError:
+                    await self._send(ws, {
+                        "type": "error",
+                        "code": "parse_error",
+                        "message": "Invalid JSON",
+                    })
+                    continue
+                await self._dispatch(ws, msg)
+        finally:
+            heartbeat_task.cancel()
+
+    async def _heartbeat(self, ws: WebSocket) -> None:
+        """Send a heartbeat ping every 30 s to keep the connection alive."""
+        try:
+            while True:
+                await asyncio.sleep(30)
+                await self._send(ws, {"type": "ping", "ts": asyncio.get_event_loop().time()})
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Message dispatcher
