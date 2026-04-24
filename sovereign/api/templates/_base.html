@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" {% block html_attrs %}{% endblock %}>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#06b6d4"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <title>SOVEREIGN — {% block page_title %}Dashboard{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#111118', base: '#0a0a0f',
+            cyan: '#06b6d4', violet: '#7c3aed', amber: '#f59e0b',
+            emerald: '#10b981', rose: '#f43f5e'
+          },
+          fontFamily: { mono: ['JetBrains Mono', 'monospace'], sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { background: #0a0a0f; font-family: 'Inter', sans-serif; }
+    .card { background: #111118; border: 1px solid rgba(6,182,212,0.12); }
+    .card-hover { transition: border-color 0.2s, box-shadow 0.2s; }
+    .card-hover:hover { border-color: rgba(6,182,212,0.3); box-shadow: 0 0 16px rgba(6,182,212,0.08); }
+    .glow { box-shadow: 0 0 20px rgba(6,182,212,0.15); }
+    .glow-violet { box-shadow: 0 0 20px rgba(124,58,237,0.15); }
+    .badge { display:inline-flex; align-items:center; padding:1px 8px; border-radius:9999px; font-size:11px; font-weight:500; letter-spacing:.03em; }
+    .badge-cyan { background:rgba(6,182,212,.12); color:#06b6d4; border:1px solid rgba(6,182,212,.2); }
+    .badge-violet { background:rgba(124,58,237,.12); color:#a78bfa; border:1px solid rgba(124,58,237,.2); }
+    .badge-green { background:rgba(16,185,129,.12); color:#34d399; border:1px solid rgba(16,185,129,.2); }
+    .badge-amber { background:rgba(245,158,11,.12); color:#fbbf24; border:1px solid rgba(245,158,11,.2); }
+    .badge-red { background:rgba(244,63,94,.12); color:#fb7185; border:1px solid rgba(244,63,94,.2); }
+    .badge-gray { background:rgba(75,85,99,.15); color:#9ca3af; border:1px solid rgba(75,85,99,.25); }
+    @keyframes pulse-dot { 0%,100%{opacity:1}50%{opacity:.3} }
+    .dot-pulse { animation: pulse-dot 2s infinite; }
+    @keyframes slide-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    .slide-in { animation: slide-in .3s ease; }
+    @keyframes fade-in { from{opacity:0} to{opacity:1} }
+    .fade-in { animation: fade-in .25s ease; }
+    ::-webkit-scrollbar { width:4px; height:4px; }
+    ::-webkit-scrollbar-track { background:#0a0a0f; }
+    ::-webkit-scrollbar-thumb { background:#06b6d4; border-radius:2px; }
+    .nav-link { @apply px-2.5 py-1.5 text-xs rounded-lg text-gray-400 hover:text-cyan hover:bg-cyan/10 transition-all; }
+    .nav-link-active { @apply px-2.5 py-1.5 text-xs rounded-lg text-cyan bg-cyan/10; }
+    {% block extra_styles %}{% endblock %}
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen text-gray-100">
+
+<!-- HEADER -->
+<header class="sticky top-0 z-50 bg-[#0a0a0f] border-b border-cyan/15 px-4 py-2.5 flex items-center justify-between backdrop-blur-sm">
+  <div class="flex items-center gap-3">
+    <a href="/" class="text-cyan/50 hover:text-cyan transition-colors text-sm font-mono">←</a>
+    <span class="text-gray-700 select-none">|</span>
+    <span class="font-mono text-cyan font-semibold tracking-[.2em] text-sm">SOVEREIGN</span>
+    <span class="hidden sm:block text-gray-500 text-xs border border-gray-800 rounded px-2 py-0.5 font-mono">
+      {% block page_subtitle %}{% endblock %}
+    </span>
+  </div>
+  <div class="flex items-center gap-3">
+    {% block header_right_extra %}{% endblock %}
+    <div class="w-1.5 h-1.5 rounded-full bg-cyan dot-pulse"></div>
+    <nav class="hidden lg:flex items-center gap-0.5">
+      <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}nav-link-active{% endif %}">Exec</a>
+      <a href="/finance" class="nav-link {% if active_page == 'finance' %}nav-link-active{% endif %}">Finance</a>
+      <a href="/business" class="nav-link {% if active_page == 'business' %}nav-link-active{% endif %}">Business</a>
+      <a href="/approvals" class="nav-link {% if active_page == 'approvals' %}nav-link-active{% endif %}">Approvals</a>
+      <a href="/hud" class="nav-link {% if active_page == 'hud' %}nav-link-active{% endif %}">HUD</a>
+      <a href="/expansion" class="nav-link {% if active_page == 'expansion' %}nav-link-active{% endif %}">Expansion</a>
+      <a href="/entities" class="nav-link {% if active_page == 'entities' %}nav-link-active{% endif %}">Entities</a>
+      <span class="w-px h-4 bg-gray-800 mx-1"></span>
+      <a href="/settings" class="nav-link {% if active_page == 'settings' %}nav-link-active{% endif %}">Settings</a>
+      <a href="/admin" class="nav-link {% if active_page == 'admin' %}nav-link-active{% endif %}">Admin</a>
+    </nav>
+  </div>
+</header>
+
+<!-- CONTENT -->
+{% block content %}{% endblock %}
+
+<!-- SCRIPTS -->
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

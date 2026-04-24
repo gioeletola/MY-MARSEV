@@ -850,6 +850,7 @@ class SovereignOrchestrator:
             interval_s=300.0, callback=_noop_health,
         ))
 
+
         # Register WorkerManager workers (wrapping async run_loops)
         self._worker_manager.register(WorkerSpec(
             worker_id="event_engine",
@@ -869,10 +870,23 @@ class SovereignOrchestrator:
     # ------------------------------------------------------------------
 
     async def start_background_tasks(self) -> None:
-        """Start all V2 background workers (EventEngine, SilentOps)."""
+        """Start all V2 background workers (EventEngine, SilentOps, watchdog)."""
+        import asyncio
         try:
             self._bg_stop_event.clear()
+
+            # Register daily digest (done here so the orchestrator is fully initialised)
+            from sovereign.proactive.daily_digest import build_daily_digest_task
+            digest_hour = getattr(self._config, "digest_hour", 8)
+            digest_cb = build_daily_digest_task(self, digest_hour=digest_hour)
+            if not any(t.task_id == "daily_digest" for t in self._silent_ops._tasks.values()):
+                self._silent_ops.register(SilentTask(
+                    task_id="daily_digest", name="Daily Morning Digest",
+                    interval_s=3600.0, callback=digest_cb,
+                ))
+
             await self._worker_manager.start_all()
+            self._watchdog_task = asyncio.create_task(self._watchdog_loop())
             logger.info("SOVEREIGN V2 background tasks started")
         except Exception as exc:
             logger.warning("Background task startup warning: %s", exc)
@@ -884,9 +898,39 @@ class SovereignOrchestrator:
             self._event_engine.stop()
             self._silent_ops.stop()
             await self._worker_manager.stop_all()
+            watchdog = getattr(self, "_watchdog_task", None)
+            if watchdog:
+                watchdog.cancel()
             logger.info("SOVEREIGN V2 background tasks stopped")
         except Exception as exc:
             logger.warning("Background task shutdown warning: %s", exc)
+
+    async def _watchdog_loop(self) -> None:
+        """Periodic watchdog: logs health warnings every 60 s."""
+        import asyncio
+        try:
+            while not self._bg_stop_event.is_set():
+                await asyncio.sleep(60)
+                try:
+                    h = self.health()
+                    if h.get("overall") != "ok":
+                        logger.warning(
+                            "Watchdog: system degraded — overall=%s alerts=%s",
+                            h.get("overall"), h.get("alerts", [])
+                        )
+                    # Check provider health
+                    ph = h.get("provider_health", {})
+                    down = [p for p, s in ph.items() if s.get("circuit_open")]
+                    if down:
+                        logger.warning("Watchdog: providers with open circuit: %s", down)
+                    if h.get("escalations_pending", 0) > 0:
+                        logger.info(
+                            "Watchdog: %d escalations pending", h["escalations_pending"]
+                        )
+                except Exception as exc:
+                    logger.warning("Watchdog check error: %s", exc)
+        except asyncio.CancelledError:
+            pass
 
     # ------------------------------------------------------------------
     # V2 public properties

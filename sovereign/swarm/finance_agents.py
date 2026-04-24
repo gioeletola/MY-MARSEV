@@ -6,64 +6,7 @@ Crypto, Real Estate, Insurance, and Financial Planning agents.
 """
 from __future__ import annotations
 
-from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
-from sovereign.output.output_contract import OutputStatus, StructuredOutput
-
-
-def _make_worker(
-    agent_id: str,
-    specialty: str,
-    instructions: str,
-    tools: list[str] | None = None,
-    model: str = "claude-sonnet-4-6",
-    requires_review: bool = False,
-    confidence: float = 0.82,
-):
-    _tools = tools or ["memory_tool"]
-    _model = model
-    _review = requires_review
-    _conf = confidence
-
-    return type(
-        f"{agent_id.replace('-', '_').title()}Agent",
-        (BaseAgent,),
-        {
-            "agent_id": agent_id,
-            "model": _model,
-            "run": _make_run(agent_id, specialty, instructions, _tools, _review, _conf),
-        },
-    )
-
-
-def _make_run(agent_id, specialty, instructions, tools, requires_review, confidence):
-    async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
-        import logging
-        logger = logging.getLogger(__name__)
-        try:
-            if not task.tools_allowed:
-                task.tools_allowed = list(tools)
-            prompt = (
-                f"You are the {specialty} of the SOVEREIGN AI OS.\n\n"
-                f"{instructions}\n\n"
-                f"Task:\n{task.objective}\n\n"
-                "Provide precise, data-driven financial analysis with clear recommendations.\n"
-                "Always flag items requiring human decision or professional advice."
-            )
-            result, history = await self._call_with_tools(
-                [{"role": "user", "content": prompt}], ctx, task, max_tokens=2048
-            )
-            out = self._make_output(
-                task=task, ctx=ctx, result=result,
-                status=OutputStatus.SUCCESS, confidence=confidence,
-                data={"specialty": specialty, "tool_turns": len(history)},
-            )
-            out.requires_human_review = requires_review
-            return out
-        except Exception as exc:
-            logger.error("FinanceAgent %s failed: %s", agent_id, exc)
-            return StructuredOutput.failure(ctx.session_id, agent_id, task.task_id, str(exc))
-
-    return run
+from sovereign.swarm.base_agent import BaseAgent, _make_worker
 
 
 # ---------------------------------------------------------------------------

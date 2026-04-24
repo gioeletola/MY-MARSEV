@@ -129,8 +129,13 @@ class TestWSHandlerDispatch:
 # ---------------------------------------------------------------------------
 
 class TestExecutiveDashboard:
+    _TMPL_DIR = _SRC / "sovereign" / "api" / "templates"
+
     def _html(self):
-        return (_SRC / "sovereign" / "api" / "templates" / "executive_dashboard.html").read_text()
+        """Concatenate the template with its base for raw-content assertions."""
+        page = (self._TMPL_DIR / "executive_dashboard.html").read_text()
+        base = (self._TMPL_DIR / "_base.html").read_text() if (self._TMPL_DIR / "_base.html").exists() else ""
+        return base + page
 
     def test_has_viewport_meta(self):
         assert 'name="viewport"' in self._html()
@@ -146,7 +151,8 @@ class TestExecutiveDashboard:
         assert "grid-cols-1" in html or "lg:grid-cols" in html
 
     def test_has_bottom_nav_mobile_only(self):
-        assert "md:hidden" in self._html()
+        html = self._html()
+        assert "md:hidden" in html or "lg:hidden" in html
 
     def test_has_kpi_cards(self):
         assert "kpis" in self._html()

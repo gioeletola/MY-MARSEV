@@ -303,3 +303,56 @@ class BaseAgent(ABC):
             confidence=confidence,
             tokens_used=self._claude.get_usage(),
         )
+
+
+# ---------------------------------------------------------------------------
+# Worker factory — shared across all domain agent modules
+# ---------------------------------------------------------------------------
+
+def _make_worker(
+    agent_id: str,
+    specialty: str,
+    instructions: str,
+    tools: list[str] | None = None,
+    model: str = "claude-sonnet-4-6",
+    requires_review: bool = False,
+    confidence: float = 0.82,
+):
+    """
+    Build a concrete BaseAgent subclass from a plain descriptor.
+
+    All swarm domain files (finance, business, personal, black_tier, …) import
+    this function instead of defining their own local copy.
+    """
+    _tools = tools or ["memory_tool"]
+    _model = model
+    _review = requires_review
+    _conf = confidence
+
+    async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
+        _log = logging.getLogger(__name__)
+        try:
+            if not task.tools_allowed:
+                task.tools_allowed = list(_tools)
+            prompt = (
+                f"You are the {specialty} of the SOVEREIGN AI OS.\n\n"
+                f"{instructions}\n\n"
+                f"Task:\n{task.objective}\n\n"
+                "Be precise, structured, and actionable."
+            )
+            result, history = await self._call_with_tools(
+                [{"role": "user", "content": prompt}], ctx, task, max_tokens=2048
+            )
+            out = self._make_output(
+                task=task, ctx=ctx, result=result,
+                status=OutputStatus.SUCCESS, confidence=_conf,
+                data={"specialty": specialty, "tool_turns": len(history)},
+            )
+            out.requires_human_review = _review
+            return out
+        except Exception as exc:
+            _log.error("Agent %s failed: %s", agent_id, exc)
+            return StructuredOutput.failure(ctx.session_id, agent_id, task.task_id, str(exc))
+
+    class_name = agent_id.replace("-", "_").title().replace("_", "") + "Agent"
+    return type(class_name, (BaseAgent,), {"agent_id": agent_id, "model": _model, "run": run})
