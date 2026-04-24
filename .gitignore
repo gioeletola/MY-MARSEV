@@ -33,6 +33,8 @@ htmlcov/
 # Runtime data (local only; do not commit real memory/ledger data)
 data/memory/*.json
 data/ledger/*.jsonl
+data/connectors/*.json
+data/oauth_tokens.json
 
 # macOS
 .DS_Store
