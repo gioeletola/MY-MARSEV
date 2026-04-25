@@ -37,9 +37,7 @@ def test_build_contains_footer(tmp_path: pathlib.Path):
 
 
 def test_send_telegram_no_token():
-    result = asyncio.get_event_loop().run_until_complete(
-        send_telegram_report("test", token="", chat_id=0)
-    )
+    result = asyncio.run(send_telegram_report("test", token="", chat_id=0))
     assert result is False
 
 

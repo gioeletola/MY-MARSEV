@@ -1137,8 +1137,198 @@ async def life_dashboard() -> JSONResponse:
 
 @app.post("/api/dashboard/report")
 async def dashboard_report() -> JSONResponse:
-    """Send weekly dashboard report via Telegram (stub — returns 200 OK)."""
-    return JSONResponse({"sent": True, "message": "Weekly report queued for delivery."})
+    """Generate and send weekly report via Telegram."""
+    try:
+        from sovereign.reporting.weekly_report import run_weekly_report
+        report_text = await run_weekly_report()
+        return JSONResponse({"sent": True, "length": len(report_text)})
+    except Exception as exc:
+        return JSONResponse({"sent": False, "error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Morning brief
+# ---------------------------------------------------------------------------
+
+@app.get("/api/brief")
+async def morning_brief() -> JSONResponse:
+    """Return today's morning briefing as structured JSON."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        import pathlib
+        data_dir = pathlib.Path("data")
+        result: dict = {"generated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z"}
+
+        # Urgent next actions
+        try:
+            from sovereign.memory.domains.next_action import NextActionStore
+            na = NextActionStore(data_dir / "memory" / "next_action.json")
+            result["urgent_actions"] = [
+                {"id": a.action_id, "title": a.title, "priority": a.priority}
+                for a in na.urgent()[:5]
+            ]
+            result["overdue_actions"] = len(na.overdue())
+        except Exception:
+            result["urgent_actions"] = []
+            result["overdue_actions"] = 0
+
+        # Open decisions
+        try:
+            from sovereign.memory.domains.decision import DecisionMemoryStore
+            dec = DecisionMemoryStore(data_dir / "memory" / "decision.json")
+            open_d = dec.by_status("open")
+            result["open_decisions"] = [
+                {"id": d.decision_id, "title": d.title}
+                for d in open_d[:5]
+            ]
+        except Exception:
+            result["open_decisions"] = []
+
+        # Diary mood (7-day avg)
+        try:
+            from sovereign.memory.domains.diary import DiaryMemoryStore
+            diary = DiaryMemoryStore(data_dir / "memory" / "diary.json")
+            result["mood_avg_7d"] = round(diary.average_mood(7), 1)
+        except Exception:
+            result["mood_avg_7d"] = None
+
+        # Active goals
+        result["goals"] = _orchestrator.goal_monitor.summary()
+
+        # Budget
+        try:
+            budget = _orchestrator.get_budget_summary()
+            result["budget"] = {
+                "daily_tokens": budget["daily"].get("tokens", 0),
+                "daily_cost_usd": budget["daily"].get("cost_usd", 0),
+                "daily_limit_usd": budget["daily"].get("limit_usd", 0),
+            }
+        except Exception:
+            result["budget"] = {}
+
+        # Pending approvals
+        result["pending_approvals"] = len(_orchestrator.get_pending_escalations())
+
+        # Personal constitution mission
+        try:
+            from sovereign.memory.domains.personal_constitution import PersonalConstitutionStore
+            pcs = PersonalConstitutionStore(data_dir / "memory" / "personal_constitution.json")
+            con = pcs.get_constitution()
+            result["mission"] = con.personal_mission
+        except Exception:
+            result["mission"] = ""
+
+        return JSONResponse(result)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Daily digest
+# ---------------------------------------------------------------------------
+
+@app.get("/api/digest")
+async def daily_digest() -> JSONResponse:
+    """Generate and return the daily digest report as text."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.proactive.daily_digest import DailyDigest
+        digest = DailyDigest(_orchestrator)
+        report = await digest.generate()
+        return JSONResponse({
+            "text": report.text,
+            "generated_at": report.generated_at,
+            "length": len(report.text),
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/digest/send")
+async def send_daily_digest(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Generate digest and deliver via Telegram."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        from sovereign.proactive.daily_digest import DailyDigest
+        digest = DailyDigest(_orchestrator)
+        report = await digest.generate()
+        tg = getattr(_orchestrator, "_telegram_bot", None)
+        sent = False
+        if tg is not None:
+            await tg.send_alert(report.to_telegram(), level="info")
+            sent = True
+        return JSONResponse({"sent": sent, "length": len(report.text)})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Process watchdog
+# ---------------------------------------------------------------------------
+
+@app.get("/api/watchdog")
+async def watchdog_status() -> JSONResponse:
+    """Return the process watchdog health summary."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        return JSONResponse(_orchestrator.process_watchdog.health_summary())
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Inbound webhooks
+# ---------------------------------------------------------------------------
+
+@app.post("/api/webhooks/{source}/{event_type}")
+async def inbound_webhook(
+    source: str,
+    event_type: str,
+    request: Request,
+) -> JSONResponse:
+    """Receive an inbound webhook, dispatch to registered handlers, and queue as AgentTask."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    try:
+        event = await _orchestrator.webhook_router.receive(source, event_type, payload)
+        return JSONResponse({
+            "event_id": event.event_id,
+            "source": event.source,
+            "event_type": event.event_type,
+            "processed": event.processed,
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/webhooks/stats")
+async def webhook_stats() -> JSONResponse:
+    """Return webhook processing statistics."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    try:
+        stats = _orchestrator.webhook_router.stats()
+        history = [
+            {
+                "event_id": e.event_id,
+                "source": e.source,
+                "event_type": e.event_type,
+                "processed": e.processed,
+                "received_at": e.received_at,
+            }
+            for e in _orchestrator.webhook_router.event_history(limit=20)
+        ]
+        return JSONResponse({"stats": stats, "recent": history})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 @app.delete("/api/entities/{entity_id}")

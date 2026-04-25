@@ -43,6 +43,8 @@ from sovereign.governance.spending_limits import SpendingLimitsEngine
 from sovereign.infra.notification_service import NotificationService
 from sovereign.infra.scheduler import ScheduleFrequency, Scheduler
 from sovereign.infra.token_budget_enforcer import TokenBudgetEnforcer
+from sovereign.infra.watchdog import ProcessWatchdog
+from sovereign.infra.webhooks import WebhookRouter
 from sovereign.infra.worker_manager import WorkerManager, WorkerSpec
 from sovereign.input_fabric.pipeline import InputPipeline
 from sovereign.integrations.integration_manager import IntegrationManager
@@ -829,6 +831,14 @@ class SovereignOrchestrator:
         self._worker_manager = WorkerManager()
         self._integration_manager = IntegrationManager()
         self._bg_stop_event = asyncio.Event()
+        self._webhook_router = WebhookRouter()
+        self._process_watchdog = ProcessWatchdog(
+            alert_callback=lambda name, exc: logger.error(
+                "Watchdog alert: %s crashed: %s", name, exc
+            )
+        )
+        # Wire webhook events as agent tasks
+        self._webhook_router.register("*", "*", self._on_webhook_event)
 
         # Schedule nightly eval regression job
         self._eval_agent.schedule_nightly(self._scheduler)
@@ -989,6 +999,34 @@ class SovereignOrchestrator:
     @property
     def entity_provisioner(self) -> "EntityProvisioner":  # type: ignore[name-defined]
         return self._entity_provisioner
+
+    @property
+    def webhook_router(self) -> WebhookRouter:
+        return self._webhook_router
+
+    @property
+    def process_watchdog(self) -> ProcessWatchdog:
+        return self._process_watchdog
+
+    def _on_webhook_event(self, event: Any) -> None:
+        """Convert an inbound webhook event into an async AgentTask and queue it."""
+        try:
+            source = getattr(event, "source", "unknown")
+            event_type = getattr(event, "event_type", "unknown")
+            payload = getattr(event, "payload", {})
+            logger.info("Webhook received: %s/%s", source, event_type)
+            # Fire-and-forget: schedule the agent task in the running event loop
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                objective = (
+                    f"Process inbound webhook from {source}: event_type={event_type}. "
+                    f"Payload summary: {str(payload)[:300]}"
+                )
+                asyncio.ensure_future(
+                    self.handle_request(objective, operating_mode="command")
+                )
+        except Exception as exc:
+            logger.warning("Webhook event handler error: %s", exc)
 
     # ------------------------------------------------------------------
     # Entity provisioning
