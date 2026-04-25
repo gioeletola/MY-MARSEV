@@ -6,9 +6,11 @@ follow-ups, and approval workflows. Acts as the operational bridge between
 the CEO's vision and the Chief of Staff's execution layer.
 """
 from __future__ import annotations
+
 import logging
-from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
+
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
+from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 
 logger = logging.getLogger(__name__)
 

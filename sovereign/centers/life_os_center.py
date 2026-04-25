@@ -1,6 +1,7 @@
 """LifeOs Center — life operating system."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class LifeOSCenter(SimpleCenter):
     CENTER_ID = 'life_os_centre'
     DESCRIPTION = 'Life Operating System'

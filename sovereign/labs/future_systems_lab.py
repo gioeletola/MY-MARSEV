@@ -1,6 +1,8 @@
 """FutureSystemsLab — emerging technologies, future trends, long-range forecasting."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class FutureSystemsLab(LabsFramework):
     lab_id = "future_systems"

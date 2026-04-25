@@ -1,8 +1,8 @@
 """System Agent — monitors health, enforces governance, checks memory consistency."""
 from __future__ import annotations
 
-from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
+from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 
 
 class SystemAgent(BaseAgent):

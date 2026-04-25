@@ -5,15 +5,17 @@ Requires the 'audio' optional dependency: pip install sovereign-ai-os[audio]
 which installs openai-whisper.
 """
 from __future__ import annotations
+
 from typing import Any
 
 
 class AudioAdapter:
     async def extract(self, raw: Any) -> str:
         try:
-            import whisper  # type: ignore[import]
-            import tempfile
             import pathlib
+            import tempfile
+
+            import whisper  # type: ignore[import]
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 f.write(raw if isinstance(raw, bytes) else str(raw).encode())
                 tmp_path = f.name

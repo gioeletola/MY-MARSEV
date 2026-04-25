@@ -2,6 +2,7 @@
 Trust Engine Layer — multi-dimensional trust scoring for agents, tools, and data sources.
 """
 from __future__ import annotations
+
 import logging
 import re
 from dataclasses import dataclass, field

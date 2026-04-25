@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from sovereign.swarm.base_agent import BaseAgent, _make_worker
 
-
 # ---------------------------------------------------------------------------
 # Life OS Center (Section 10)
 # ---------------------------------------------------------------------------

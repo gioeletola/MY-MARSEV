@@ -8,7 +8,11 @@ import logging
 from typing import Any, AsyncIterator
 
 from sovereign.engine.base import (
-    BaseEngine, CompletionRequest, CompletionResponse, EngineHealth, EngineStatus,
+    BaseEngine,
+    CompletionRequest,
+    CompletionResponse,
+    EngineHealth,
+    EngineStatus,
 )
 
 logger = logging.getLogger(__name__)

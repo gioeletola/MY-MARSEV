@@ -1,6 +1,7 @@
 """AI QA Center — AI quality assurance and evaluation."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class AIQACenter(SimpleCenter):
     CENTER_ID = "ai_qa_centre"
     DESCRIPTION = "AI Quality Assurance & Evals"

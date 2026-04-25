@@ -1,6 +1,6 @@
 """Operating mode: prestige — ultra-high-quality output, executive-level polish."""
-from sovereign.modes.base_mode import BaseMode
 from sovereign.kernel.action_classes import ActionClass
+from sovereign.modes.base_mode import BaseMode
 
 
 class PrestigeMode(BaseMode):

@@ -1,6 +1,7 @@
 """Concierge Center — personal concierge and logistics."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class ConciergeCenter(SimpleCenter):
     CENTER_ID = "concierge_centre"
     DESCRIPTION = "Personal Concierge & Logistics"

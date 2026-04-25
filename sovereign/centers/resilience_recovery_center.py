@@ -1,6 +1,7 @@
 """ResilienceRecovery Center — resilience & disaster recovery."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class ResilienceRecoveryCenter(SimpleCenter):
     CENTER_ID = 'resilience_recovery_centre'
     DESCRIPTION = 'Resilience & Disaster Recovery'

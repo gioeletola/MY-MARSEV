@@ -1,6 +1,7 @@
 """Inventory Center — personal inventory management."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class InventoryCenter(SimpleCenter):
     CENTER_ID = 'inventory_centre'
     DESCRIPTION = 'Personal Inventory Management'

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
 from sovereign.kernel.action_classes import ActionClass
 
 

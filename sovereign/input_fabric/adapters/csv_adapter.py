@@ -1,5 +1,6 @@
 """CSV adapter — converts CSV text to a readable tabular representation."""
 from __future__ import annotations
+
 import csv
 import io
 from typing import Any

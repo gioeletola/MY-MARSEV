@@ -1,6 +1,6 @@
 """Operating mode: emergency — life-safety situations, lockdown, immediate action."""
-from sovereign.modes.base_mode import BaseMode
 from sovereign.kernel.action_classes import ActionClass
+from sovereign.modes.base_mode import BaseMode
 
 
 class EmergencyMode(BaseMode):

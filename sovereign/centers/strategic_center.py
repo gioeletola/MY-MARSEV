@@ -2,6 +2,7 @@
 Strategic Operational Center — coordinates black-tier and meta-level agents.
 """
 from __future__ import annotations
+
 import logging
 from typing import Any
 

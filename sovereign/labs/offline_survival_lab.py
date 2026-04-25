@@ -1,6 +1,8 @@
 """OfflineSurvivalLab — offline capability testing and survival protocol validation."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class OfflineSurvivalLab(LabsFramework):
     lab_id = "offline_survival"

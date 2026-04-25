@@ -1,6 +1,7 @@
 """PersonalResearch Center — personal research & intelligence."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class PersonalResearchCenter(SimpleCenter):
     CENTER_ID = 'personal_research_centre'
     DESCRIPTION = 'Personal Research & Intelligence'

@@ -1,6 +1,7 @@
 """Maximizer Center — personal maximizer & performance."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class MaximizerCenter(SimpleCenter):
     CENTER_ID = 'maximizer_centre'
     DESCRIPTION = 'Personal Maximizer & Performance'

@@ -7,15 +7,15 @@ from __future__ import annotations
 
 from sovereign.kernel.action_classes import ActionClass
 from sovereign.modes.base_mode import BaseMode
+from sovereign.modes.emergency_mode import EmergencyMode
+from sovereign.modes.founder_mode import FounderMode
 
 # Richer modes with custom behaviour
 from sovereign.modes.local_offline_mode import Local_offlineMode
-from sovereign.modes.founder_mode import FounderMode
-from sovereign.modes.war_mode import WarMode
 from sovereign.modes.prestige_mode import PrestigeMode
-from sovereign.modes.silent_mode import SilentMode
 from sovereign.modes.recovery_mode import RecoveryMode
-from sovereign.modes.emergency_mode import EmergencyMode
+from sovereign.modes.silent_mode import SilentMode
+from sovereign.modes.war_mode import WarMode
 
 
 def _mode(

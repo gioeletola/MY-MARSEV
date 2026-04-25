@@ -5,7 +5,10 @@ import logging
 from typing import AsyncIterator
 
 from sovereign.models.base_provider import (
-    BaseProvider, CompletionRequest, CompletionResponse, ProviderStatus
+    BaseProvider,
+    CompletionRequest,
+    CompletionResponse,
+    ProviderStatus,
 )
 
 logger = logging.getLogger(__name__)

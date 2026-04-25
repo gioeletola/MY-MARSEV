@@ -1,6 +1,8 @@
 """SocialDynamicsLab — social network analysis, influence modeling, relationship dynamics."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class SocialDynamicsLab(LabsFramework):
     lab_id = "social_dynamics"

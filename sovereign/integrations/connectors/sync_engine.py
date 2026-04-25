@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sovereign.integrations.connectors.connector_base import ConnectorBase, SyncResult
 from sovereign.integrations.connectors.connector_store import ConnectorStore, get_connector_store

@@ -87,6 +87,7 @@ class ImageAdapter:
     def _try_ocr(self, img_bytes: bytes) -> str:
         try:
             import io
+
             import pytesseract  # type: ignore[import]
             from PIL import Image  # type: ignore[import]
             img = Image.open(io.BytesIO(img_bytes))

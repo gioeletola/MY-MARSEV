@@ -1,6 +1,8 @@
 """BlackSwanLab — extreme tail risk analysis and catastrophic scenario modeling."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class BlackSwanLab(LabsFramework):
     lab_id = "black_swan"

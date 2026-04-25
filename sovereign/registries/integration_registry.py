@@ -5,6 +5,7 @@ Tracks MCP servers, webhooks, API credentials (by name only — never stores sec
 and integration health status.
 """
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

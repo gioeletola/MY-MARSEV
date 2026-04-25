@@ -1,6 +1,8 @@
 """BioLab — health, biometrics, and wellness protocol design (informational only)."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class BioLab(LabsFramework):
     lab_id = "bio"

@@ -1,10 +1,12 @@
 """Bookmark Intelligence — save and retrieve intelligent bookmarks."""
 from __future__ import annotations
+
 import json
 import logging
 import pathlib
 import time
 import uuid
+
 from sovereign.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)

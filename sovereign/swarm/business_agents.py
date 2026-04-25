@@ -15,7 +15,9 @@ Organized by operational centre:
   Tech/Build workers
 """
 from __future__ import annotations
+
 import logging
+
 from sovereign.swarm.base_agent import _make_worker
 
 logger = logging.getLogger(__name__)

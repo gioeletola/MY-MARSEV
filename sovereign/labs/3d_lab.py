@@ -1,6 +1,8 @@
 """ThreeDLab — 3D design, spatial modeling, and virtual environment concepts."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class ThreeDLab(LabsFramework):
     lab_id = "3d"

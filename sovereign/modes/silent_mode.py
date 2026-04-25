@@ -1,6 +1,6 @@
 """Operating mode: silent — privacy-first, local-only, no logging, no cloud."""
-from sovereign.modes.base_mode import BaseMode
 from sovereign.kernel.action_classes import ActionClass
+from sovereign.modes.base_mode import BaseMode
 
 
 class SilentMode(BaseMode):

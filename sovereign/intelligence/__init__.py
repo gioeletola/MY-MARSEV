@@ -1,6 +1,10 @@
 """SOVEREIGN Intelligence Layer — model catalog and routing metadata."""
 from sovereign.intelligence.model_catalog import (
-    ModelCatalog, ModelEntry, ModelTier, ProviderType, get_model_catalog,
+    ModelCatalog,
+    ModelEntry,
+    ModelTier,
+    ProviderType,
+    get_model_catalog,
 )
 
 __all__ = [

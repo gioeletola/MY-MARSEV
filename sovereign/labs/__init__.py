@@ -1,6 +1,4 @@
 """Labs Framework for SOVEREIGN AI OS — 21 experimental research labs."""
-from sovereign.labs.labs_framework import LabsFramework
-
 # pylint: disable=import-error  (3d_lab has a numeric prefix — valid module)
 from sovereign.labs.ai_experiment_lab import AIExperimentLab
 from sovereign.labs.automation_lab import AutomationLab
@@ -13,6 +11,7 @@ from sovereign.labs.design_lab import DesignLab
 from sovereign.labs.finance_lab import FinanceLab
 from sovereign.labs.future_systems_lab import FutureSystemsLab
 from sovereign.labs.georisk_lab import GeoRiskLab
+from sovereign.labs.labs_framework import LabsFramework
 from sovereign.labs.media_lab import MediaLab
 from sovereign.labs.memory_lab import MemoryLab
 from sovereign.labs.offline_survival_lab import OfflineSurvivalLab

@@ -1,6 +1,7 @@
 """ScenarioSimulation Center — scenario planning & simulation."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class ScenarioSimulationCenter(SimpleCenter):
     CENTER_ID = 'scenario_simulation_centre'
     DESCRIPTION = 'Scenario Planning & Simulation'

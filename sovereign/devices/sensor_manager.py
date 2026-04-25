@@ -6,7 +6,7 @@ import logging
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Callable, Awaitable, Any
+from typing import Any, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 

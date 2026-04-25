@@ -5,6 +5,7 @@ Each domain has a JSON-Schema-compatible descriptor that the MemoryManager
 uses to validate writes and guide the memory tool.
 """
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
 from typing import Any

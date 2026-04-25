@@ -301,9 +301,9 @@ class DeviceGateway:
         Uses pyzbar if available; returns None as a stub if not installed.
         """
         try:
-            from pyzbar import pyzbar  # type: ignore
-            import numpy as np  # type: ignore
             import cv2  # type: ignore
+            import numpy as np  # type: ignore
+            from pyzbar import pyzbar  # type: ignore
 
             arr = np.frombuffer(image_bytes, dtype=np.uint8)
             img = cv2.imdecode(arr, cv2.IMREAD_COLOR)

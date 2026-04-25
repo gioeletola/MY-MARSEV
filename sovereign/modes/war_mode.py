@@ -1,6 +1,6 @@
 """Operating mode: war — crisis response, competitive battle, maximum urgency."""
-from sovereign.modes.base_mode import BaseMode
 from sovereign.kernel.action_classes import ActionClass
+from sovereign.modes.base_mode import BaseMode
 
 
 class WarMode(BaseMode):

@@ -1,6 +1,8 @@
 """DesignLab — aesthetic design, visual systems, brand identity."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class DesignLab(LabsFramework):
     lab_id = "design"

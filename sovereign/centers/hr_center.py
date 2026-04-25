@@ -2,6 +2,7 @@
 HR Center — recruiting, talent management, onboarding, and organizational design.
 """
 from __future__ import annotations
+
 import logging
 from typing import Any
 

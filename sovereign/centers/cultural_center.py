@@ -1,6 +1,7 @@
 """Cultural Center — cultural and intellectual development."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class CulturalCenter(SimpleCenter):
     CENTER_ID = "cultural_centre"
     DESCRIPTION = "Cultural & Intellectual Development"

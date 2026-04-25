@@ -9,7 +9,9 @@ import time
 from typing import Any
 
 from sovereign.provisioning.types import (
-    ProvisioningPlan, ProvisioningResult, ProvisioningStatus,
+    ProvisioningPlan,
+    ProvisioningResult,
+    ProvisioningStatus,
 )
 
 logger = logging.getLogger(__name__)

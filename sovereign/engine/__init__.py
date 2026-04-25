@@ -1,13 +1,17 @@
 """SOVEREIGN Engine Layer — uniform model backend adapters."""
 from sovereign.engine.base import (
-    BaseEngine, CompletionRequest, CompletionResponse, EngineHealth, EngineStatus,
+    BaseEngine,
+    CompletionRequest,
+    CompletionResponse,
+    EngineHealth,
+    EngineStatus,
 )
 from sovereign.engine.cloud import AnthropicEngine
+from sovereign.engine.discovery import discover_engines, get_engine, init_engine
+from sovereign.engine.multi import MultiEngine
 from sovereign.engine.ollama import OllamaEngine
 from sovereign.engine.openai_compat import GeminiEngine, OpenAICompatEngine
 from sovereign.engine.qwen_local import QwenLocalEngine
-from sovereign.engine.multi import MultiEngine
-from sovereign.engine.discovery import discover_engines, get_engine, init_engine
 
 __all__ = [
     "BaseEngine", "CompletionRequest", "CompletionResponse", "EngineHealth", "EngineStatus",

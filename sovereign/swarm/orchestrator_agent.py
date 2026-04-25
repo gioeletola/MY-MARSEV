@@ -1,8 +1,8 @@
 """Orchestrator Agent — routes work, breaks it into sub-problems, coordinates execution."""
 from __future__ import annotations
 
-from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
+from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 
 
 class OrchestratorAgent(BaseAgent):

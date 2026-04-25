@@ -1,6 +1,8 @@
 """RedTeamLab — adversarial testing, security red-teaming, attack simulation."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class RedTeamLab(LabsFramework):
     lab_id = "red_team"

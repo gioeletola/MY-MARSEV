@@ -2,6 +2,7 @@
 Business Intelligence Center — analytics, KPIs, forecasting, and market intelligence.
 """
 from __future__ import annotations
+
 import logging
 from typing import Any
 

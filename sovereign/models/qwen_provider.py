@@ -17,7 +17,10 @@ from typing import AsyncIterator
 import httpx
 
 from sovereign.models.base_provider import (
-    BaseProvider, CompletionRequest, CompletionResponse, ProviderStatus,
+    BaseProvider,
+    CompletionRequest,
+    CompletionResponse,
+    ProviderStatus,
 )
 
 logger = logging.getLogger(__name__)

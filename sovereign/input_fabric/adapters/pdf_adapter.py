@@ -5,6 +5,7 @@ Requires the 'pdf' optional dependency: pip install sovereign-ai-os[pdf]
 which installs pymupdf.
 """
 from __future__ import annotations
+
 from typing import Any
 
 

@@ -6,8 +6,8 @@ import logging
 import pathlib
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
-from typing import Callable, Any
+from dataclasses import asdict, dataclass, field
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 

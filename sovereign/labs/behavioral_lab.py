@@ -1,6 +1,8 @@
 """BehavioralLab — behavioral pattern analysis, habit science, cognitive models."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class BehavioralLab(LabsFramework):
     lab_id = "behavioral"

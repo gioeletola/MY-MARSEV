@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sovereign.skills.security import check_execution_allowed, validate_skill
 from sovereign.skills.types import SkillDefinition, SkillExecutionResult

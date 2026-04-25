@@ -1,6 +1,7 @@
 """Vault Center — personal vault & document security."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class VaultCenter(SimpleCenter):
     CENTER_ID = 'vault_centre'
     DESCRIPTION = 'Personal Vault & Document Security'

@@ -4,8 +4,8 @@ from __future__ import annotations
 import json
 import logging
 
-from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
+from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 
 logger = logging.getLogger(__name__)
 

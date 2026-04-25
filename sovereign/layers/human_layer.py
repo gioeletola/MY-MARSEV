@@ -5,11 +5,12 @@ Manages: human roles, access levels, task assignments to real people,
 handoff protocols, and human-in-the-loop workflows.
 """
 from __future__ import annotations
+
 import json
 import logging
 import pathlib
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 

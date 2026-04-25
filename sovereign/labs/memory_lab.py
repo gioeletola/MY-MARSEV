@@ -1,5 +1,6 @@
 """MemoryLab — memory architecture experiments and knowledge graph analysis."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
 
 

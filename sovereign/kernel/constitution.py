@@ -11,7 +11,6 @@ from typing import Final
 
 from sovereign.kernel.action_classes import ActionClass
 
-
 CONSTITUTIONAL_PRINCIPLES: Final[list[str]] = [
     "Protect the owner's sovereignty and autonomy at all times.",
     "Preserve human final authority on critical, irreversible, or high-risk decisions.",

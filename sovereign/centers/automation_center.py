@@ -1,6 +1,7 @@
 """Automation Center — process automation and build."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class AutomationCenter(SimpleCenter):
     CENTER_ID = "automation_centre"
     DESCRIPTION = "Process Automation & Build"

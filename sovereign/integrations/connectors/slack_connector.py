@@ -9,7 +9,10 @@ import os
 from typing import Any
 
 from sovereign.integrations.connectors.connector_base import (
-    ConnectorBase, ConnectorHealth, ConnectorStatus, SyncResult,
+    ConnectorBase,
+    ConnectorHealth,
+    ConnectorStatus,
+    SyncResult,
 )
 
 logger = logging.getLogger(__name__)

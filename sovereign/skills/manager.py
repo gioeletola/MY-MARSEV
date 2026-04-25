@@ -11,7 +11,7 @@ from sovereign.skills.dependency import check_dependencies_met
 from sovereign.skills.executor import SkillExecutor
 from sovereign.skills.index import SkillIndex
 from sovereign.skills.loader import load_all_skills
-from sovereign.skills.security import validate_skill, SkillSecurityError
+from sovereign.skills.security import SkillSecurityError, validate_skill
 from sovereign.skills.types import SkillDefinition, SkillExecutionResult
 
 logger = logging.getLogger(__name__)

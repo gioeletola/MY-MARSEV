@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Callable, Awaitable
+from typing import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +53,10 @@ class ClapSystem:
         self._active = False
 
     def _listen_blocking(self) -> None:
-        import pyaudio
-        import struct
         import math  # type: ignore
+        import struct
+
+        import pyaudio
         pa = pyaudio.PyAudio()
         stream = pa.open(format=pyaudio.paInt16, channels=1, rate=44100,
                          input=True, frames_per_buffer=1024)

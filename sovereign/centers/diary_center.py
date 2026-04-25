@@ -1,6 +1,7 @@
 """Diary Center — diary & reflection."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class DiaryCenter(SimpleCenter):
     CENTER_ID = 'diary_centre'
     DESCRIPTION = 'Diary & Reflection'

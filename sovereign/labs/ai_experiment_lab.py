@@ -1,6 +1,8 @@
 """AIExperimentLab — prompt experiments, agent behavior testing, model comparison."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class AIExperimentLab(LabsFramework):
     lab_id = "ai_experiment"

@@ -6,6 +6,7 @@ a structured, queryable rule database. Rules define: when approval is required,
 who can approve, what auto-approval criteria exist, and what the timeout policy is.
 """
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
 from typing import Any

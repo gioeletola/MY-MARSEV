@@ -1,14 +1,17 @@
 """Anthropic Claude provider — wraps the existing ClaudeClient with the BaseProvider interface."""
 from __future__ import annotations
 
-import time
 import logging
+import time
 from typing import AsyncIterator
 
 import anthropic
 
 from sovereign.models.base_provider import (
-    BaseProvider, CompletionRequest, CompletionResponse, ProviderStatus
+    BaseProvider,
+    CompletionRequest,
+    CompletionResponse,
+    ProviderStatus,
 )
 
 logger = logging.getLogger(__name__)

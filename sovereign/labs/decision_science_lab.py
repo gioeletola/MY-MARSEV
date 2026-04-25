@@ -1,6 +1,8 @@
 """DecisionScienceLab — decision quality, cognitive bias detection, option analysis."""
 from __future__ import annotations
+
 from sovereign.labs.labs_framework import LabsFramework
+
 
 class DecisionScienceLab(LabsFramework):
     lab_id = "decision_science"

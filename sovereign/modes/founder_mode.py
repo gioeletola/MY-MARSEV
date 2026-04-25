@@ -1,6 +1,6 @@
 """Operating mode: founder — startup execution, fundraising, GTM, rapid iteration."""
-from sovereign.modes.base_mode import BaseMode
 from sovereign.kernel.action_classes import ActionClass
+from sovereign.modes.base_mode import BaseMode
 
 
 class FounderMode(BaseMode):

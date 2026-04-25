@@ -1,6 +1,7 @@
 """DataFabric Center — data fabric & ingestion."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class DataFabricCenter(SimpleCenter):
     CENTER_ID = 'data_fabric_centre'
     DESCRIPTION = 'Data Fabric & Ingestion'

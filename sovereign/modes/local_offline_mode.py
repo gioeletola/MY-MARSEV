@@ -17,8 +17,8 @@ import pathlib
 from dataclasses import dataclass, field
 from typing import Any
 
-from sovereign.modes.base_mode import BaseMode
 from sovereign.kernel.action_classes import ActionClass
+from sovereign.modes.base_mode import BaseMode
 
 logger = logging.getLogger(__name__)
 

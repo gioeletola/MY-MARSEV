@@ -1,6 +1,7 @@
 """SecondBrain Center — second brain & knowledge management."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class SecondBrainCenter(SimpleCenter):
     CENTER_ID = 'second_brain_centre'
     DESCRIPTION = 'Second Brain & Knowledge Management'

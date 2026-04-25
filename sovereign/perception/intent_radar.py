@@ -1,8 +1,8 @@
 """Intent radar — classifies raw input into structured intents before routing."""
 from __future__ import annotations
 
-import re
 import logging
+import re
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)

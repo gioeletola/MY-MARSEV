@@ -150,8 +150,8 @@ class AgentTester:
         return suite
 
     async def _run_case(self, agent: Any, case: AgentTestCase) -> AgentTestResult:
-        from sovereign.swarm.base_agent import AgentContext, AgentTask
         from sovereign.kernel.action_classes import ActionClass
+        from sovereign.swarm.base_agent import AgentContext, AgentTask
 
         t0 = time.monotonic()
         ctx = AgentContext(session_id=f"test_{case.test_id}", operating_mode="command")

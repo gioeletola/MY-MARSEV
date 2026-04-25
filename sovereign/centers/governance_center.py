@@ -1,6 +1,7 @@
 """Governance Center — system governance & policy."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class GovernanceCenter(SimpleCenter):
     CENTER_ID = 'governance_centre'
     DESCRIPTION = 'System Governance & Policy'

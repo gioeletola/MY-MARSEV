@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from sovereign.kernel.action_classes import ActionClass
 from sovereign.authority.thresholds import EscalationThresholds
+from sovereign.kernel.action_classes import ActionClass
 
 logger = logging.getLogger(__name__)
 

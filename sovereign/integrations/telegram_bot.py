@@ -22,8 +22,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from sovereign.integrations.telegram_integration import TelegramIntegration
 from sovereign.integrations.base_integration import IntegrationConfig
+from sovereign.integrations.telegram_integration import TelegramIntegration
 
 logger = logging.getLogger(__name__)
 

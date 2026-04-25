@@ -1,6 +1,7 @@
 """MediaEditing Center — media editing & publishing."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class MediaEditingCenter(SimpleCenter):
     CENTER_ID = 'media_editing_centre'
     DESCRIPTION = 'Media Editing & Publishing'

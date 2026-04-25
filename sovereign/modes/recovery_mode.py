@@ -1,6 +1,6 @@
 """Operating mode: recovery — post-crisis stabilisation, health, resilience rebuild."""
-from sovereign.modes.base_mode import BaseMode
 from sovereign.kernel.action_classes import ActionClass
+from sovereign.modes.base_mode import BaseMode
 
 
 class RecoveryMode(BaseMode):

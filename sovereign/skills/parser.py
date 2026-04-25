@@ -16,8 +16,12 @@ except ImportError:
         tomllib = None  # type: ignore[assignment]
 
 from sovereign.skills.types import (
-    SkillDefinition, SkillDependency, SkillInput, SkillOutput,
-    SkillPermission, SkillStatus,
+    SkillDefinition,
+    SkillDependency,
+    SkillInput,
+    SkillOutput,
+    SkillPermission,
+    SkillStatus,
 )
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sovereign.swarm.base_agent import AgentContext
@@ -85,8 +85,8 @@ class WorkflowRegistry:
         Returns:
             WorkflowResult with per-step outputs and aggregated final_result.
         """
-        from sovereign.swarm.base_agent import AgentTask
         from sovereign.kernel.action_classes import ActionClass
+        from sovereign.swarm.base_agent import AgentTask
 
         workflow = self.get(name)
         result = WorkflowResult(

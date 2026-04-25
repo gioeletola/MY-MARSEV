@@ -4,7 +4,6 @@ Provides model-specific presets (context window, recommended parameters).
 """
 from __future__ import annotations
 
-
 from sovereign.engine.base import CompletionRequest, CompletionResponse, EngineHealth
 from sovereign.engine.ollama import OllamaEngine
 

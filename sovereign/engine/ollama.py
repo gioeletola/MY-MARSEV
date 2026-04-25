@@ -10,7 +10,11 @@ import time
 from typing import Any, AsyncIterator
 
 from sovereign.engine.base import (
-    BaseEngine, CompletionRequest, CompletionResponse, EngineHealth, EngineStatus,
+    BaseEngine,
+    CompletionRequest,
+    CompletionResponse,
+    EngineHealth,
+    EngineStatus,
 )
 
 _DEFAULT_HOST = "http://localhost:11434"

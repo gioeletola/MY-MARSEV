@@ -19,7 +19,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Awaitable, Any
+from typing import Any, Awaitable, Callable
 
 import httpx
 

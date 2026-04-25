@@ -1,6 +1,7 @@
 """Partner Center — partner & vendor management."""
 from sovereign.centers.simple_center import SimpleCenter
 
+
 class PartnerCenter(SimpleCenter):
     CENTER_ID = 'partner_centre'
     DESCRIPTION = 'Partner & Vendor Management'

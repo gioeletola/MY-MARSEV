@@ -189,9 +189,9 @@ class InputPipeline:
 
     async def _step_route_adapter(self, raw: Any, input_type: str) -> str:
         """Delegate to the appropriate adapter module."""
-        from sovereign.input_fabric.adapters.text_adapter import TextAdapter
-        from sovereign.input_fabric.adapters.json_adapter import JsonAdapter
         from sovereign.input_fabric.adapters.csv_adapter import CsvAdapter
+        from sovereign.input_fabric.adapters.json_adapter import JsonAdapter
+        from sovereign.input_fabric.adapters.text_adapter import TextAdapter
 
         if input_type == "json":
             return await JsonAdapter().extract(raw)

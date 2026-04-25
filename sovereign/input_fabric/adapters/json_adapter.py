@@ -1,5 +1,6 @@
 """JSON adapter — serialises a dict/JSON string to readable text."""
 from __future__ import annotations
+
 import json
 from typing import Any
 
