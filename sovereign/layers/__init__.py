@@ -10,6 +10,7 @@ from sovereign.layers.attention_engine import AttentionEngineLayer
 from sovereign.layers.trust_engine import TrustEngineLayer
 from sovereign.layers.sovereign_exit import SovereignExitLayer
 from sovereign.layers.legacy_layer import LegacyLayer
+from sovereign.layers.human_layer import HumanLayer, HumanCollaborator, HandoffBrief
 
 __all__ = [
     "RealityTwinLayer",
@@ -18,4 +19,7 @@ __all__ = [
     "TrustEngineLayer",
     "SovereignExitLayer",
     "LegacyLayer",
+    "HumanLayer",
+    "HumanCollaborator",
+    "HandoffBrief",
 ]

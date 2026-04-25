@@ -172,7 +172,7 @@ class MemoryManager:
         return str(record)
 
     # ------------------------------------------------------------------
-    # Graph traversal (stub)
+    # Graph traversal via networkx
     # ------------------------------------------------------------------
 
     async def graph_traverse(
@@ -182,21 +182,60 @@ class MemoryManager:
         depth: int = 2,
     ) -> list[dict[str, Any]]:
         """
-        Traverse memory as a graph via named relationships.
+        Traverse memory as a graph via named relationship edges.
 
-        Stub: returns an empty list.
-        Replace with a real graph database (Neo4j, networkx + persistence).
+        Builds an in-memory networkx DiGraph from all loaded domain caches
+        where any record that references another key via `relationship` field
+        forms an edge.  BFS up to `depth` hops from `start_key`.
         """
-        logger.debug(
-            "Graph traverse (stub)",
-            start=start_key,
-            rel=relationship,
-            depth=depth,
-        )
-        return []
+        try:
+            import networkx as nx  # type: ignore[import]
+        except ImportError:
+            logger.warning("networkx not installed — graph_traverse unavailable")
+            return []
+
+        # Load all domains
+        for domain in MEMORY_DOMAINS:
+            await self._load(domain)
+
+        G: nx.DiGraph = nx.DiGraph()
+        # Add nodes + edges from all cached records
+        for domain, cache in self._caches.items():
+            for key, record in cache.items():
+                node_id = f"{domain}:{key}"
+                G.add_node(node_id, domain=domain, key=key, record=record)
+                if isinstance(record, dict):
+                    targets = record.get(relationship, [])
+                    if isinstance(targets, str):
+                        targets = [targets]
+                    for target in targets:
+                        G.add_edge(node_id, target)
+
+        if start_key not in G:
+            # Try prefix-less lookup
+            candidates = [n for n in G.nodes if n.endswith(f":{start_key}") or n == start_key]
+            if not candidates:
+                return []
+            start_key = candidates[0]
+
+        visited: list[dict[str, Any]] = []
+        for node in nx.bfs_tree(G, start_key, depth_limit=depth).nodes:
+            if node == start_key:
+                continue
+            node_data = G.nodes[node]
+            visited.append({
+                "node": node,
+                "domain": node_data.get("domain"),
+                "key": node_data.get("key"),
+                "record": node_data.get("record"),
+            })
+
+        logger.debug("graph_traverse: %d nodes from %s rel=%s depth=%d",
+                     len(visited), start_key, relationship, depth)
+        return visited
 
     # ------------------------------------------------------------------
-    # Temporal recall (stub)
+    # Temporal recall with timestamp filtering
     # ------------------------------------------------------------------
 
     async def temporal_recall(
@@ -208,16 +247,29 @@ class MemoryManager:
         """
         Retrieve records from a domain within a time window.
 
-        Filters on record["updated_at"] or record["created_at"] if present.
-        Stub: returns all records — replace with proper timestamp indexing.
+        Filters on record["updated_at"] falling back to record["created_at"].
+        ISO-8601 strings are compared lexicographically (valid for UTC timestamps).
         """
         self._ensure_domain(domain)
         await self._load(domain)
-        # Stub: return all records (no timestamp filtering yet)
-        return [
-            {"key": k, "record": v}
-            for k, v in self._caches[domain].items()
-        ]
+
+        results: list[dict[str, Any]] = []
+        for key, record in self._caches[domain].items():
+            if not isinstance(record, dict):
+                continue
+            ts = record.get("updated_at") or record.get("created_at") or ""
+            if not ts:
+                continue
+            if ts < since_iso:
+                continue
+            if until_iso and ts > until_iso:
+                continue
+            results.append({"key": key, "record": record, "timestamp": ts})
+
+        results.sort(key=lambda r: r["timestamp"])
+        logger.debug("temporal_recall: domain=%s since=%s until=%s → %d records",
+                     domain, since_iso, until_iso, len(results))
+        return results
 
     # ------------------------------------------------------------------
     # Snapshot (for prompt injection)

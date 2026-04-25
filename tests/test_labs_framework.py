@@ -287,78 +287,79 @@ class TestExperimentStatus:
 
 
 # ===========================================================================
-# Memory domain stubs — just import to get coverage
+# Memory domain schemas — real implementations
 # ===========================================================================
 
 class TestMemoryDomainStubs:
     def test_identity_domain(self):
         from sovereign.memory.domains.identity import IdentityRecord, DOMAIN_NAME
-        r = IdentityRecord(id="id-001")
-        assert r.id == "id-001"
+        r = IdentityRecord(full_name="Alice")
+        assert r.full_name == "Alice"
         assert DOMAIN_NAME == "identity"
 
     def test_brand_domain(self):
-        from sovereign.memory.domains.brand import BrandRecord, DOMAIN_NAME
-        r = BrandRecord(id="b-001")
-        assert r.id == "b-001"
+        from sovereign.memory.domains.brand import BrandIdentity, DOMAIN_NAME
+        r = BrandIdentity(name="Acme Corp")
+        assert r.name == "Acme Corp"
         assert DOMAIN_NAME == "brand"
 
     def test_content_domain(self):
-        from sovereign.memory.domains.content import ContentRecord, DOMAIN_NAME
-        r = ContentRecord(id="c-001")
-        assert r.id == "c-001"
+        from sovereign.memory.domains.content import ContentPiece, DOMAIN_NAME
+        r = ContentPiece(content_id="c-001", title="Test Post")
+        assert r.content_id == "c-001"
+        assert r.title == "Test Post"
         assert DOMAIN_NAME == "content"
 
     def test_decision_domain(self):
         from sovereign.memory.domains.decision import DecisionRecord, DOMAIN_NAME
-        r = DecisionRecord(id="d-001")
-        assert r.id == "d-001"
+        r = DecisionRecord(decision_id="d-001", title="Go/No-Go")
+        assert r.decision_id == "d-001"
         assert DOMAIN_NAME == "decision"
 
     def test_diary_domain(self):
-        from sovereign.memory.domains.diary import DiaryRecord, DOMAIN_NAME
-        r = DiaryRecord(id="dr-001")
-        assert r.id == "dr-001"
+        from sovereign.memory.domains.diary import DiaryEntry, DOMAIN_NAME
+        r = DiaryEntry(entry_id="dr-001", date="2026-04-25")
+        assert r.entry_id == "dr-001"
         assert DOMAIN_NAME == "diary"
 
     def test_health_routine_domain(self):
-        from sovereign.memory.domains.health_routine import Health_routineRecord, DOMAIN_NAME
-        r = Health_routineRecord(id="hr-001")
-        assert r.id == "hr-001"
+        from sovereign.memory.domains.health_routine import HealthProfile, DOMAIN_NAME
+        r = HealthProfile(fitness_level="active")
+        assert r.fitness_level == "active"
         assert DOMAIN_NAME == "health_routine"
 
     def test_inventory_domain(self):
-        from sovereign.memory.domains.inventory import InventoryRecord, DOMAIN_NAME
-        r = InventoryRecord(id="inv-001")
-        assert r.id == "inv-001"
+        from sovereign.memory.domains.inventory import InventoryItem, DOMAIN_NAME
+        r = InventoryItem(item_id="inv-001", name="Laptop")
+        assert r.item_id == "inv-001"
         assert DOMAIN_NAME == "inventory"
 
     def test_learning_domain(self):
-        from sovereign.memory.domains.learning import LearningRecord, DOMAIN_NAME
-        r = LearningRecord(id="l-001")
-        assert r.id == "l-001"
+        from sovereign.memory.domains.learning import LearningItem, DOMAIN_NAME
+        r = LearningItem(item_id="l-001", title="Python Course")
+        assert r.item_id == "l-001"
         assert DOMAIN_NAME == "learning"
 
     def test_legal_compliance_domain(self):
-        from sovereign.memory.domains.legal_compliance import Legal_complianceRecord, DOMAIN_NAME
-        r = Legal_complianceRecord(id="lc-001")
-        assert r.id == "lc-001"
+        from sovereign.memory.domains.legal_compliance import Contract, DOMAIN_NAME
+        r = Contract(contract_id="lc-001", title="NDA")
+        assert r.contract_id == "lc-001"
         assert DOMAIN_NAME == "legal_compliance"
 
     def test_operational_domain(self):
-        from sovereign.memory.domains.operational import OperationalRecord, DOMAIN_NAME
-        r = OperationalRecord(id="op-001")
-        assert r.id == "op-001"
+        from sovereign.memory.domains.operational import SOP, DOMAIN_NAME
+        r = SOP(sop_id="op-001", title="Onboarding SOP")
+        assert r.sop_id == "op-001"
         assert DOMAIN_NAME == "operational"
 
     def test_relationship_domain(self):
-        from sovereign.memory.domains.relationship import RelationshipRecord, DOMAIN_NAME
-        r = RelationshipRecord(id="rel-001")
-        assert r.id == "rel-001"
+        from sovereign.memory.domains.relationship import Contact, DOMAIN_NAME
+        r = Contact(contact_id="rel-001", full_name="Jane Doe")
+        assert r.contact_id == "rel-001"
         assert DOMAIN_NAME == "relationship"
 
     def test_research_domain(self):
-        from sovereign.memory.domains.research import ResearchRecord, DOMAIN_NAME
-        r = ResearchRecord(id="res-001")
-        assert r.id == "res-001"
+        from sovereign.memory.domains.research import ResearchProject, DOMAIN_NAME
+        r = ResearchProject(project_id="res-001", title="AI Survey")
+        assert r.project_id == "res-001"
         assert DOMAIN_NAME == "research"

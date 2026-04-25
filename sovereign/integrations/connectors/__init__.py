@@ -7,6 +7,12 @@ from sovereign.integrations.connectors.github_connector import GitHubConnector
 from sovereign.integrations.connectors.weather_connector import WeatherConnector
 from sovereign.integrations.connectors.notion_connector import NotionConnector
 from sovereign.integrations.connectors.gmail_connector import GmailConnector
+from sovereign.integrations.connectors.slack_connector import SlackConnector
+from sovereign.integrations.connectors.linear_connector import LinearConnector
+from sovereign.integrations.connectors.rss_connector import RSSConnector
+from sovereign.integrations.connectors.hackernews_connector import HackerNewsConnector
+from sovereign.integrations.connectors.calendar_connector import CalendarConnector
+from sovereign.integrations.connectors.telegram_connector import TelegramConnector
 
 __all__ = [
     "ConnectorBase", "ConnectorStatus", "SyncResult",
@@ -14,4 +20,6 @@ __all__ = [
     "SyncEngine", "get_sync_engine",
     "OAuthManager", "get_oauth_manager",
     "GitHubConnector", "WeatherConnector", "NotionConnector", "GmailConnector",
+    "SlackConnector", "LinearConnector", "RSSConnector",
+    "HackerNewsConnector", "CalendarConnector", "TelegramConnector",
 ]

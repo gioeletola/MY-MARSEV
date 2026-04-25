@@ -97,8 +97,8 @@ class InputPipeline:
         text = str(raw_text) if not isinstance(raw_text, str) else raw_text
         steps.append("4_extract")
 
-        # Step 5: Detect language (stub)
-        language = "en"
+        # Step 5: Detect language
+        language = self._detect_language(text)
         steps.append("5_detect_language")
 
         # Step 6: Normalize
@@ -199,6 +199,17 @@ class InputPipeline:
             return await CsvAdapter().extract(raw)
         # Default: text adapter
         return await TextAdapter().extract(raw)
+
+    def _detect_language(self, text: str) -> str:
+        """Detect the language of `text`; falls back to 'en' if unavailable."""
+        if not text or len(text.strip()) < 10:
+            return "en"
+        try:
+            from langdetect import detect  # type: ignore[import]
+            return detect(text)
+        except Exception:
+            pass
+        return "en"
 
     async def _step_normalize(self, text: str) -> str:
         """Normalize whitespace and encoding."""

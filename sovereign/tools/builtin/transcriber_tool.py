@@ -86,23 +86,81 @@ class TranscriberTool(BaseTool):
     # ------------------------------------------------------------------
 
     def _transcribe_file(self, file_path: str) -> dict[str, Any]:
+        import asyncio
+        return asyncio.get_event_loop().run_until_complete(self._transcribe_file_async(file_path))
+
+    async def _transcribe_file_async(self, file_path: str) -> dict[str, Any]:
         path = pathlib.Path(file_path)
-        exists = path.exists()
-        suffix = path.suffix.lower()
         audio_exts = {".mp3", ".mp4", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac"}
-        if exists and suffix not in audio_exts:
+        if not path.exists():
+            return {"error": f"File not found: {file_path}", "file_path": file_path}
+        if path.suffix.lower() not in audio_exts:
             return {
-                "error": f"Unsupported file type '{suffix}'. Supported: {sorted(audio_exts)}",
+                "error": f"Unsupported type '{path.suffix}'. Supported: {sorted(audio_exts)}",
                 "file_path": file_path,
             }
-        logger.info("TranscriberTool.transcribe_file (stub) path=%s", file_path)
+
+        # Path 1: OpenAI Whisper API
+        import os
+        openai_key = os.getenv("OPENAI_API_KEY", "")
+        if openai_key:
+            result = await self._whisper_api(path, openai_key)
+            if result:
+                return result
+
+        # Path 2: local openai-whisper package
+        result = self._local_whisper(path)
+        if result:
+            return result
+
         return {
-            "transcript": "Audio transcription not available — wire Whisper API",
-            "duration_s": 0,
-            "file_path": file_path,
-            "file_exists": exists,
-            "note": "Stub — integrate OpenAI Whisper or local whisper.cpp for live transcription.",
+            "transcript": "",
+            "file_path": str(path),
+            "note": (
+                "No transcription backend available. "
+                "Set OPENAI_API_KEY or: pip install openai-whisper"
+            ),
         }
+
+    async def _whisper_api(self, path: pathlib.Path, api_key: str) -> dict[str, Any] | None:
+        try:
+            import httpx
+            with open(path, "rb") as audio_file:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    resp = await client.post(
+                        "https://api.openai.com/v1/audio/transcriptions",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        data={"model": "whisper-1"},
+                        files={"file": (path.name, audio_file, "application/octet-stream")},
+                    )
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "transcript": data.get("text", ""),
+                    "file_path": str(path),
+                    "backend": "openai_whisper_api",
+                }
+            logger.warning("Whisper API returned %d: %s", resp.status_code, resp.text[:200])
+        except Exception as exc:
+            logger.warning("Whisper API error: %s", exc)
+        return None
+
+    def _local_whisper(self, path: pathlib.Path) -> dict[str, Any] | None:
+        try:
+            import whisper  # type: ignore[import]
+            model = whisper.load_model("base")
+            result = model.transcribe(str(path))
+            return {
+                "transcript": result.get("text", "").strip(),
+                "language": result.get("language", ""),
+                "file_path": str(path),
+                "backend": "local_whisper",
+            }
+        except ImportError:
+            return None
+        except Exception as exc:
+            logger.warning("Local whisper error: %s", exc)
+            return None
 
     def _transcribe_text(self, text: str) -> dict[str, Any]:
         normalised = " ".join(text.split())
