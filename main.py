@@ -664,5 +664,127 @@ def vault_delete(key: str = typer.Argument(..., help="Secret key to delete")) ->
         console.print(f"[red]Error: {exc}[/red]")
 
 
+# ---------------------------------------------------------------------------
+# brief command — morning daily briefing
+# ---------------------------------------------------------------------------
+
+@app.command()
+def brief(
+    config: str = typer.Option(
+        "config/sovereign.yaml", "--config", "-c", help="Path to sovereign.yaml"
+    ),
+    send_telegram: bool = typer.Option(
+        False, "--telegram", help="Send briefing to Telegram (requires TELEGRAM_BOT_TOKEN)"
+    ),
+) -> None:
+    """
+    Print (and optionally send) a morning briefing.
+
+    Shows: date, time, weather hint, upcoming calendar events, urgent tasks,
+    open decisions, and motivational context from your personal constitution.
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    console.print(Panel(
+        f"[cyan]🌅 SOVEREIGN Morning Briefing[/cyan]\n"
+        f"[dim]{now.strftime('%A, %d %B %Y — %H:%M UTC')}[/dim]",
+        style="bold",
+    ))
+
+    briefing_lines: list[str] = []
+
+    try:
+        from sovereign.memory.domains.next_action import NextActionStore
+        na = NextActionStore()
+        urgent = na.urgent()
+        overdue = na.overdue()
+        if urgent or overdue:
+            console.print("\n[yellow]⚡ Urgent tasks:[/yellow]")
+            for a in (overdue + urgent)[:5]:
+                prefix = "⚠️" if a in overdue else "→"
+                console.print(f"  {prefix} {a.title}")
+            briefing_lines.append(f"Urgent: {len(urgent)} | Overdue: {len(overdue)}")
+    except Exception:
+        pass
+
+    try:
+        from sovereign.memory.domains.decision import DecisionMemoryStore
+        dec = DecisionMemoryStore()
+        open_dec = dec.by_status("open")
+        if open_dec:
+            console.print("\n[violet]🧭 Open decisions:[/violet]")
+            for d in open_dec[:3]:
+                console.print(f"  · {d.title}")
+    except Exception:
+        pass
+
+    try:
+        from sovereign.memory.domains.diary import DiaryMemoryStore
+        diary = DiaryMemoryStore()
+        avg_mood = diary.average_mood(7)
+        console.print(f"\n[dim]📓 Mood avg (7d): {avg_mood:.1f}/10[/dim]")
+    except Exception:
+        pass
+
+    try:
+        from sovereign.memory.domains.personal_constitution import PersonalConstitutionStore
+        pcs = PersonalConstitutionStore()
+        c = pcs.get_constitution()
+        if c.daily_non_negotiables:
+            console.print("\n[green]✅ Daily non-negotiables:[/green]")
+            for item in c.daily_non_negotiables[:5]:
+                console.print(f"  · {item}")
+        if c.personal_mission:
+            console.print(f"\n[bold]Mission:[/bold] {c.personal_mission}")
+    except Exception:
+        pass
+
+    if send_telegram:
+        async def _send() -> None:
+            from sovereign.reporting.weekly_report import send_telegram_report
+            text = "🌅 *Morning Briefing*\n" + "\n".join(briefing_lines)
+            await send_telegram_report(text)
+        asyncio.run(_send())
+        console.print("\n[green]✓ Sent to Telegram.[/green]")
+
+
+# ---------------------------------------------------------------------------
+# report command — send weekly report
+# ---------------------------------------------------------------------------
+
+@app.command()
+def report(
+    config: str = typer.Option(
+        "config/sovereign.yaml", "--config", "-c", help="Path to sovereign.yaml"
+    ),
+    print_only: bool = typer.Option(
+        False, "--print", help="Print report to stdout instead of sending to Telegram."
+    ),
+    data_dir: str = typer.Option(
+        "data", "--data-dir", help="Path to data directory."
+    ),
+) -> None:
+    """Generate and send the weekly life report via Telegram."""
+    from sovereign.reporting.weekly_report import build_weekly_report, send_telegram_report
+
+    console.print("[cyan]Generating weekly report...[/cyan]")
+    text = build_weekly_report(data_dir)
+
+    if print_only:
+        console.print(text)
+        return
+
+    async def _send() -> None:
+        sent = await send_telegram_report(text)
+        if sent:
+            console.print("[green]✓ Weekly report sent to Telegram.[/green]")
+        else:
+            console.print("[yellow]Report printed (Telegram not configured).[/yellow]")
+            console.print(text)
+
+    asyncio.run(_send())
+
+
 if __name__ == "__main__":
     app()

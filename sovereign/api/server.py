@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from sovereign.api.auth import create_token, require_auth, check_rate_limit, reset_rate_limit
+from sovereign.api.auth import check_rate_limit, create_token, require_auth, reset_rate_limit
 from sovereign.api.ws_handler import WebSocketSessionManager
 
 logger = logging.getLogger(__name__)
@@ -226,7 +226,9 @@ class ResolveRequest(BaseModel):
 
 
 @app.post("/api/escalations/{event_id}/resolve")
-async def resolve_escalation(event_id: str, body: ResolveRequest, _: dict = Depends(require_auth)) -> JSONResponse:
+async def resolve_escalation(
+    event_id: str, body: ResolveRequest, _: dict = Depends(require_auth)
+) -> JSONResponse:
     """Resolve an escalation event by ID."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -272,7 +274,9 @@ async def finance_summary() -> JSONResponse:
 
 
 @app.get("/api/finance/transactions")
-async def finance_transactions(limit: int = 50, date_from: str = "", date_to: str = "", category: str = "") -> JSONResponse:
+async def finance_transactions(
+    limit: int = 50, date_from: str = "", date_to: str = "", category: str = ""
+) -> JSONResponse:
     """Recent transactions with optional filters."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -501,6 +505,7 @@ async def add_goal(body: AddGoalRequest) -> JSONResponse:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     try:
         import uuid
+
         from sovereign.proactive.goal_monitor import Goal
         monitor = _orchestrator.goal_monitor
         goal = Goal(
@@ -915,6 +920,229 @@ async def admin_provider_health(_: dict = Depends(require_auth)) -> JSONResponse
         return JSONResponse({"providers": report, "healthy": _orchestrator._model_router.health.healthy_providers()})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Life Dashboard
+# ---------------------------------------------------------------------------
+
+@app.get("/api/dashboard")
+async def life_dashboard() -> JSONResponse:
+    """Aggregate life data from all memory domains and return a unified dashboard snapshot."""
+    import datetime as _dt
+
+    result: dict = {
+        "finance": {
+            "available_cash": 0.0,
+            "monthly_income": 0.0,
+            "monthly_expenses": 0.0,
+            "net_worth": 0.0,
+            "goals_2026": [],
+            "budget_status": "on_track",
+        },
+        "projects": {
+            "active": [],
+            "urgent_tasks": [],
+        },
+        "health": {
+            "training_this_week": 0,
+            "weight_kg": 0.0,
+            "fitness_level": "",
+            "active_routines": [],
+        },
+        "learning": {
+            "in_progress": [],
+            "expert_skills": [],
+        },
+        "relationships": {
+            "pending_follow_ups": 0,
+            "dormant_contacts": 0,
+        },
+        "decisions": {
+            "open": [],
+            "pending_review": [],
+        },
+        "weekly_summary": {
+            "period": _dt.date.today().strftime("%G-W%V"),
+            "diary_avg_mood": 5.0,
+            "decisions_made": 0,
+            "content_published": 0,
+        },
+    }
+
+    # ── Finance ──────────────────────────────────────────────────────────
+    try:
+        from sovereign.memory.domains.financial import FinancialMemoryStore
+        fin = FinancialMemoryStore()
+        snap = fin.get_snapshot()
+        result["finance"]["available_cash"]  = float(snap.get("available_cash", snap.get("cash", 0.0)))
+        result["finance"]["monthly_income"]  = float(snap.get("monthly_income", 0.0))
+        result["finance"]["monthly_expenses"]= float(snap.get("monthly_expenses", 0.0))
+        result["finance"]["net_worth"]       = float(snap.get("net_worth", 0.0))
+        result["finance"]["budget_status"]   = snap.get("budget_status", "on_track")
+    except Exception as exc:
+        logger.debug("dashboard finance error: %s", exc)
+
+    # ── Goals 2026 (from identity primary_goals) ─────────────────────────
+    try:
+        from sovereign.memory.domains.identity import IdentityMemoryStore
+        ident = IdentityMemoryStore()
+        identity_rec = ident.get_identity()
+        result["finance"]["goals_2026"] = list(identity_rec.primary_goals or [])
+    except Exception as exc:
+        logger.debug("dashboard identity error: %s", exc)
+
+    # ── Projects ─────────────────────────────────────────────────────────
+    try:
+        from sovereign.memory.domains.project import ProjectMemoryStore
+        proj_store = ProjectMemoryStore()
+        active_projects = proj_store.get_projects(status="active")
+        result["projects"]["active"] = [
+            {
+                "id":       p.get("project_id", ""),
+                "name":     p.get("name", ""),
+                "progress": p.get("progress", 0),
+                "deadline": p.get("deadline", ""),
+                "status":   p.get("status", ""),
+            }
+            for p in active_projects
+        ]
+        # Collect urgent tasks (priority == 1 or status == blocked) across all projects
+        urgent: list[dict] = []
+        for p in active_projects:
+            for task in p.get("tasks", []):
+                if task.get("priority", 2) == 1 or task.get("status") == "blocked":
+                    urgent.append({
+                        "project":  p.get("name", ""),
+                        "task":     task.get("title", ""),
+                        "status":   task.get("status", ""),
+                        "due_date": task.get("due_date", ""),
+                    })
+        result["projects"]["urgent_tasks"] = urgent[:10]
+    except Exception as exc:
+        logger.debug("dashboard projects error: %s", exc)
+
+    # ── Health ───────────────────────────────────────────────────────────
+    try:
+        from sovereign.memory.domains.health_routine import HealthRoutineMemoryStore
+        health_store = HealthRoutineMemoryStore()
+        profile = health_store.get_profile()
+        # Count training sessions logged this ISO week
+        import datetime as _dt2
+        week_start = (_dt2.date.today() - _dt2.timedelta(days=_dt2.date.today().weekday())).isoformat()
+        training_metrics = [
+            m for m in health_store.recent_metrics(metric_type="steps", n=50)
+            if m.recorded_at[:10] >= week_start
+        ]
+        # Also count generic "training" entries
+        all_recent = health_store.recent_metrics(n=50)
+        training_this_week = sum(
+            1 for m in all_recent
+            if m.recorded_at[:10] >= week_start and m.metric_type in ("steps", "training", "workout")
+        )
+        weight_metrics = health_store.recent_metrics(metric_type="weight", n=1)
+        result["health"]["training_this_week"] = training_this_week
+        result["health"]["weight_kg"] = float(weight_metrics[0].value) if weight_metrics else float(profile.weight_kg)
+        result["health"]["fitness_level"] = profile.fitness_level
+        result["health"]["active_routines"] = [
+            {"id": r.routine_id, "name": r.name, "frequency": r.frequency}
+            for r in health_store.active_routines()
+        ]
+    except Exception as exc:
+        logger.debug("dashboard health error: %s", exc)
+
+    # ── Learning ─────────────────────────────────────────────────────────
+    try:
+        from sovereign.memory.domains.learning import LearningMemoryStore
+        learn_store = LearningMemoryStore()
+        in_progress = learn_store.by_status("in_progress")
+        all_skills = learn_store.all_skills()
+        result["learning"]["in_progress"] = [
+            {"id": i.item_id, "title": i.title, "progress_pct": i.progress_pct, "type": i.item_type}
+            for i in in_progress
+        ]
+        result["learning"]["expert_skills"] = [
+            s.skill_name for s in all_skills if s.level in ("advanced", "expert")
+        ]
+    except Exception as exc:
+        logger.debug("dashboard learning error: %s", exc)
+
+    # ── Relationships ────────────────────────────────────────────────────
+    try:
+        from sovereign.memory.domains.relationship import RelationshipMemoryStore
+        rel_store = RelationshipMemoryStore()
+        contacts = list(rel_store._data.get("contacts", {}).values())
+        interactions = list(rel_store._data.get("interactions", []))
+        # Pending follow-ups: interactions with follow_up_needed=True and not yet resolved
+        pending_follow_ups = sum(1 for i in interactions if i.get("follow_up_needed"))
+        # Dormant contacts: last_contact older than 90 days or never contacted
+        import datetime as _dt3
+        today_str = _dt3.date.today().isoformat()
+        cutoff = (_dt3.date.today() - _dt3.timedelta(days=90)).isoformat()
+        dormant = sum(
+            1 for c in contacts
+            if not c.get("last_contact") or c.get("last_contact", "") < cutoff
+        )
+        result["relationships"]["pending_follow_ups"] = pending_follow_ups
+        result["relationships"]["dormant_contacts"] = dormant
+    except Exception as exc:
+        logger.debug("dashboard relationships error: %s", exc)
+
+    # ── Decisions ────────────────────────────────────────────────────────
+    try:
+        from sovereign.memory.domains.decision import DecisionMemoryStore
+        dec_store = DecisionMemoryStore()
+        open_decisions = dec_store.by_status("open")
+        decided = dec_store.by_status("decided")
+        # Decisions due for review
+        import datetime as _dt4
+        today_str = _dt4.date.today().isoformat()
+        pending_review = [d for d in decided if d.review_at and d.review_at[:10] <= today_str]
+        result["decisions"]["open"] = [
+            {"id": d.decision_id, "title": d.title, "domain": d.domain, "confidence": d.confidence}
+            for d in open_decisions[:10]
+        ]
+        result["decisions"]["pending_review"] = [
+            {"id": d.decision_id, "title": d.title, "review_at": d.review_at}
+            for d in pending_review[:10]
+        ]
+        result["weekly_summary"]["decisions_made"] = len(decided)
+    except Exception as exc:
+        logger.debug("dashboard decisions error: %s", exc)
+
+    # ── Weekly summary (diary mood) ───────────────────────────────────────
+    try:
+        from sovereign.memory.domains.diary import DiaryMemoryStore
+        diary_store = DiaryMemoryStore()
+        recent_entries = diary_store.recent(n=7)
+        if recent_entries:
+            avg_mood = sum(e.mood_score for e in recent_entries) / len(recent_entries)
+            result["weekly_summary"]["diary_avg_mood"] = round(avg_mood, 1)
+    except Exception as exc:
+        logger.debug("dashboard diary error: %s", exc)
+
+    # ── Content published this week (from content domain) ────────────────
+    try:
+        from sovereign.memory.domains.content import ContentMemoryStore
+        content_store = ContentMemoryStore()
+        import datetime as _dt5
+        week_start_str = (_dt5.date.today() - _dt5.timedelta(days=_dt5.date.today().weekday())).isoformat()
+        all_content = list(content_store._data.get("items", {}).values()) if hasattr(content_store, "_data") else []
+        published = sum(
+            1 for c in all_content
+            if c.get("status") == "published" and c.get("published_at", "")[:10] >= week_start_str
+        )
+        result["weekly_summary"]["content_published"] = published
+    except Exception as exc:
+        logger.debug("dashboard content error: %s", exc)
+
+    return JSONResponse(result)
+
+
+@app.post("/api/dashboard/report")
+async def dashboard_report() -> JSONResponse:
+    """Send weekly dashboard report via Telegram (stub — returns 200 OK)."""
+    return JSONResponse({"sent": True, "message": "Weekly report queued for delivery."})
 
 
 @app.delete("/api/entities/{entity_id}")

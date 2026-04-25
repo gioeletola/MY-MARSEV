@@ -3,14 +3,18 @@ CEO Agent — top-level strategic executive.
 
 Receives raw user intent, interprets it at a strategic level, selects the
 operating mode, and produces a structured strategic brief for the Chief of Staff.
+
+Upgraded to AgentLevel.LEVEL_3: full 7-step operational workflow with
+persistent state and structured AgentSpec metadata.
 """
 from __future__ import annotations
 
 import json
 import logging
 
-from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
+from sovereign.swarm.base_agent import AgentContext, AgentTask
+from sovereign.swarm.leveled_agent import AgentLevel, AgentSpec, LeveledAgent
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +25,9 @@ OPERATING_MODES = [
 ]
 
 
-class CEOAgent(BaseAgent):
+class CEOAgent(LeveledAgent):
     """
-    The top-level executive agent.
+    The top-level executive agent — LEVEL_3 Autonomous Operational Agent.
 
     Responsibilities:
     - Interpret user intent at strategic level
@@ -33,57 +37,161 @@ class CEOAgent(BaseAgent):
     - Delegate to ChiefOfStaff for task decomposition
 
     Uses claude-opus-4-6 (frontier model) for highest reasoning quality.
+
+    Workflow steps:
+      OBSERVE   — retrieve memory snapshot, surface prior session context
+      ANALYZE   — startup analysis (mode, request class, tools, sub-agents)
+      PLAN      — select operating mode
+      EXECUTE   — build strategic brief
+      VERIFY    — confirm confidence meets threshold
+      REPORT    — assemble StructuredOutput
+      SAVE_MEM  — persist key decisions to agent state
     """
 
     agent_id = "ceo"
     model = "claude-opus-4-6"
 
-    async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
+    spec = AgentSpec(
+        agent_id="ceo",
+        level=AgentLevel.LEVEL_3,
+        mission="Strategic intent analysis and operating mode selection",
+        triggers=["new_request", "mode_change", "escalation"],
+        tools_allowed=["memory_tool", "web_search"],
+        escalate_to="",
+        requires_approval_for=["mode_change", "resource_allocation"],
+        success_metric="Intent correctly classified with confidence >= 0.8",
+        failure_condition="Intent confidence < 0.5 or unknown mode selected",
+        confidence_threshold=0.8,
+    )
+
+    # ------------------------------------------------------------------
+    # Workflow step overrides
+    # ------------------------------------------------------------------
+
+    async def observe(self, task: AgentTask, ctx: AgentContext) -> dict:
         """
-        Process a user request as the CEO.
-
-        Implements the Section 23 startup sequence (13 steps):
-        1-2.  Classify request + detect mode
-        3.    Memory retrieval (orchestrator handles this before CEO runs)
-        4-9.  File check, internet freshness, tools, sub-agents, approval threshold → startup_analysis
-        10.   Build strategic brief (execution plan)
-        11-13.Execute/draft + summarize + propose memory updates (downstream)
-
-        Returns a StructuredOutput with:
-          result:  The strategic brief text
-          data:    startup analysis + operating_mode + action_class
+        OBSERVE: surface memory snapshot and prior session context.
+        Returns the memory snapshot already carried in AgentContext.
         """
-        try:
-            # Steps 1-2: classify + detect mode
-            mode = await self._select_mode(task.objective, ctx)
-            # Steps 4-9: startup analysis (internet, tools, sub-agents, approval, class)
-            analysis = await self._startup_analysis(task.objective, mode, ctx)
-            # Step 10: strategic brief / execution plan
-            brief = await self._build_strategic_brief(task.objective, mode, ctx, analysis)
+        return {
+            "memory_snapshot": ctx.memory_snapshot,
+            "session_id": ctx.session_id,
+            "operating_mode": ctx.operating_mode,
+            "objective": task.objective,
+        }
 
-            return self._make_output(
-                task=task,
-                ctx=ctx,
-                result=brief,
-                status=OutputStatus.SUCCESS,
-                data={
-                    "operating_mode": mode,
-                    "action_class": task.action_class.name,
-                    **analysis,
-                },
-                reasoning=f"Mode: {mode} | Class: {analysis.get('request_class')} | "
-                          f"Internet: {analysis.get('internet_needed')} | "
-                          f"SubAgents: {analysis.get('sub_agents_needed')}",
-                confidence=0.85,
-            )
-        except Exception as exc:
-            logger.error("CEOAgent failed: %s", exc)
-            return StructuredOutput.failure(
-                session_id=ctx.session_id,
-                agent_id=self.agent_id,
-                task_id=task.task_id,
-                error=str(exc),
-            )
+    async def analyze(
+        self, task: AgentTask, ctx: AgentContext, observations: dict
+    ) -> dict:
+        """
+        ANALYZE: run startup analysis to determine request class, tools,
+        sub-agents, approval threshold, and internet requirements.
+        Mirrors the Section 23 steps 4-9 startup sequence.
+        """
+        mode = observations.get("operating_mode", ctx.operating_mode)
+        return await self._startup_analysis(task.objective, mode, ctx)
+
+    async def plan(
+        self, task: AgentTask, ctx: AgentContext, analysis: dict
+    ) -> dict:
+        """
+        PLAN: classify the operating mode for this session.
+        """
+        mode = await self._select_mode(task.objective, ctx)
+        return {"mode": mode, "analysis": analysis}
+
+    async def execute(
+        self, task: AgentTask, ctx: AgentContext, plan: dict
+    ) -> dict:
+        """
+        EXECUTE: build the strategic brief / execution plan.
+        Gated: mode_change requires approval per spec.
+        """
+        mode = plan.get("mode", ctx.operating_mode)
+        analysis = plan.get("analysis", {})
+        brief = await self._build_strategic_brief(task.objective, mode, ctx, analysis)
+        return {
+            "brief": brief,
+            "mode": mode,
+            "action_class": task.action_class.name,
+            **analysis,
+        }
+
+    async def verify(
+        self, task: AgentTask, ctx: AgentContext, execution: dict
+    ) -> dict:
+        """
+        VERIFY: confirm that a brief was produced and mode is valid.
+        Returns a confidence score and any validation warnings.
+        """
+        warnings: list[str] = []
+        mode = execution.get("mode", "")
+        brief = execution.get("brief", "")
+        confidence = 0.85
+
+        if mode not in OPERATING_MODES:
+            warnings.append(f"Unknown mode '{mode}' — falling back to session default.")
+            confidence = 0.5
+
+        if not brief or len(brief.strip()) < 20:
+            warnings.append("Strategic brief appears empty or too short.")
+            confidence = min(confidence, 0.4)
+
+        return {
+            "valid": len(warnings) == 0,
+            "confidence": confidence,
+            "warnings": warnings,
+        }
+
+    async def report(
+        self, task: AgentTask, ctx: AgentContext, all_steps: dict
+    ) -> StructuredOutput:
+        """
+        REPORT: assemble the final StructuredOutput from verified execution data.
+        """
+        execution = all_steps.get("execute", {})
+        verification = all_steps.get("verify", {})
+
+        brief = execution.get("brief", "")
+        mode = execution.get("mode", ctx.operating_mode)
+        confidence = verification.get("confidence", 0.85)
+        warnings = verification.get("warnings", [])
+
+        reasoning = (
+            f"Mode: {mode} | "
+            f"Class: {execution.get('request_class', 'analysis')} | "
+            f"Internet: {execution.get('internet_needed', False)} | "
+            f"SubAgents: {execution.get('sub_agents_needed', False)}"
+        )
+        if warnings:
+            reasoning += f" | Warnings: {'; '.join(warnings)}"
+
+        data = {
+            "operating_mode": mode,
+            "action_class": execution.get("action_class", task.action_class.name),
+        }
+        # Merge in analysis fields if present
+        for key in (
+            "request_class", "internet_needed", "tools_needed",
+            "sub_agents_needed", "approval_threshold",
+            "internet_keywords", "file_check",
+        ):
+            if key in execution:
+                data[key] = execution[key]
+
+        return self._make_output(
+            task=task,
+            ctx=ctx,
+            result=brief or "Strategic brief unavailable.",
+            status=OutputStatus.SUCCESS if brief else OutputStatus.PARTIAL,
+            data=data,
+            reasoning=reasoning,
+            confidence=confidence,
+        )
+
+    # ------------------------------------------------------------------
+    # Private helpers (unchanged logic from original implementation)
+    # ------------------------------------------------------------------
 
     async def _startup_analysis(
         self,
@@ -120,11 +228,9 @@ class CEOAgent(BaseAgent):
             [{"role": "user", "content": prompt}], ctx, max_tokens=200
         )
         try:
-            # Strip markdown fences if present
             clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
             return json.loads(clean)
         except Exception:
-            # Safe defaults
             return {
                 "request_class": "analysis",
                 "internet_needed": False,

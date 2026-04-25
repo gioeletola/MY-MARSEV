@@ -30,6 +30,10 @@ MEMORY_DOMAINS = [
     "research",
     "content",
     "brand",
+    "business_idea",
+    "personal_constitution",
+    "personal_version",
+    "next_action",
 ]
 
 
@@ -120,9 +124,9 @@ class MemoryManager:
         texts = [self._record_to_text(rec) for _, _, rec in docs]
 
         try:
+            import numpy as np
             from sklearn.feature_extraction.text import TfidfVectorizer
             from sklearn.metrics.pairwise import cosine_similarity
-            import numpy as np
 
             corpus = texts + [query]
             vectorizer = TfidfVectorizer(

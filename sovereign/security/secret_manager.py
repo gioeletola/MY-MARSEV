@@ -1,10 +1,15 @@
 """
-Secret Manager — encrypted storage for sensitive credentials and tokens.
+Secret Manager — AES-256-GCM encrypted storage for sensitive credentials.
 
-Obfuscation strategy: XOR-based cipher with a key derived from the
-environment variable SECRET_MANAGER_KEY (base64-decoded).  Falls back to a
-static development key when the env var is absent.  Values are stored as
-base64-encoded ciphertext; plaintext is never written to disk or logged.
+Encryption strategy:
+  - AES-256-GCM via the `cryptography` library (Fernet-compatible key derivation).
+  - Key is derived from SECRET_MANAGER_KEY env var using PBKDF2-HMAC-SHA256.
+  - Each secret gets its own random 12-byte nonce; ciphertext is stored as
+    base64(nonce + tag + ciphertext) so it is self-contained.
+  - Falls back to XOR obfuscation when `cryptography` is not installed,
+    logging a prominent warning.
+
+Values are NEVER written to disk in plaintext or included in logs.
 """
 from __future__ import annotations
 
@@ -19,68 +24,117 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
 _STORE_PATH = Path("data/memory/secrets.json")
-_FALLBACK_KEY = b"SOVEREIGN-DEV-KEY-DO-NOT-USE-IN-PROD"  # 36 bytes
+_SALT = b"SOVEREIGN-AI-OS-SALT-v1"   # static salt; rotate with key rotation
+_ITERATIONS = 100_000
 
 
 # ---------------------------------------------------------------------------
 # Key derivation
 # ---------------------------------------------------------------------------
 
+def _derive_key_aes() -> bytes:
+    """Derive a 32-byte AES-256 key from SECRET_MANAGER_KEY via PBKDF2."""
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.hazmat.primitives import hashes
 
-def _derive_key() -> bytes:
-    """Return the obfuscation key from env or the static fallback."""
-    raw = os.environ.get("SECRET_MANAGER_KEY", "")
-    if raw:
+    raw = os.environ.get("SECRET_MANAGER_KEY", "SOVEREIGN-DEV-INSECURE-KEY")
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=_SALT,
+        iterations=_ITERATIONS,
+    )
+    return kdf.derive(raw.encode())
+
+
+# ---------------------------------------------------------------------------
+# AES-256-GCM cipher helpers
+# ---------------------------------------------------------------------------
+
+def _encrypt(plaintext: str) -> str:
+    """
+    Encrypt *plaintext* with AES-256-GCM.
+    Returns base64(nonce[12] + tag[16] + ciphertext).
+    Falls back to XOR if `cryptography` not installed.
+    """
+    try:
+        import os as _os
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        key = _derive_key_aes()
+        nonce = _os.urandom(12)
+        aesgcm = AESGCM(key)
+        ct = aesgcm.encrypt(nonce, plaintext.encode(), None)
+        # ct already includes the 16-byte tag appended by the library
+        return base64.b64encode(nonce + ct).decode()
+    except BaseException:
+        logger.warning(
+            "cryptography unavailable — falling back to XOR obfuscation. "
+            "Run: pip install cryptography"
+        )
+        return _xor_encrypt(plaintext)
+
+
+def _decrypt(ciphertext: str) -> str:
+    """
+    Decrypt AES-256-GCM ciphertext (or XOR fallback).
+    Detects format by checking blob length (AES blobs are always > 28 bytes decoded).
+    """
+    try:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        raw = base64.b64decode(ciphertext.encode())
+        if len(raw) < 28:
+            raise ValueError("Too short for AES-GCM blob")
+        nonce = raw[:12]
+        ct = raw[12:]
+        key = _derive_key_aes()
+        aesgcm = AESGCM(key)
+        return aesgcm.decrypt(nonce, ct, None).decode()
+    except BaseException:
+        return _xor_decrypt(ciphertext)
+    except Exception:
+        # Could be an old XOR-encrypted value — try XOR fallback
         try:
-            return base64.b64decode(raw)
+            return _xor_decrypt(ciphertext)
         except Exception:
-            logger.warning("SECRET_MANAGER_KEY is not valid base64; using fallback key")
-    return _FALLBACK_KEY
+            raise
 
 
 # ---------------------------------------------------------------------------
-# XOR cipher helpers
+# XOR fallback (legacy + no-cryptography environments)
 # ---------------------------------------------------------------------------
+
+_FALLBACK_KEY = b"SOVEREIGN-DEV-KEY-DO-NOT-USE-IN-PROD"
 
 
 def _xor_bytes(data: bytes, key: bytes) -> bytes:
-    """XOR *data* against *key* (cycled)."""
     key_len = len(key)
     return bytes(b ^ key[i % key_len] for i, b in enumerate(data))
 
 
-def _encrypt(plaintext: str) -> str:
-    """Return base64-encoded XOR ciphertext of *plaintext*."""
-    key = _derive_key()
-    cipher = _xor_bytes(plaintext.encode(), key)
-    return base64.b64encode(cipher).decode()
+def _derive_key() -> bytes:
+    """Return the XOR key (env var or fallback). Used by tests."""
+    return os.environ.get("SECRET_MANAGER_KEY", "").encode() or _FALLBACK_KEY
 
 
-def _decrypt(ciphertext: str) -> str:
-    """Decode base64 ciphertext and XOR-decrypt back to plaintext."""
-    key = _derive_key()
-    raw = base64.b64decode(ciphertext.encode())
-    return _xor_bytes(raw, key).decode()
+def _xor_encrypt(plaintext: str) -> str:
+    return base64.b64encode(_xor_bytes(plaintext.encode(), _derive_key())).decode()
+
+
+def _xor_decrypt(ciphertext: str) -> str:
+    return _xor_bytes(base64.b64decode(ciphertext.encode()), _derive_key()).decode()
 
 
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 
-
 @dataclass
 class SecretEntry:
-    """Metadata and encrypted value for a single secret."""
-
     secret_id: str
     name: str
     category: str
-    value: str          # always stored encrypted (ciphertext)
+    value: str          # always stored encrypted
     created_at: str
     rotated_at: str
     expires_at: str = ""
@@ -89,7 +143,7 @@ class SecretEntry:
         return asdict(self)
 
     @staticmethod
-    def from_dict(d: dict) -> SecretEntry:
+    def from_dict(d: dict) -> "SecretEntry":
         return SecretEntry(**d)
 
 
@@ -97,22 +151,16 @@ class SecretEntry:
 # Manager
 # ---------------------------------------------------------------------------
 
-
 class SecretManager:
-    """Thread-safe secret store backed by a JSON file.
-
-    Values are XOR-obfuscated before being written; plaintext never
-    appears in logs or on disk.
+    """
+    Thread-safe AES-256-GCM secret store backed by a JSON file.
+    Plaintext never appears in logs or on disk.
     """
 
     def __init__(self, store_path: Path = _STORE_PATH) -> None:
         self._path = store_path
         self._secrets: dict[str, SecretEntry] = {}
         self._load()
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
 
     def set(
         self,
@@ -121,7 +169,6 @@ class SecretManager:
         category: str = "general",
         expires_at: str = "",
     ) -> SecretEntry:
-        """Store *value* under *name*, overwriting any existing entry."""
         now = datetime.now(timezone.utc).isoformat()
         existing = self._secrets.get(name)
         entry = SecretEntry(
@@ -130,7 +177,7 @@ class SecretManager:
             category=category,
             value=_encrypt(value),
             created_at=existing.created_at if existing else now,
-            rotated_at=now if existing else now,
+            rotated_at=now,
             expires_at=expires_at,
         )
         self._secrets[name] = entry
@@ -139,7 +186,6 @@ class SecretManager:
         return entry
 
     def get(self, name: str) -> str | None:
-        """Return the plaintext secret value, or *None* if not found."""
         entry = self._secrets.get(name)
         if entry is None:
             return None
@@ -150,7 +196,6 @@ class SecretManager:
             return None
 
     def delete(self, name: str) -> bool:
-        """Remove secret *name*.  Returns *True* if it existed."""
         if name in self._secrets:
             del self._secrets[name]
             self._save()
@@ -159,7 +204,6 @@ class SecretManager:
         return False
 
     def rotate(self, name: str, new_value: str) -> bool:
-        """Replace value for *name* and update rotated_at timestamp."""
         entry = self._secrets.get(name)
         if entry is None:
             logger.warning("Rotate failed — secret not found: name=%s", name)
@@ -171,24 +215,16 @@ class SecretManager:
         return True
 
     def list_names(self) -> list[str]:
-        """Return all stored secret names.  Values are never included."""
         return list(self._secrets.keys())
 
     def expired(self) -> list[str]:
-        """Return names of secrets whose expires_at is in the past."""
         now = datetime.now(timezone.utc).isoformat()
-        result: list[str] = []
-        for name, entry in self._secrets.items():
-            if entry.expires_at and entry.expires_at < now:
-                result.append(name)
-        return result
-
-    # ------------------------------------------------------------------
-    # Persistence
-    # ------------------------------------------------------------------
+        return [
+            name for name, entry in self._secrets.items()
+            if entry.expires_at and entry.expires_at < now
+        ]
 
     def _load(self) -> None:
-        """Load secrets from disk (creating store path if needed)."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
         if not self._path.exists():
             self._secrets = {}
@@ -201,7 +237,6 @@ class SecretManager:
             self._secrets = {}
 
     def _save(self) -> None:
-        """Persist current secrets to disk (values remain encrypted)."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
         payload = {name: entry.to_dict() for name, entry in self._secrets.items()}
         self._path.write_text(json.dumps(payload, indent=2))

@@ -71,6 +71,44 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     .sidebar-item:hover { background: #1e1e2e; }
     [x-cloak] { display: none !important; }
+    /* Dashboard grid */
+    .dash-card {
+      background: #11111a;
+      border: 1px solid #1e1e2e;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      transition: border-color 0.2s;
+    }
+    .dash-card:hover { border-color: #2e2e4e; }
+    .dash-card-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .dash-kpi { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; line-height: 1; }
+    .dash-sub { font-size: 0.7rem; color: #6b7280; margin-top: 0.2rem; }
+    .dash-tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      background: #1e1e2e;
+      color: #94a3b8;
+      border-radius: 9999px;
+      padding: 0.1rem 0.5rem;
+      margin: 0.1rem;
+    }
+    .skel { background: linear-gradient(90deg, #1e1e2e 25%, #2a2a3e 50%, #1e1e2e 75%);
+            background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .bar-track { background: #1e1e2e; border-radius: 9999px; height: 6px; overflow: hidden; margin-top: 4px; }
+    .bar-fill  { height: 100%; border-radius: 9999px; transition: width 0.6s ease; }
+    /* View tab active */
+    .view-tab-active { color: #06b6d4; border-color: #06b6d4; }
   </style>
 </head>
 <body class="font-sans h-screen flex flex-col overflow-hidden">
@@ -81,6 +119,19 @@
     <div class="w-7 h-7 rounded-md bg-gradient-to-br from-cyan to-violet flex items-center justify-center text-xs font-bold text-white">S</div>
     <span class="font-semibold tracking-wide text-sm text-slate-200">SOVEREIGN AI OS</span>
     <span class="text-xs text-muted font-mono ml-2" x-text="'v0.3 · ' + mode"></span>
+    <!-- View tab switcher -->
+    <div class="flex items-center gap-1 ml-4">
+      <button @click="activeView = 'chat'"
+              :class="activeView === 'chat' ? 'view-tab-active' : 'text-muted hover:text-slate-300'"
+              class="text-xs border border-border rounded px-2 py-1 font-mono transition-colors">
+        💬 Chat
+      </button>
+      <button @click="activeView = 'dashboard'; if (!dashboard) fetchDashboard()"
+              :class="activeView === 'dashboard' ? 'view-tab-active' : 'text-muted hover:text-slate-300'"
+              class="text-xs border border-border rounded px-2 py-1 font-mono transition-colors">
+        📊 Dashboard
+      </button>
+    </div>
   </div>
   <div class="flex items-center gap-4">
     <!-- Mode selector -->
@@ -175,8 +226,294 @@
     </div>
   </aside>
 
-  <!-- CENTER — Chat -->
+  <!-- CENTER — Chat / Dashboard -->
   <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- ═══════════════════════════════════════════════════
+         DASHBOARD VIEW
+    ═══════════════════════════════════════════════════ -->
+    <div x-show="activeView === 'dashboard'" x-cloak class="flex-1 overflow-y-auto px-4 py-4">
+      <!-- Header row -->
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-slate-200">Life Dashboard</h2>
+        <div class="flex items-center gap-2">
+          <span x-show="dashboardLoading" class="text-xs text-muted font-mono animate-pulse">Loading…</span>
+          <span x-show="dashboard && !dashboardLoading" class="text-xs text-muted font-mono" x-text="dashboardUpdatedAt"></span>
+          <button @click="fetchDashboard()"
+                  :disabled="dashboardLoading"
+                  class="text-xs border border-border rounded px-2 py-1 text-muted hover:text-cyan hover:border-cyan font-mono transition-colors">
+            ↻ Refresh
+          </button>
+          <button @click="reportTelegram()"
+                  :disabled="reportSending"
+                  class="text-xs border border-border rounded px-2 py-1 font-mono transition-colors"
+                  :class="reportSent ? 'text-cyan border-cyan' : 'text-muted hover:text-violet hover:border-violet'">
+            <span x-text="reportSent ? '✓ Sent' : (reportSending ? '…' : '📋 Report Telegram')"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Skeleton while loading -->
+      <template x-if="dashboardLoading && !dashboard">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <template x-for="i in 9" :key="i">
+            <div class="dash-card">
+              <div class="skel h-3 w-24 mb-3"></div>
+              <div class="skel h-8 w-16 mb-2"></div>
+              <div class="skel h-2 w-32"></div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Dashboard grid -->
+      <template x-if="dashboard">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+
+          <!-- 1. Finance -->
+          <div class="dash-card">
+            <div class="dash-card-title">💰 Finance</div>
+            <div class="dash-kpi" x-text="'$' + fmt(dashboard.finance.available_cash)"></div>
+            <div class="dash-sub">Available cash</div>
+            <div class="mt-3 space-y-1">
+              <div class="flex justify-between text-xs">
+                <span class="text-muted">Income</span>
+                <span class="text-cyan font-mono" x-text="'$' + fmt(dashboard.finance.monthly_income)"></span>
+              </div>
+              <div class="flex justify-between text-xs">
+                <span class="text-muted">Expenses</span>
+                <span class="text-rose font-mono" x-text="'$' + fmt(dashboard.finance.monthly_expenses)"></span>
+              </div>
+              <!-- Bar: income vs expenses -->
+              <div x-show="dashboard.finance.monthly_income > 0" class="mt-2">
+                <div class="bar-track">
+                  <div class="bar-fill bg-gradient-to-r from-cyan to-violet"
+                       :style="'width:' + Math.min(100, (dashboard.finance.monthly_expenses / dashboard.finance.monthly_income) * 100).toFixed(0) + '%'">
+                  </div>
+                </div>
+                <div class="flex justify-between text-xs text-muted mt-0.5">
+                  <span>Expense ratio</span>
+                  <span x-text="dashboard.finance.monthly_income > 0 ? Math.round((dashboard.finance.monthly_expenses / dashboard.finance.monthly_income) * 100) + '%' : '—'"></span>
+                </div>
+              </div>
+              <div class="mt-1 flex items-center gap-1">
+                <span class="text-xs text-muted">Net worth:</span>
+                <span class="text-xs font-mono text-violet" x-text="'$' + fmt(dashboard.finance.net_worth)"></span>
+              </div>
+              <div class="mt-1">
+                <span :class="dashboard.finance.budget_status === 'on_track' ? 'text-cyan' : 'text-amber'"
+                      class="text-xs font-mono" x-text="dashboard.finance.budget_status"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Goals 2026 -->
+          <div class="dash-card">
+            <div class="dash-card-title">📈 Goals 2026</div>
+            <template x-if="dashboard.finance.goals_2026.length === 0">
+              <p class="text-xs text-muted italic">No goals configured in identity memory.</p>
+            </template>
+            <ul class="space-y-1">
+              <template x-for="(goal, idx) in dashboard.finance.goals_2026.slice(0, 6)" :key="idx">
+                <li class="flex items-start gap-2">
+                  <span class="text-cyan text-xs mt-0.5">›</span>
+                  <span class="text-xs text-slate-300" x-text="goal"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+
+          <!-- 3. Active Projects -->
+          <div class="dash-card">
+            <div class="dash-card-title">🗂 Active Projects</div>
+            <template x-if="dashboard.projects.active.length === 0">
+              <p class="text-xs text-muted italic">No active projects.</p>
+            </template>
+            <div class="space-y-2">
+              <template x-for="p in dashboard.projects.active.slice(0, 5)" :key="p.id">
+                <div>
+                  <div class="flex justify-between text-xs mb-0.5">
+                    <span class="text-slate-300 truncate max-w-36" x-text="p.name"></span>
+                    <span class="text-muted font-mono" x-text="(p.progress || 0) + '%'"></span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill bg-gradient-to-r from-violet to-cyan"
+                         :style="'width:' + (p.progress || 0) + '%'"></div>
+                  </div>
+                  <div x-show="p.deadline" class="text-xs text-muted mt-0.5" x-text="'Due: ' + p.deadline"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 4. Urgent Tasks -->
+          <div class="dash-card">
+            <div class="dash-card-title">⚡ Urgent Tasks</div>
+            <template x-if="dashboard.projects.urgent_tasks.length === 0">
+              <p class="text-xs text-muted italic">No urgent tasks.</p>
+            </template>
+            <div class="space-y-1.5">
+              <template x-for="(t, i) in dashboard.projects.urgent_tasks.slice(0, 6)" :key="i">
+                <div class="flex items-start gap-2">
+                  <span class="text-rose text-xs mt-0.5 shrink-0">●</span>
+                  <div>
+                    <span class="text-xs text-slate-300" x-text="t.task"></span>
+                    <div class="text-xs text-muted" x-text="t.project + (t.due_date ? ' · ' + t.due_date : '')"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 5. Training & Health -->
+          <div class="dash-card">
+            <div class="dash-card-title">💪 Training &amp; Health</div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <div class="dash-kpi" x-text="dashboard.health.training_this_week"></div>
+                <div class="dash-sub">sessions / week</div>
+              </div>
+              <div>
+                <div class="dash-kpi" x-text="dashboard.health.weight_kg > 0 ? dashboard.health.weight_kg + ' kg' : '—'"></div>
+                <div class="dash-sub">weight</div>
+              </div>
+            </div>
+            <div x-show="dashboard.health.fitness_level" class="mb-2">
+              <span class="dash-tag" x-text="dashboard.health.fitness_level"></span>
+            </div>
+            <div x-show="dashboard.health.active_routines.length > 0">
+              <div class="text-xs text-muted mb-1">Active routines</div>
+              <div class="flex flex-wrap gap-1">
+                <template x-for="r in dashboard.health.active_routines.slice(0, 4)" :key="r.id">
+                  <span class="dash-tag" x-text="r.name"></span>
+                </template>
+              </div>
+            </div>
+            <div x-show="dashboard.health.active_routines.length === 0 && !dashboard.health.weight_kg">
+              <p class="text-xs text-muted italic">No health data recorded.</p>
+            </div>
+          </div>
+
+          <!-- 6. Study & Learning -->
+          <div class="dash-card">
+            <div class="dash-card-title">📚 Study</div>
+            <template x-if="dashboard.learning.in_progress.length === 0 && dashboard.learning.expert_skills.length === 0">
+              <p class="text-xs text-muted italic">No learning records.</p>
+            </template>
+            <div x-show="dashboard.learning.in_progress.length > 0" class="mb-3">
+              <div class="text-xs text-muted mb-1">In progress</div>
+              <div class="space-y-1.5">
+                <template x-for="item in dashboard.learning.in_progress.slice(0, 4)" :key="item.id">
+                  <div>
+                    <div class="flex justify-between text-xs">
+                      <span class="text-slate-300 truncate max-w-36" x-text="item.title"></span>
+                      <span class="text-muted font-mono" x-text="Math.round(item.progress_pct) + '%'"></span>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill bg-amber" :style="'width:' + item.progress_pct + '%'"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+            <div x-show="dashboard.learning.expert_skills.length > 0">
+              <div class="text-xs text-muted mb-1">Expert skills</div>
+              <div class="flex flex-wrap gap-1">
+                <template x-for="(skill, i) in dashboard.learning.expert_skills.slice(0, 8)" :key="i">
+                  <span class="dash-tag text-cyan" x-text="skill"></span>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7. Social / Relationships -->
+          <div class="dash-card">
+            <div class="dash-card-title">🤝 Social</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <div class="dash-kpi" :class="dashboard.relationships.pending_follow_ups > 0 ? 'text-amber' : ''"
+                     x-text="dashboard.relationships.pending_follow_ups"></div>
+                <div class="dash-sub">pending follow-ups</div>
+              </div>
+              <div>
+                <div class="dash-kpi" :class="dashboard.relationships.dormant_contacts > 5 ? 'text-rose' : ''"
+                     x-text="dashboard.relationships.dormant_contacts"></div>
+                <div class="dash-sub">dormant contacts</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 8. Decisions -->
+          <div class="dash-card">
+            <div class="dash-card-title">🧭 Decisions</div>
+            <div x-show="dashboard.decisions.open.length === 0 && dashboard.decisions.pending_review.length === 0">
+              <p class="text-xs text-muted italic">No open decisions.</p>
+            </div>
+            <div x-show="dashboard.decisions.open.length > 0" class="mb-2">
+              <div class="text-xs text-muted mb-1">Open decisions</div>
+              <div class="space-y-1">
+                <template x-for="d in dashboard.decisions.open.slice(0, 4)" :key="d.id">
+                  <div class="flex items-center gap-2">
+                    <span class="text-amber text-xs">◆</span>
+                    <span class="text-xs text-slate-300 truncate" x-text="d.title"></span>
+                    <span class="text-xs text-muted font-mono ml-auto shrink-0" x-text="d.domain"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+            <div x-show="dashboard.decisions.pending_review.length > 0">
+              <div class="text-xs text-muted mb-1">Due for review</div>
+              <div class="space-y-1">
+                <template x-for="d in dashboard.decisions.pending_review.slice(0, 3)" :key="d.id">
+                  <div class="flex items-center gap-2">
+                    <span class="text-violet text-xs">◇</span>
+                    <span class="text-xs text-slate-300 truncate" x-text="d.title"></span>
+                    <span class="text-xs text-muted font-mono ml-auto shrink-0" x-text="d.review_at ? d.review_at.slice(0,10) : ''"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- 9. Weekly Summary -->
+          <div class="dash-card">
+            <div class="dash-card-title">📊 Weekly Summary</div>
+            <div class="text-xs text-muted mb-2 font-mono" x-text="dashboard.weekly_summary.period"></div>
+            <div class="grid grid-cols-3 gap-2">
+              <div class="text-center">
+                <div class="dash-kpi text-base" x-text="dashboard.weekly_summary.diary_avg_mood.toFixed(1)"></div>
+                <div class="dash-sub">mood avg</div>
+              </div>
+              <div class="text-center">
+                <div class="dash-kpi text-base" x-text="dashboard.weekly_summary.decisions_made"></div>
+                <div class="dash-sub">decisions</div>
+              </div>
+              <div class="text-center">
+                <div class="dash-kpi text-base" x-text="dashboard.weekly_summary.content_published"></div>
+                <div class="dash-sub">published</div>
+              </div>
+            </div>
+            <!-- Mood bar -->
+            <div class="mt-3">
+              <div class="flex justify-between text-xs text-muted mb-1">
+                <span>Mood level</span>
+                <span class="text-cyan" x-text="dashboard.weekly_summary.diary_avg_mood.toFixed(1) + ' / 10'"></span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill bg-gradient-to-r from-violet to-cyan"
+                     :style="'width:' + (dashboard.weekly_summary.diary_avg_mood * 10) + '%'"></div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end grid -->
+      </template>
+    </div><!-- end dashboard view -->
+
+    <!-- ═══════════════════════════════════════════════════
+         CHAT VIEW
+    ═══════════════════════════════════════════════════ -->
+    <div x-show="activeView === 'chat'" class="flex-1 flex flex-col overflow-hidden">
     <!-- Messages area -->
     <div id="messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3" x-ref="messages">
 
@@ -267,6 +604,7 @@
         <span x-text="'$' + totalCostFormatted + ' est. cost'"></span>
       </p>
     </div>
+    </div><!-- end chat view -->
   </main>
 
   <!-- RIGHT PANEL — Health + Tokens + Agents -->
@@ -382,6 +720,13 @@ function sovereign() {
     activeDomainData: {},
     msgId:        0,
     streamingMsg: null,
+    // Dashboard state
+    activeView:        'chat',
+    dashboard:         null,
+    dashboardLoading:  false,
+    dashboardUpdatedAt: '',
+    reportSending:     false,
+    reportSent:        false,
 
     quickPrompts: [
       'Give me today\'s executive briefing',
@@ -642,6 +987,46 @@ function sovereign() {
         .replace(/\n\n/g, '</p><p class="mt-2">')
         .replace(/\n/g, '<br/>')
         .replace(/^/, '<p>').replace(/$/, '</p>');
+    },
+
+    // Dashboard
+    async fetchDashboard() {
+      this.dashboardLoading = true;
+      try {
+        const res = await fetch('/api/dashboard');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        this.dashboard = await res.json();
+        const now = new Date();
+        this.dashboardUpdatedAt = 'updated ' + now.toLocaleTimeString();
+      } catch(e) {
+        console.error('dashboard fetch error', e);
+      } finally {
+        this.dashboardLoading = false;
+      }
+    },
+    async reportTelegram() {
+      if (this.reportSending) return;
+      this.reportSending = true;
+      this.reportSent = false;
+      try {
+        const res = await fetch('/api/dashboard/report', { method: 'POST' });
+        if (res.ok) {
+          this.reportSent = true;
+          setTimeout(() => { this.reportSent = false; }, 4000);
+        }
+      } catch(e) {
+        console.error('report error', e);
+      } finally {
+        this.reportSending = false;
+      }
+    },
+    fmt(n) {
+      if (!n && n !== 0) return '—';
+      const v = parseFloat(n);
+      if (isNaN(v)) return '—';
+      if (Math.abs(v) >= 1e6) return (v/1e6).toFixed(2) + 'M';
+      if (Math.abs(v) >= 1e3) return (v/1e3).toFixed(1) + 'k';
+      return v.toFixed(2);
     },
 
     formatTokens(n) {

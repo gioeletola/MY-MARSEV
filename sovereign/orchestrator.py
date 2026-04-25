@@ -16,101 +16,101 @@ Session flow (10 steps):
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid
-import logging
 from typing import Any, Callable
 
-from sovereign.kernel.action_classes import ActionClass
-from sovereign.kernel.constitution import default_constitution
-from sovereign.claude.client import ClaudeClient
-from sovereign.claude.prompt_builder import PromptBuilder
-from sovereign.tools.tool_registry import ToolRegistry
-from sovereign.tools.tool_router import ToolRouter
-from sovereign.tools.builtin.web_search import WebSearchTool
-from sovereign.tools.builtin.file_ops import FileOpsTool
-from sovereign.tools.builtin.code_exec import CodeExecTool
-from sovereign.tools.builtin.memory_tool import MemoryTool
-from sovereign.tools.builtin.cli_exec import CLITool
-from sovereign.tools.builtin.browser_tool import BrowserTool
-from sovereign.tools.builtin.mcp_tool import MCPTool
-from sovereign.tools.builtin.notes_tool import NotesTool
-from sovereign.tools.builtin.calendar_tool import CalendarTool
-from sovereign.tools.builtin.bookmark_tool import BookmarkTool
-from sovereign.tools.builtin.screenshot_tool import ScreenshotTool
-from sovereign.tools.builtin.transcriber_tool import TranscriberTool
-from sovereign.tools.builtin.notification_tool import NotificationTool
-from sovereign.tools.builtin.calculator_tool import CalculatorTool
-from sovereign.tools.builtin.clipboard_tool import ClipboardTool
-from sovereign.memory.memory_manager import MemoryManager
-from sovereign.registries.agent_registry import AgentRegistry
-from sovereign.registries.prompt_registry import VersionedPromptRegistry
-from sovereign.registries.decision_ledger import DecisionLedger, DecisionRecord
-from sovereign.registries.experiment_registry import Experiment, ExperimentRegistry
-from sovereign.registries.policy_registry import build_default_policy_registry
-from sovereign.registries.workflow_registry import WorkflowRegistry
 from sovereign.authority.approval_gate import ApprovalGate, ApprovalRequest
 from sovereign.authority.thresholds import EscalationThresholds
-from sovereign.executive.ceo_agent import CEOAgent
-from sovereign.executive.chief_of_staff import ChiefOfStaff
-from sovereign.executive.guardian import GuardianAgent
-from sovereign.executive.coordinator import CoordinatorAgent
-from sovereign.executive.task_setter import TaskSetterAgent
-from sovereign.executive.decision_brief import DecisionBriefAgent
-from sovereign.swarm.worker_agent import WorkerAgent
-from sovereign.swarm.system_agent import SystemAgent
-from sovereign.swarm.base_agent import AgentContext, AgentTask
-from sovereign.swarm.domain_chiefs import ResearchChief, FinanceChief, ContentChief, LegalChief
-from sovereign.swarm.business_agents import BUSINESS_AGENTS
-from sovereign.swarm.personal_agents import PERSONAL_AGENTS
-from sovereign.swarm.personal_workers import PERSONAL_WORKERS
-from sovereign.swarm.finance_agents import FINANCE_AGENTS
-from sovereign.swarm.black_tier_agents import BLACK_TIER_AGENTS
-from sovereign.swarm.imperial_agents import IMPERIAL_AGENTS
-from sovereign.swarm.decision_networking_agents import DECISION_NETWORKING_AGENTS
-from sovereign.swarm.security_agents import SECURITY_AGENTS
-from sovereign.swarm.offline_agents import OFFLINE_AGENTS
-from sovereign.executive.executive_assistant import ExecutiveAssistantAgent
+from sovereign.builder.builder_studio import BuilderStudio
 from sovereign.centers.business_center import BusinessCenter
 from sovereign.centers.personal_center import PersonalCenter
 from sovereign.centers.strategic_center import StrategicCenter
-from sovereign.layers.reality_twin import RealityTwinLayer
-from sovereign.layers.time_machine import TimeMachineLayer
+from sovereign.claude.client import ClaudeClient
+from sovereign.claude.prompt_builder import PromptBuilder
+from sovereign.executive.ceo_agent import CEOAgent
+from sovereign.executive.chief_of_staff import ChiefOfStaff
+from sovereign.executive.coordinator import CoordinatorAgent
+from sovereign.executive.decision_brief import DecisionBriefAgent
+from sovereign.executive.executive_assistant import ExecutiveAssistantAgent
+from sovereign.executive.guardian import GuardianAgent
+from sovereign.executive.task_setter import TaskSetterAgent
+from sovereign.factory.agent_factory import AgentFactory
+from sovereign.governance.escalation import EscalationChain, EscalationLevel
+from sovereign.governance.risk_scoring import RiskScoringEngine
+from sovereign.governance.spending_limits import SpendingLimitsEngine
+from sovereign.infra.notification_service import NotificationService
+from sovereign.infra.scheduler import ScheduleFrequency, Scheduler
+from sovereign.infra.token_budget_enforcer import TokenBudgetEnforcer
+from sovereign.infra.worker_manager import WorkerManager, WorkerSpec
+from sovereign.input_fabric.pipeline import InputPipeline
+from sovereign.integrations.integration_manager import IntegrationManager
+from sovereign.kernel.action_classes import ActionClass
+from sovereign.kernel.constitution import default_constitution
+from sovereign.labs.labs_framework import LabsFramework
 from sovereign.layers.attention_engine import AttentionEngineLayer
-from sovereign.layers.trust_engine import TrustEngineLayer
-from sovereign.layers.sovereign_exit import SovereignExitLayer
-from sovereign.layers.legacy_layer import LegacyLayer
 from sovereign.layers.human_layer import HumanLayer
+from sovereign.layers.legacy_layer import LegacyLayer
+from sovereign.layers.reality_twin import RealityTwinLayer
+from sovereign.layers.sovereign_exit import SovereignExitLayer
+from sovereign.layers.time_machine import TimeMachineLayer
+from sovereign.layers.trust_engine import TrustEngineLayer
+from sovereign.memory.memory_manager import MemoryManager
 from sovereign.observability.eval_agent import EvalAgent
+from sovereign.observability.health_monitor import HealthMonitor
 from sovereign.observability.metrics import MetricsCollector, record_session
 from sovereign.observability.model_performance_tracker import ModelPerformanceTracker
-from sovereign.registries.integration_registry import IntegrationRegistry
-from sovereign.registries.incident_registry import IncidentRegistry
-from sovereign.registries.memory_schema_registry import MemorySchemaRegistry
-from sovereign.registries.approval_rule_registry import ApprovalRuleRegistry
-from sovereign.registries.model_routing_registry import ModelRoutingRegistry
-from sovereign.security.security_stack import SecurityStack
-from sovereign.builder.builder_studio import BuilderStudio
-from sovereign.labs.labs_framework import LabsFramework
-from sovereign.factory.agent_factory import AgentFactory
-from sovereign.input_fabric.pipeline import InputPipeline
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
-from sovereign.observability.health_monitor import HealthMonitor
-from sovereign.router.model_router import ModelRouter
-from sovereign.router.cost_estimator import estimate_from_usage
-from sovereign.infra.token_budget_enforcer import TokenBudgetEnforcer
-from sovereign.infra.notification_service import NotificationService
-from sovereign.infra.scheduler import Scheduler, ScheduleFrequency
-from sovereign.infra.worker_manager import WorkerManager, WorkerSpec
-from sovereign.governance.escalation import EscalationChain, EscalationLevel
-from sovereign.governance.spending_limits import SpendingLimitsEngine
-from sovereign.governance.risk_scoring import RiskScoringEngine
-from sovereign.proactive.goal_monitor import GoalMonitor, Goal
-from sovereign.proactive.suggestion_engine import SuggestionEngine
 from sovereign.proactive.event_engine import EventEngine
+from sovereign.proactive.goal_monitor import Goal, GoalMonitor
 from sovereign.proactive.silent_ops import SilentOps, SilentTask
-from sovereign.integrations.integration_manager import IntegrationManager
+from sovereign.proactive.suggestion_engine import SuggestionEngine
+from sovereign.registries.agent_registry import AgentRegistry
+from sovereign.registries.approval_rule_registry import ApprovalRuleRegistry
+from sovereign.registries.decision_ledger import DecisionLedger, DecisionRecord
+from sovereign.registries.experiment_registry import Experiment, ExperimentRegistry
+from sovereign.registries.incident_registry import IncidentRegistry
+from sovereign.registries.integration_registry import IntegrationRegistry
+from sovereign.registries.memory_schema_registry import MemorySchemaRegistry
+from sovereign.registries.model_routing_registry import ModelRoutingRegistry
+from sovereign.registries.policy_registry import build_default_policy_registry
+from sovereign.registries.prompt_registry import VersionedPromptRegistry
+from sovereign.registries.workflow_registry import WorkflowRegistry
+from sovereign.router.cost_estimator import estimate_from_usage
+from sovereign.router.model_router import ModelRouter
+from sovereign.security.security_stack import SecurityStack
+from sovereign.swarm.base_agent import AgentContext, AgentTask
+from sovereign.swarm.black_tier_agents import BLACK_TIER_AGENTS
+from sovereign.swarm.business_agents import BUSINESS_AGENTS
+from sovereign.swarm.decision_networking_agents import DECISION_NETWORKING_AGENTS
+from sovereign.swarm.domain_chiefs import ContentChief, FinanceChief, LegalChief, ResearchChief
+from sovereign.swarm.finance_agents import FINANCE_AGENTS
+from sovereign.swarm.imperial_agents import IMPERIAL_AGENTS
+from sovereign.swarm.offline_agents import OFFLINE_AGENTS
+from sovereign.swarm.personal_agents import PERSONAL_AGENTS
+from sovereign.swarm.personal_workers import PERSONAL_WORKERS
+from sovereign.swarm.security_agents import SECURITY_AGENTS
+from sovereign.swarm.system_agent import SystemAgent
+from sovereign.swarm.worker_agent import WorkerAgent
+from sovereign.tools.builtin.bookmark_tool import BookmarkTool
+from sovereign.tools.builtin.browser_tool import BrowserTool
+from sovereign.tools.builtin.calculator_tool import CalculatorTool
+from sovereign.tools.builtin.calendar_tool import CalendarTool
+from sovereign.tools.builtin.cli_exec import CLITool
+from sovereign.tools.builtin.clipboard_tool import ClipboardTool
+from sovereign.tools.builtin.code_exec import CodeExecTool
 from sovereign.tools.builtin.csv_import_tool import CSVImportTool
+from sovereign.tools.builtin.file_ops import FileOpsTool
+from sovereign.tools.builtin.mcp_tool import MCPTool
+from sovereign.tools.builtin.memory_tool import MemoryTool
+from sovereign.tools.builtin.notes_tool import NotesTool
+from sovereign.tools.builtin.notification_tool import NotificationTool
+from sovereign.tools.builtin.screenshot_tool import ScreenshotTool
+from sovereign.tools.builtin.transcriber_tool import TranscriberTool
+from sovereign.tools.builtin.web_search import WebSearchTool
+from sovereign.tools.tool_registry import ToolRegistry
+from sovereign.tools.tool_router import ToolRouter
 
 logger = logging.getLogger(__name__)
 
@@ -205,11 +205,19 @@ class SovereignOrchestrator:
         self,
         user_input: str,
         operating_mode: str | None = None,
+        user_id: str = "default",
     ) -> StructuredOutput:
         """
         Main public entry point. Takes a raw user string, runs the full
         10-step session pipeline, and returns a StructuredOutput.
         """
+        # Persist user turn
+        self._conversations.append(
+            conversation_id=user_id,
+            role="user",
+            content=user_input,
+            mode=operating_mode or self.config.default_operating_mode,
+        )
         session_id = f"sess_{uuid.uuid4().hex[:8]}"
         self._session_counter += 1
         _t0 = time.monotonic()
@@ -228,6 +236,10 @@ class SovereignOrchestrator:
         self._emit("step", {"step": 2, "name": "memory_snapshot", "session_id": session_id})
         snapshot = await self._memory.get_snapshot(
             domains=["identity", "operational", "project", "decision"]
+        )
+        # Inject recent conversation history into snapshot
+        snapshot["conversation_history"] = self._conversations.to_context_string(
+            user_id, n=8
         )
 
         mode = operating_mode or self.config.default_operating_mode
@@ -383,6 +395,15 @@ class SovereignOrchestrator:
             "cost_usd": estimate_from_usage(self.config.default_model, token_usage),
             "result_preview": final_output.result[:300],
         })
+
+        # Persist assistant turn
+        self._conversations.append(
+            conversation_id=user_id,
+            role="assistant",
+            content=final_output.result or "",
+            session_id=session_id,
+            mode=ctx.operating_mode,
+        )
 
         logger.info(
             "Session complete",
@@ -634,6 +655,10 @@ class SovereignOrchestrator:
 
     def _init_memory(self) -> None:
         self._memory = MemoryManager(self.config.data_dir)
+        from sovereign.memory.conversation_store import ConversationStore
+        self._conversations = ConversationStore(
+            pathlib.Path(self.config.data_dir) / "conversations"
+        )
 
     def _init_tools(self) -> None:
         self._tool_registry = ToolRegistry()
@@ -959,8 +984,8 @@ class SovereignOrchestrator:
     def _init_entities(self) -> None:
         """Initialize the Connected Entity Provisioning System."""
         from sovereign.entities.entity_registry import EntityRegistry
-        from sovereign.entities.vault_manager import EntityVault
         from sovereign.entities.provisioner import EntityProvisioner
+        from sovereign.entities.vault_manager import EntityVault
 
         self._entity_registry = EntityRegistry()
         self._entity_vault = EntityVault()
