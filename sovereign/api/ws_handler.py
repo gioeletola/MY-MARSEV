@@ -208,14 +208,19 @@ class WebSocketSessionManager:
         })
 
         try:
-            output = await self._orch.handle_request(user_input, operating_mode=mode)
+            # Stream callback: each word arrives as a stream_delta event
+            async def on_token(chunk: str) -> None:
+                await self._send(ws, {
+                    "type": "stream_delta",
+                    "session_id": session_id,
+                    "delta": chunk,
+                })
 
-            # Send the result as a single stream_delta (full response)
-            await self._send(ws, {
-                "type": "stream_delta",
-                "session_id": session_id,
-                "delta": output.result or "(no result)",
-            })
+            output = await self._orch.handle_request(
+                user_input,
+                operating_mode=mode,
+                on_token=on_token,
+            )
 
             # Send completion metadata
             await self._send(ws, {

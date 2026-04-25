@@ -22,6 +22,8 @@ from tenacity import (
     wait_exponential,
 )
 
+from sovereign.router.cost_estimator import estimate_cost
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -187,10 +189,18 @@ class ClaudeClient:
         if tools:
             kwargs["tools"] = tools
 
-        # Token budget pre-check
+        # Token budget pre-check (estimate 1000 input + max_tokens output)
         if self._budget is not None:
             try:
-                self._budget.check(estimated_tokens=1000)
+                est_cost = estimate_cost(
+                    kwargs["model"],
+                    input_tokens=1000,
+                    output_tokens=max_tokens,
+                )
+                self._budget.check(
+                    estimated_tokens=1000 + max_tokens,
+                    estimated_cost_usd=est_cost,
+                )
             except Exception as budget_exc:
                 logger.warning("Token budget enforcer blocked call: %s", budget_exc)
                 raise
@@ -198,13 +208,19 @@ class ClaudeClient:
         response: anthropic.types.Message = await self._client.messages.create(**kwargs)
         self.usage.update(response.usage)
 
-        # Record spend
+        # Record actual spend
         if self._budget is not None:
             try:
+                actual_cost = estimate_cost(
+                    kwargs["model"],
+                    input_tokens=getattr(response.usage, "input_tokens", 0),
+                    output_tokens=getattr(response.usage, "output_tokens", 0),
+                )
                 self._budget.record(
                     agent_id="claude_client",
-                    input_tokens=response.usage.input_tokens,
-                    output_tokens=response.usage.output_tokens,
+                    input_tokens=getattr(response.usage, "input_tokens", 0),
+                    output_tokens=getattr(response.usage, "output_tokens", 0),
+                    cost_usd=actual_cost,
                 )
             except Exception:
                 pass

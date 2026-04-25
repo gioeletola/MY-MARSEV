@@ -19,7 +19,7 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable
 
 from sovereign.authority.approval_gate import ApprovalGate, ApprovalRequest
 from sovereign.authority.thresholds import EscalationThresholds
@@ -206,6 +206,7 @@ class SovereignOrchestrator:
         user_input: str,
         operating_mode: str | None = None,
         user_id: str = "default",
+        on_token: Callable[[str], Awaitable[None]] | None = None,
     ) -> StructuredOutput:
         """
         Main public entry point. Takes a raw user string, runs the full
@@ -404,6 +405,18 @@ class SovereignOrchestrator:
             session_id=session_id,
             mode=ctx.operating_mode,
         )
+
+        # Stream result token-by-token if a callback was provided
+        if on_token is not None and final_output.result:
+            words = final_output.result.split(" ")
+            for i, word in enumerate(words):
+                chunk = word if i == len(words) - 1 else word + " "
+                try:
+                    await on_token(chunk)
+                except Exception:
+                    break
+                # Yield to event loop between chunks for real-time delivery
+                await asyncio.sleep(0)
 
         logger.info(
             "Session complete",
