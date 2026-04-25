@@ -330,7 +330,6 @@ def _make_worker(
     _conf = confidence
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
-        _log = logging.getLogger(__name__)
         try:
             if not task.tools_allowed:
                 task.tools_allowed = list(_tools)
@@ -351,7 +350,7 @@ def _make_worker(
             out.requires_human_review = _review
             return out
         except Exception as exc:
-            _log.error("Agent %s failed: %s", agent_id, exc)
+            logger.error("Agent %s failed: %s", agent_id, exc)
             return StructuredOutput.failure(ctx.session_id, agent_id, task.task_id, str(exc))
 
     class_name = agent_id.replace("-", "_").title().replace("_", "") + "Agent"

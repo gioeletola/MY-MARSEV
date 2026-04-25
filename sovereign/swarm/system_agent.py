@@ -23,12 +23,20 @@ class SystemAgent(BaseAgent):
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
         """Execute a system-level monitoring or governance task."""
-        # Stub: return a basic health check
+        result, _ = await self._call_with_tools(
+            messages=[{"role": "user", "content": (
+                f"You are the System Agent of the SOVEREIGN AI OS. "
+                f"Your role is health monitoring, governance checks, and policy enforcement.\n\n"
+                f"Task: {task.objective}"
+            )}],
+            ctx=ctx,
+            task=task,
+        )
         return self._make_output(
             task=task,
             ctx=ctx,
-            result="System health: OK",
+            result=result,
             status=OutputStatus.SUCCESS,
             data={"health": "ok", "checks": ["memory", "tools", "policy"]},
-            confidence=1.0,
+            confidence=0.95,
         )

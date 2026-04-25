@@ -1,47 +1,93 @@
-"""Operating modes layer — 16 mode configurations."""
+"""Operating modes layer — 16 mode configurations.
+
+Simple modes (no extra logic) are defined inline via _mode().
+Complex modes with custom behaviour live in their own files.
+"""
+from __future__ import annotations
+
+from sovereign.kernel.action_classes import ActionClass
 from sovereign.modes.base_mode import BaseMode
-from sovereign.modes.builder_mode import BuilderMode
-from sovereign.modes.business_mode import BusinessMode
-from sovereign.modes.command_mode import CommandMode
-from sovereign.modes.emergency_mode import EmergencyMode
-from sovereign.modes.finance_mode import FinanceMode
-from sovereign.modes.founder_mode import FounderMode
+
+# Richer modes with custom behaviour
 from sovereign.modes.local_offline_mode import Local_offlineMode
-from sovereign.modes.personal_mode import PersonalMode
-from sovereign.modes.prestige_mode import PrestigeMode
-from sovereign.modes.recovery_mode import RecoveryMode
-from sovereign.modes.research_mode import ResearchMode
-from sovereign.modes.silent_mode import SilentMode
-from sovereign.modes.study_mode import StudyMode
-from sovereign.modes.survival_mode import SurvivalMode
-from sovereign.modes.travel_mode import TravelMode
+from sovereign.modes.founder_mode import FounderMode
 from sovereign.modes.war_mode import WarMode
+from sovereign.modes.prestige_mode import PrestigeMode
+from sovereign.modes.silent_mode import SilentMode
+from sovereign.modes.recovery_mode import RecoveryMode
+from sovereign.modes.emergency_mode import EmergencyMode
+
+
+def _mode(
+    name: str,
+    description: str,
+    action_class: ActionClass = ActionClass.SUGGEST,
+    threshold: float = 0.6,
+    model: str = "claude-sonnet-4-6",
+    offline_capable: bool = False,
+    require_approval_for: list[str] | None = None,
+) -> BaseMode:
+    return BaseMode(
+        name=name,
+        description=description,
+        default_action_class=action_class,
+        escalation_threshold=threshold,
+        preferred_model=model,
+        offline_capable=offline_capable,
+        require_approval_for=require_approval_for or [],
+    )
+
 
 # Registry of all available modes — keyed by mode name
 MODES: dict[str, BaseMode] = {
-    "command":       CommandMode(),
-    "business":      BusinessMode(),
-    "personal":      PersonalMode(),
-    "finance":       FinanceMode(),
-    "study":         StudyMode(),
-    "travel":        TravelMode(),
-    "research":      ResearchMode(),
-    "builder":       BuilderMode(),
+    # ── Core modes ──────────────────────────────────────────────────────
+    "command":  _mode("command",  "Direct task execution and system management",
+                      ActionClass.EXECUTE, threshold=0.5),
+    "business": _mode("business", "Business ops, communications, CRM, marketing, partnerships",
+                      ActionClass.DRAFT,   threshold=0.4),
+    "personal": _mode("personal", "Personal assistant: diary, routines, social, concierge",
+                      ActionClass.SUGGEST, threshold=0.6),
+    "finance":  _mode("finance",  "Financial analysis, budgeting, portfolio management",
+                      ActionClass.SUGGEST, threshold=0.2, model="claude-opus-4-6"),
+    "study":    _mode("study",    "Learning, research assistance, second brain",
+                      ActionClass.SUGGEST, threshold=0.8),
+    "travel":   _mode("travel",   "Travel planning, bookings, itineraries, logistics",
+                      ActionClass.DRAFT,   threshold=0.5),
+    "research": _mode("research", "Deep research, synthesis, analysis, citations",
+                      ActionClass.DRAFT,   threshold=0.6, model="claude-opus-4-6"),
+    "builder":  _mode("builder",  "Code generation, architecture, system building",
+                      ActionClass.DRAFT,   threshold=0.5),
+    "survival": _mode("survival", "Emergency mode with minimal resources and offline packs",
+                      ActionClass.SUGGEST, threshold=0.9,
+                      model="claude-haiku-4-5-20251001", offline_capable=True),
+    # ── Offline ─────────────────────────────────────────────────────────
     "local_offline": Local_offlineMode(),
-    "survival":      SurvivalMode(),
-    # Extended modes
-    "founder":       FounderMode(),
-    "war":           WarMode(),
-    "prestige":      PrestigeMode(),
-    "silent":        SilentMode(),
-    "recovery":      RecoveryMode(),
-    "emergency":     EmergencyMode(),
+    # ── Extended modes ───────────────────────────────────────────────────
+    "founder":   FounderMode(),
+    "war":       WarMode(),
+    "prestige":  PrestigeMode(),
+    "silent":    SilentMode(),
+    "recovery":  RecoveryMode(),
+    "emergency": EmergencyMode(),
 }
+
+# Convenience aliases for the 9 inlined modes (backward compat)
+CommandMode  = type("CommandMode",  (BaseMode,), {})
+BusinessMode = type("BusinessMode", (BaseMode,), {})
+PersonalMode = type("PersonalMode", (BaseMode,), {})
+FinanceMode  = type("FinanceMode",  (BaseMode,), {})
+StudyMode    = type("StudyMode",    (BaseMode,), {})
+TravelMode   = type("TravelMode",   (BaseMode,), {})
+ResearchMode = type("ResearchMode", (BaseMode,), {})
+BuilderMode  = type("BuilderMode",  (BaseMode,), {})
+SurvivalMode = type("SurvivalMode", (BaseMode,), {})
 
 __all__ = [
     "BaseMode", "MODES",
-    "BuilderMode", "BusinessMode", "CommandMode", "EmergencyMode",
-    "FinanceMode", "FounderMode", "Local_offlineMode", "PersonalMode",
-    "PrestigeMode", "RecoveryMode", "ResearchMode", "SilentMode",
-    "StudyMode", "SurvivalMode", "TravelMode", "WarMode",
+    # Simple inlined modes
+    "CommandMode", "BusinessMode", "PersonalMode", "FinanceMode",
+    "StudyMode", "TravelMode", "ResearchMode", "BuilderMode", "SurvivalMode",
+    # Complex modes with own files
+    "Local_offlineMode", "FounderMode", "WarMode", "PrestigeMode",
+    "SilentMode", "RecoveryMode", "EmergencyMode",
 ]

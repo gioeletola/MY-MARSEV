@@ -16,12 +16,21 @@ class OrchestratorAgent(BaseAgent):
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
         """Decompose task and coordinate dispatch to sub-agents."""
-        # Stub: pass through to a worker
+        result, _ = await self._call_with_tools(
+            messages=[{"role": "user", "content": (
+                f"You are the Orchestrator Agent of the SOVEREIGN AI OS.\n"
+                f"Decompose the following task into clear sub-tasks and describe "
+                f"how each sub-task should be routed to specialized agents.\n\n"
+                f"Task: {task.objective}"
+            )}],
+            ctx=ctx,
+            task=task,
+        )
         return self._make_output(
             task=task,
             ctx=ctx,
-            result=f"Orchestrating: {task.objective[:80]}...",
+            result=result,
             status=OutputStatus.SUCCESS,
             data={"routed_sub_tasks": []},
-            confidence=0.7,
+            confidence=0.75,
         )

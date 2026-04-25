@@ -6,8 +6,11 @@ Covers:
 - Agenti Networking & Status: Warm Intro, Status Signal, Circle Builder, Follow-up Prestige, etc.
 """
 from __future__ import annotations
+import logging
 from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
 from sovereign.output.output_contract import OutputStatus, StructuredOutput
+
+logger = logging.getLogger(__name__)
 
 
 def _w(agent_id, specialty, instructions, tools=None, model="claude-sonnet-4-6",
@@ -18,8 +21,7 @@ def _w(agent_id, specialty, instructions, tools=None, model="claude-sonnet-4-6",
     _conf = confidence
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
-        import logging
-        logger = logging.getLogger(__name__)
+
         try:
             if not task.tools_allowed:
                 task.tools_allowed = list(_tools)
