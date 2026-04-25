@@ -12,7 +12,7 @@ import datetime
 import json
 import logging
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
 from enum import IntEnum
 from enum import Enum

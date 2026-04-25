@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from sovereign.integrations.connectors.connector_base import ConnectorStatus, SyncResult
 from sovereign.integrations.connectors.slack_connector import SlackConnector

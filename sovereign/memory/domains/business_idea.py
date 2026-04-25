@@ -98,7 +98,6 @@ class BusinessIdeaMemoryStore:
     def to_context_string(self) -> str:
         active = self.by_status("active")
         validation = self.by_status("validation")
-        ideas = self.by_status("idea")
         top = self.top_scored(3)
         parts = [f"Business ideas: {len(self._data['ideas'])} total"]
         if active:

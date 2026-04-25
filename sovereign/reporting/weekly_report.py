@@ -17,8 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ def build_weekly_report(data_dir: str = "data") -> str:
     date_str = now.strftime("%A %d %B %Y")
 
     lines: list[str] = [
-        f"# 📊 SOVEREIGN Weekly Report",
+        "# 📊 SOVEREIGN Weekly Report",
         f"**Week {week}** — {date_str}",
         "",
     ]
@@ -102,7 +101,6 @@ def build_weekly_report(data_dir: str = "data") -> str:
         from sovereign.memory.domains.health_routine import HealthRoutineMemoryStore
         hr = HealthRoutineMemoryStore(base / "memory" / "health_routine.json")
         profile = hr.get_profile()
-        since = (now - timedelta(days=7)).isoformat()
         recent_weight = hr.recent_metrics("weight", n=1)
         lines += [
             "## 💪 Health & Training",

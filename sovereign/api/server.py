@@ -1030,11 +1030,7 @@ async def life_dashboard() -> JSONResponse:
         # Count training sessions logged this ISO week
         import datetime as _dt2
         week_start = (_dt2.date.today() - _dt2.timedelta(days=_dt2.date.today().weekday())).isoformat()
-        training_metrics = [
-            m for m in health_store.recent_metrics(metric_type="steps", n=50)
-            if m.recorded_at[:10] >= week_start
-        ]
-        # Also count generic "training" entries
+        # Count generic "training" entries this week
         all_recent = health_store.recent_metrics(n=50)
         training_this_week = sum(
             1 for m in all_recent

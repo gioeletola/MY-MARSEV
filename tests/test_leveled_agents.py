@@ -14,21 +14,16 @@ Covers:
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import pathlib
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from sovereign.kernel.action_classes import ActionClass
-from sovereign.output.output_contract import OutputStatus, StructuredOutput
+from sovereign.output.output_contract import OutputStatus
 from sovereign.swarm.agent_registry_meta import (
-    AGENT_LEVELS,
     AGENT_SPECS,
     agents_by_level,
-    classify_all_agents,
     get_agent_level,
     register_agent_meta,
 )
@@ -38,7 +33,6 @@ from sovereign.swarm.leveled_agent import (
     AgentSpec,
     AgentState,
     LeveledAgent,
-    WorkflowResult,
     WorkflowStep,
 )
 
