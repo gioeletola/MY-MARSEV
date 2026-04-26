@@ -650,6 +650,29 @@ async def expansion_model_perf() -> JSONResponse:
 # REST API — Memory domains
 # ---------------------------------------------------------------------------
 
+@app.get("/api/memory/search")
+async def memory_semantic_search(
+    q: str,
+    domain: str = "",
+    top_k: int = 5,
+    _: dict = Depends(require_auth),
+) -> JSONResponse:
+    """Semantic (TF-IDF cosine) search across all or a specific memory domain."""
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    if not q.strip():
+        return JSONResponse({"error": "Query parameter 'q' is required"}, status_code=400)
+    try:
+        results = await _orchestrator._memory.semantic_search(
+            query=q,
+            domain=domain or None,
+            top_k=min(top_k, 20),
+        )
+        return JSONResponse({"query": q, "results": results, "count": len(results)})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
 @app.get("/api/memory/{domain}")
 async def memory_domain(domain: str, _: dict = Depends(require_auth)) -> JSONResponse:
     """Read a memory domain snapshot."""
@@ -1341,5 +1364,248 @@ async def deprovision_entity(entity_id: str, _: dict = Depends(require_auth)) ->
         if not ok:
             return JSONResponse({"error": "Entity not found"}, status_code=404)
         return JSONResponse({"deprovisioned": entity_id})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Next Actions (GTD)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/next-actions")
+async def list_next_actions(
+    status: str = "",
+    priority: str = "",
+    context: str = "",
+) -> JSONResponse:
+    """List next actions with optional status/priority/context filters."""
+    try:
+        import pathlib
+        from sovereign.memory.domains.next_action import NextActionStore
+        store = NextActionStore(pathlib.Path("data/memory/next_action.json"))
+        all_actions = list(store._data.get("actions", {}).values())
+
+        if status:
+            all_actions = [a for a in all_actions if a.get("status") == status]
+        if priority:
+            all_actions = [a for a in all_actions if a.get("priority") == priority]
+        if context:
+            all_actions = [a for a in all_actions if a.get("context") == context]
+
+        urgent = [a["action_id"] for a in all_actions
+                  if a.get("priority") in ("high", "critical") and a.get("status") == "pending"]
+        overdue_ids = [a["action_id"] for a in store.overdue()]
+
+        return JSONResponse({
+            "total": len(all_actions),
+            "urgent_count": len(store.urgent()),
+            "overdue_count": len(store.overdue()),
+            "actions": all_actions[:50],
+            "urgent_ids": urgent,
+            "overdue_ids": overdue_ids,
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class NextActionBody(BaseModel):
+    title: str
+    project_id: str = ""
+    context: str = "@anywhere"
+    energy_required: str = "medium"
+    time_estimate_min: int = 30
+    priority: str = "medium"
+    due_date: str = ""
+    notes: str = ""
+    tags: list[str] = []
+
+
+@app.post("/api/next-actions")
+async def create_next_action(
+    body: NextActionBody, _: dict = Depends(require_auth)
+) -> JSONResponse:
+    """Create a new next action."""
+    try:
+        import pathlib
+        import uuid
+        from sovereign.memory.domains.next_action import NextAction, NextActionStore
+        store = NextActionStore(pathlib.Path("data/memory/next_action.json"))
+        action = NextAction(
+            action_id=str(uuid.uuid4())[:12],
+            title=body.title,
+            project_id=body.project_id,
+            context=body.context,
+            energy_required=body.energy_required,
+            time_estimate_min=body.time_estimate_min,
+            priority=body.priority,
+            due_date=body.due_date,
+            notes=body.notes,
+            tags=body.tags,
+        )
+        store.add_action(action)
+        return JSONResponse(action.to_dict(), status_code=201)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.patch("/api/next-actions/{action_id}/complete")
+async def complete_next_action(
+    action_id: str, _: dict = Depends(require_auth)
+) -> JSONResponse:
+    """Mark a next action as completed."""
+    try:
+        import pathlib
+        from sovereign.memory.domains.next_action import NextActionStore
+        store = NextActionStore(pathlib.Path("data/memory/next_action.json"))
+        store.complete_action(action_id)
+        return JSONResponse({"completed": action_id})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Personal Constitution
+# ---------------------------------------------------------------------------
+
+@app.get("/api/constitution")
+async def get_constitution() -> JSONResponse:
+    """Return the personal constitution and active red flags."""
+    try:
+        import pathlib
+        from dataclasses import asdict
+        from sovereign.memory.domains.personal_constitution import PersonalConstitutionStore
+        store = PersonalConstitutionStore(pathlib.Path("data/memory/personal_constitution.json"))
+        con = store.get_constitution()
+        flags = store.red_flags()
+        return JSONResponse({
+            "constitution": asdict(con),
+            "red_flags": [
+                {"flag_id": f.flag_id, "title": f.title, "severity": f.severity,
+                 "category": f.category, "active": f.active}
+                for f in flags
+            ],
+            "critical_count": len(store.red_flags_by_severity("critical")),
+            "high_count": len(store.red_flags_by_severity("high")),
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class ConstitutionBody(BaseModel):
+    core_values: list[str] = []
+    life_principles: list[str] = []
+    non_negotiables: list[str] = []
+    goals_2026: list[str] = []
+    personal_mission: str = ""
+    personal_vision: str = ""
+    daily_non_negotiables: list[str] = []
+
+
+@app.patch("/api/constitution")
+async def update_constitution(
+    body: ConstitutionBody, _: dict = Depends(require_auth)
+) -> JSONResponse:
+    """Update the personal constitution."""
+    try:
+        import pathlib
+        from sovereign.memory.domains.personal_constitution import PersonalConstitutionStore
+        store = PersonalConstitutionStore(pathlib.Path("data/memory/personal_constitution.json"))
+        updates = {k: v for k, v in body.model_dump().items() if v}
+        store.update_constitution(**updates)
+        return JSONResponse({"updated": True})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Personal Version
+# ---------------------------------------------------------------------------
+
+@app.get("/api/personal-version")
+async def get_personal_version(n: int = 6) -> JSONResponse:
+    """Return the latest personal version snapshot and trend data."""
+    try:
+        import pathlib
+        from dataclasses import asdict
+        from sovereign.memory.domains.personal_version import PersonalVersionStore
+        store = PersonalVersionStore(pathlib.Path("data/memory/personal_version.json"))
+        latest = store.latest()
+        history = store.history(n=n)
+        trend = store.trend_net_worth()
+        return JSONResponse({
+            "latest": asdict(latest) if latest else None,
+            "history": [asdict(v) for v in history],
+            "trend_net_worth": trend,
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+class PersonalVersionBody(BaseModel):
+    period: str
+    version_label: str = ""
+    weight_kg: float = 0.0
+    net_worth: float = 0.0
+    monthly_income: float = 0.0
+    monthly_expenses: float = 0.0
+    savings_rate_pct: float = 0.0
+    overall_rating: int = 5
+    month_summary: str = ""
+    next_month_focus: str = ""
+    achievements: list[str] = []
+    lessons: list[str] = []
+
+
+@app.post("/api/personal-version")
+async def save_personal_version(
+    body: PersonalVersionBody, _: dict = Depends(require_auth)
+) -> JSONResponse:
+    """Save a personal version snapshot for the given month."""
+    try:
+        import pathlib
+        import uuid
+        from sovereign.memory.domains.personal_version import PersonalVersion, PersonalVersionStore
+        store = PersonalVersionStore(pathlib.Path("data/memory/personal_version.json"))
+        version = PersonalVersion(
+            version_id=str(uuid.uuid4())[:12],
+            period=body.period,
+            version_label=body.version_label,
+            weight_kg=body.weight_kg,
+            net_worth=body.net_worth,
+            monthly_income=body.monthly_income,
+            monthly_expenses=body.monthly_expenses,
+            savings_rate_pct=body.savings_rate_pct,
+            overall_rating=body.overall_rating,
+            month_summary=body.month_summary,
+            next_month_focus=body.next_month_focus,
+            achievements=body.achievements,
+            lessons=body.lessons,
+        )
+        store.save_version(version)
+        return JSONResponse({"saved": version.version_id, "period": body.period}, status_code=201)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Business Ideas
+# ---------------------------------------------------------------------------
+
+@app.get("/api/business-ideas")
+async def list_business_ideas(status: str = "") -> JSONResponse:
+    """Return business ideas with optional status filter."""
+    try:
+        import pathlib
+        from sovereign.memory.domains.business_idea import BusinessIdeaMemoryStore
+        store = BusinessIdeaMemoryStore(pathlib.Path("data/memory/business_idea.json"))
+        ideas = store.by_status(status) if status else store.top_scored(50)
+        return JSONResponse({
+            "total": len(store._data.get("ideas", {})),
+            "ideas": [
+                {"idea_id": i.idea_id, "name": i.name, "score": i.score,
+                 "status": i.status, "potential_monthly_revenue": i.potential_monthly_revenue}
+                for i in ideas
+            ],
+        })
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)

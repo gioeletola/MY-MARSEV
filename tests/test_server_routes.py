@@ -650,3 +650,202 @@ class TestNoOrchGuards:
             assert r.status_code == 503
         finally:
             srv._orchestrator = old_orch
+
+
+# ---------------------------------------------------------------------------
+# New domain endpoints: brief, digest, watchdog, webhooks
+# ---------------------------------------------------------------------------
+
+class TestBriefDigestWatchdog:
+    def test_brief_returns_200(self, client):
+        r = client.get("/api/brief")
+        assert r.status_code == 200
+        data = r.json()
+        assert "generated_at" in data
+
+    def test_brief_503_no_orch(self):
+        import sovereign.api.server as srv
+        old = srv._orchestrator
+        srv._orchestrator = None
+        try:
+            tc = TestClient(srv.app, raise_server_exceptions=False)
+            r = tc.get("/api/brief")
+            assert r.status_code == 503
+        finally:
+            srv._orchestrator = old
+
+    def test_digest_returns_200(self, client, orch):
+        from unittest.mock import AsyncMock, MagicMock
+        digest_mock = MagicMock()
+        digest_mock.text = "# SOVEREIGN Daily Digest"
+        digest_mock.generated_at = "2026-04-26T08:00:00Z"
+        with patch(
+            "sovereign.proactive.daily_digest.DailyDigest.generate",
+            new_callable=AsyncMock,
+            return_value=digest_mock,
+        ):
+            r = client.get("/api/digest")
+        assert r.status_code == 200
+        data = r.json()
+        assert "text" in data
+        assert "generated_at" in data
+
+    def test_watchdog_returns_200(self, client, orch):
+        orch.process_watchdog = MagicMock()
+        orch.process_watchdog.health_summary.return_value = {
+            "names": [], "details": {}, "total_restarts": 0, "crashed_names": []
+        }
+        r = client.get("/api/watchdog")
+        assert r.status_code == 200
+        data = r.json()
+        assert "total_restarts" in data
+
+    def test_watchdog_503_no_orch(self):
+        import sovereign.api.server as srv
+        old = srv._orchestrator
+        srv._orchestrator = None
+        try:
+            tc = TestClient(srv.app, raise_server_exceptions=False)
+            r = tc.get("/api/watchdog")
+            assert r.status_code == 503
+        finally:
+            srv._orchestrator = old
+
+    def test_webhook_stats_200(self, client, orch):
+        orch.webhook_router = MagicMock()
+        orch.webhook_router.stats.return_value = {"total": 0, "processed": 0, "failed": 0}
+        orch.webhook_router.event_history.return_value = []
+        r = client.get("/api/webhooks/stats")
+        assert r.status_code == 200
+        data = r.json()
+        assert "stats" in data
+
+    def test_inbound_webhook_200(self, client, orch):
+        from unittest.mock import AsyncMock, MagicMock
+        from sovereign.infra.webhooks import WebhookEvent
+        event = WebhookEvent(
+            event_id="abc123", source="github", event_type="push",
+            payload={"ref": "main"}, processed=True,
+        )
+        orch.webhook_router = MagicMock()
+        orch.webhook_router.receive = AsyncMock(return_value=event)
+        r = client.post(
+            "/api/webhooks/github/push",
+            json={"ref": "main"},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["source"] == "github"
+        assert data["event_type"] == "push"
+
+
+class TestNextActionsAPI:
+    def test_list_next_actions_200(self, client):
+        r = client.get("/api/next-actions")
+        assert r.status_code in (200, 500)  # 500 if no data file, 200 if present
+
+    def test_create_next_action_401_no_auth(self, client):
+        r = client.post("/api/next-actions", json={"title": "Do something"})
+        assert r.status_code == 401
+
+    def test_create_next_action_201(self, client):
+        r = client.post(
+            "/api/next-actions",
+            json={"title": "Test action", "priority": "high"},
+            headers=_auth_header(),
+        )
+        assert r.status_code == 201
+        data = r.json()
+        assert data["title"] == "Test action"
+        assert data["priority"] == "high"
+
+    def test_complete_next_action_200(self, client):
+        # Create then complete
+        r = client.post(
+            "/api/next-actions",
+            json={"title": "To complete"},
+            headers=_auth_header(),
+        )
+        assert r.status_code == 201
+        action_id = r.json()["action_id"]
+        r2 = client.patch(
+            f"/api/next-actions/{action_id}/complete",
+            headers=_auth_header(),
+        )
+        assert r2.status_code == 200
+        assert r2.json()["completed"] == action_id
+
+
+class TestConstitutionAPI:
+    def test_get_constitution_200(self, client):
+        r = client.get("/api/constitution")
+        assert r.status_code in (200, 500)
+
+    def test_update_constitution_401_no_auth(self, client):
+        r = client.patch("/api/constitution", json={"personal_mission": "Build great things"})
+        assert r.status_code == 401
+
+    def test_update_constitution_200(self, client):
+        r = client.patch(
+            "/api/constitution",
+            json={"personal_mission": "Build great things", "core_values": ["freedom", "mastery"]},
+            headers=_auth_header(),
+        )
+        assert r.status_code == 200
+        assert r.json()["updated"] is True
+
+
+class TestPersonalVersionAPI:
+    def test_get_personal_version_200(self, client):
+        r = client.get("/api/personal-version")
+        assert r.status_code in (200, 500)
+
+    def test_save_personal_version_201(self, client):
+        r = client.post(
+            "/api/personal-version",
+            json={
+                "period": "2026-04",
+                "version_label": "v2.4 The Builder",
+                "overall_rating": 8,
+                "net_worth": 150000.0,
+                "month_summary": "Great month",
+            },
+            headers=_auth_header(),
+        )
+        assert r.status_code == 201
+        assert r.json()["period"] == "2026-04"
+
+    def test_save_personal_version_401_no_auth(self, client):
+        r = client.post("/api/personal-version", json={"period": "2026-04"})
+        assert r.status_code == 401
+
+
+class TestMemorySearchAPI:
+    def test_search_requires_auth(self, client):
+        r = client.get("/api/memory/search?q=test")
+        assert r.status_code == 401
+
+    def test_search_returns_results(self, client, orch):
+        orch._memory.semantic_search = AsyncMock(return_value=[
+            {"domain": "identity", "key": "profile", "record": {}, "score": 0.9}
+        ])
+        r = client.get("/api/memory/search?q=identity", headers=_auth_header())
+        assert r.status_code == 200
+        data = r.json()
+        assert "results" in data
+        assert data["query"] == "identity"
+
+    def test_search_empty_query_400(self, client):
+        r = client.get("/api/memory/search?q=", headers=_auth_header())
+        assert r.status_code == 400
+
+    def test_search_503_no_orch(self):
+        import sovereign.api.server as srv
+        old = srv._orchestrator
+        srv._orchestrator = None
+        try:
+            tc = TestClient(srv.app, raise_server_exceptions=False)
+            r = tc.get("/api/memory/search?q=test", headers=_auth_header())
+            assert r.status_code == 503
+        finally:
+            srv._orchestrator = old

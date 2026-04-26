@@ -88,7 +88,7 @@ class SkillExecutor:
             for k, v in inputs.items():
                 prompt = prompt.replace("{{" + k + "}}", str(v) if v is not None else "")
             result = await self._orch.handle_request(
-                prompt, mode=None, session_id=session_id
+                prompt, operating_mode=None, user_id=session_id
             )
             if hasattr(result, "result"):
                 return {"result": result.result, "status": str(result.status)}
