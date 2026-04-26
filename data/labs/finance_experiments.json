@@ -1,0 +1,33 @@
+{
+  "48da1548": {
+    "experiment_id": "48da1548",
+    "name": "Portfolio Optimisation \u2014 Sharpe Ratio Maximisation",
+    "description": "Test whether rebalancing allocation using rolling-window Sharpe maximisation improves risk-adjusted returns vs static 60/40.",
+    "hypothesis": {
+      "statement": "Dynamic rebalancing based on 90-day rolling Sharpe ratios will outperform static 60/40",
+      "metric": "sharpe_ratio_improvement",
+      "success_threshold": 0.2,
+      "baseline": 0.0
+    },
+    "status": "running",
+    "control_config": {
+      "allocation": "60/40",
+      "rebalance": "annual"
+    },
+    "treatment_config": {
+      "allocation": "dynamic",
+      "window_days": 90,
+      "rebalance": "monthly"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-26T16:56:01.589486+00:00",
+    "started_at": "2026-04-26T16:56:01.590109+00:00",
+    "completed_at": "",
+    "tags": [
+      "finance",
+      "portfolio",
+      "sharpe"
+    ]
+  }
+}
