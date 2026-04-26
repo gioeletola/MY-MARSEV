@@ -14,9 +14,8 @@ Usage:
         AGENT_SPECS,
     )
 
-All executive core agents (LEVEL_3) and swarm worker agents (LEVEL_2)
-are pre-populated on import.  Domain persona-only agents resolved by
-naming convention default to LEVEL_1.
+All executive core agents (LEVEL_4/LEVEL_3) and swarm worker agents (LEVEL_2/LEVEL_3)
+are pre-populated on import.  Unknown agents default to LEVEL_2.
 """
 from __future__ import annotations
 
@@ -50,10 +49,10 @@ def get_agent_level(agent_id: str) -> AgentLevel:
     """
     Return the AgentLevel for the given agent_id.
 
-    Falls back to LEVEL_1 for any unknown agent so callers never receive
+    Falls back to LEVEL_2 for any unknown agent so callers never receive
     a KeyError.
     """
-    return AGENT_LEVELS.get(agent_id, AgentLevel.LEVEL_1)
+    return AGENT_LEVELS.get(agent_id, AgentLevel.LEVEL_2)
 
 
 def agents_by_level(level: AgentLevel) -> list[AgentSpec]:
@@ -89,7 +88,7 @@ def agents_by_level(level: AgentLevel) -> list[AgentSpec]:
 
 def classify_all_agents() -> dict[str, str]:
     """
-    Return a flat mapping of {agent_id: "LEVEL_1" | "LEVEL_2" | "LEVEL_3"}
+    Return a flat mapping of {agent_id: "LEVEL_2" | "LEVEL_3" | "LEVEL_4"}
     for every registered agent.
     """
     return {
@@ -259,9 +258,7 @@ for _aid in _LEVEL_2_WORKERS:
     AGENT_LEVELS[_aid] = AgentLevel.LEVEL_2
 
 # ---------------------------------------------------------------------------
-# Pre-population: personal agents resolved by convention (LEVEL_1 or LEVEL_2)
-# Personal / lifestyle / consultation-only agents → LEVEL_1
-# Personal workers with structured output → LEVEL_2
+# Pre-population: personal / advisory agents → LEVEL_2 (min tier, no LEVEL_1)
 # ---------------------------------------------------------------------------
 
 _LEVEL_1_PERSONA = [
@@ -361,7 +358,7 @@ _LEVEL_1_PERSONA = [
 ]
 
 for _aid in _LEVEL_1_PERSONA:
-    AGENT_LEVELS[_aid] = AgentLevel.LEVEL_1
+    AGENT_LEVELS[_aid] = AgentLevel.LEVEL_2
 
 # personal_workers.py agents are workflow-capable → LEVEL_2
 _LEVEL_2_PERSONAL_WORKERS = [

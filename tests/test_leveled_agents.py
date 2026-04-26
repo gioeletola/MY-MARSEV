@@ -95,11 +95,11 @@ def _make_mock_base_deps() -> dict[str, Any]:
 
 
 def test_agent_level_enum_values():
-    """LEVEL_1=1, LEVEL_2=2, LEVEL_3=3."""
-    assert AgentLevel.LEVEL_1 == 1
+    """LEVEL_2=2, LEVEL_3=3, LEVEL_4=4 (no LEVEL_1)."""
     assert AgentLevel.LEVEL_2 == 2
     assert AgentLevel.LEVEL_3 == 3
-    assert AgentLevel.LEVEL_3 > AgentLevel.LEVEL_2 > AgentLevel.LEVEL_1
+    assert AgentLevel.LEVEL_4 == 4
+    assert AgentLevel.LEVEL_4 > AgentLevel.LEVEL_3 > AgentLevel.LEVEL_2
 
 
 # ---------------------------------------------------------------------------
@@ -224,9 +224,9 @@ def test_agent_registry_register_and_get():
 
 
 def test_get_agent_level_unknown_defaults_to_level_1():
-    """Unknown agent_id falls back to LEVEL_1 without raising."""
+    """Unknown agent_id falls back to LEVEL_2 without raising."""
     level = get_agent_level("nonexistent_agent_xyz_123")
-    assert level == AgentLevel.LEVEL_1
+    assert level == AgentLevel.LEVEL_2
 
 
 # ---------------------------------------------------------------------------

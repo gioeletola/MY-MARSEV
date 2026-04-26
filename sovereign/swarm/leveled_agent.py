@@ -1,10 +1,11 @@
 """
 Agent Level System — SOVEREIGN AI OS.
 
-Agents are classified into 3 operational levels:
-  LEVEL_1 — Persona Agent: consultation only, no autonomous actions
+Agents are classified into 4 operational levels:
   LEVEL_2 — Workflow Agent: structured process, memory, output
   LEVEL_3 — Autonomous Operational Agent: triggers, tools, state, escalation
+  LEVEL_4 — Command Agent: cross-agent orchestration, real-time telemetry,
+             multi-domain authority, self-optimization triggers
 """
 from __future__ import annotations
 
@@ -33,15 +34,16 @@ class AgentLevel(IntEnum):
     """
     Operational tier classification for agents.
 
-    LEVEL_1 — Persona Agent: consultation only, no autonomous actions.
     LEVEL_2 — Workflow Agent: structured 7-step process, memory, output.
     LEVEL_3 — Autonomous Operational Agent: triggers, tools, persistent state,
                escalation, and ApprovalGate integration.
+    LEVEL_4 — Command Agent: cross-agent orchestration, real-time telemetry,
+               multi-domain authority, and self-optimization triggers.
     """
 
-    LEVEL_1 = 1
     LEVEL_2 = 2
     LEVEL_3 = 3
+    LEVEL_4 = 4
 
 
 class WorkflowStep(str, Enum):
@@ -436,3 +438,226 @@ class LeveledAgent(BaseAgent, ABC):
             _record(WorkflowStep.SAVE_MEMORY, "failed", {"error": str(exc)}, t0)
 
         return output
+
+
+# ---------------------------------------------------------------------------
+# Leveled worker factory — creates LeveledAgent subclasses with proper workflow
+# ---------------------------------------------------------------------------
+
+def _make_leveled_worker(
+    agent_id: str,
+    specialty: str,
+    instructions: str,
+    level: AgentLevel = AgentLevel.LEVEL_3,
+    tools: list[str] | None = None,
+    model: str = "claude-sonnet-4-6",
+    requires_review: bool = False,
+    confidence: float = 0.82,
+    triggers: list[str] | None = None,
+    escalate_to: str = "chief_of_staff",
+    requires_approval_for: list[str] | None = None,
+    mission: str = "",
+):
+    """
+    Build a concrete LeveledAgent subclass with a proper 7-step workflow.
+
+    LEVEL_2: structured Claude call + memory snapshot + output.
+    LEVEL_3: full tool-use loop + state persistence + escalation checks.
+    LEVEL_4: LEVEL_3 + event emission + telemetry + multi-domain authority.
+    """
+    _tools = tools or ["memory_tool"]
+    _model = model
+    _review = requires_review
+    _conf = confidence
+    _lvl = level
+    _triggers = triggers or []
+    _escalate = escalate_to
+    _approval = requires_approval_for or []
+    _mission = mission or f"{specialty} — {instructions[:80]}"
+    _instructions = instructions
+
+    _spec = AgentSpec(
+        agent_id=agent_id,
+        level=_lvl,
+        mission=_mission,
+        triggers=_triggers,
+        tools_allowed=_tools,
+        escalate_to=_escalate,
+        requires_approval_for=_approval,
+        success_metric=f"{specialty} task completed successfully",
+        failure_condition="Unable to produce actionable output",
+        confidence_threshold=_conf,
+    )
+
+    # ---- Step: OBSERVE ----
+    async def observe(self, task: AgentTask, ctx: AgentContext) -> dict:
+        snapshot: dict[str, Any] = {}
+        if ctx.memory:
+            try:
+                snapshot = ctx.memory.get_snapshot()
+            except Exception:
+                pass
+        return {
+            "task_objective": task.objective,
+            "action_class": str(task.action_class),
+            "tools_allowed": task.tools_allowed or _tools,
+            "memory_keys": list(snapshot.keys()) if isinstance(snapshot, dict) else [],
+            "context_tags": list(ctx.tags) if hasattr(ctx, "tags") else [],
+        }
+
+    # ---- Step: ANALYZE ----
+    async def analyze(self, task: AgentTask, ctx: AgentContext, observations: dict) -> dict:
+        keywords = [w for w in task.objective.lower().split() if len(w) > 4]
+        risk = "high" if any(w in task.objective.lower() for w in (
+            "delete", "remove", "drop", "stop", "terminate", "shutdown"
+        )) else "low"
+        return {
+            "keywords": keywords[:10],
+            "risk_level": risk,
+            "requires_tools": bool(_tools and _tools != ["memory_tool"]),
+            "escalation_check": risk == "high" and _lvl == AgentLevel.LEVEL_3,
+            "domain": specialty.lower().replace(" ", "_"),
+        }
+
+    # ---- Step: PLAN ----
+    async def plan(self, task: AgentTask, ctx: AgentContext, analysis: dict) -> dict:
+        steps = [
+            f"1. Gather domain-specific context using {_tools[0] if _tools else 'memory_tool'}",
+            f"2. Apply {specialty} expertise to: {task.objective[:100]}",
+            "3. Validate output against success metric",
+            "4. Format result for downstream consumers",
+        ]
+        if _lvl == AgentLevel.LEVEL_4:
+            steps.append("5. Emit telemetry event for cross-agent coordination")
+            steps.append("6. Update multi-domain state and trigger downstream watchers")
+        return {
+            "steps": steps,
+            "primary_tool": _tools[0] if _tools else "memory_tool",
+            "estimated_complexity": analysis.get("risk_level", "low"),
+            "requires_approval": bool(_approval),
+        }
+
+    # ---- Step: EXECUTE ----
+    async def execute(self, task: AgentTask, ctx: AgentContext, plan: dict) -> dict:
+        if not task.tools_allowed:
+            task.tools_allowed = list(_tools)
+        prompt = (
+            f"You are the {specialty} of the SOVEREIGN AI OS.\n\n"
+            f"{_instructions}\n\n"
+            f"Current Task:\n{task.objective}\n\n"
+            f"Execution Plan:\n" + "\n".join(plan.get("steps", [])) + "\n\n"
+            "Deliver a precise, structured, and actionable response."
+        )
+        try:
+            if _lvl in (AgentLevel.LEVEL_3, AgentLevel.LEVEL_4):
+                result, history = await self._call_with_tools(
+                    [{"role": "user", "content": prompt}], ctx, task, max_tokens=2048
+                )
+                return {
+                    "result": result,
+                    "tool_turns": len(history),
+                    "mode": "tool_loop",
+                }
+            else:
+                # LEVEL_2: single Claude call, no tool loop
+                resp = await self._claude.complete(
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=1024,
+                    model=_model,
+                )
+                text = ""
+                for block in resp.content:
+                    if hasattr(block, "text"):
+                        text += block.text
+                return {"result": text, "tool_turns": 0, "mode": "single_call"}
+        except Exception as exc:
+            logger.error("Agent %s execute error: %s", agent_id, exc)
+            return {"result": f"[{specialty} execution failed: {exc}]", "error": str(exc)}
+
+    # ---- Step: VERIFY ----
+    async def verify(self, task: AgentTask, ctx: AgentContext, execution: dict) -> dict:
+        result_text = execution.get("result", "")
+        is_complete = bool(result_text) and len(result_text) > 20
+        confidence_score = _conf if is_complete else max(0.3, _conf - 0.3)
+        approval_needed = False
+        if _approval and task.action_class is not None:
+            approval_needed = str(task.action_class) in _approval
+        return {
+            "is_complete": is_complete,
+            "confidence": confidence_score,
+            "approval_needed": approval_needed,
+            "result_length": len(result_text),
+            "has_error": "error" in execution,
+        }
+
+    # ---- Step: REPORT ----
+    async def report(self, task: AgentTask, ctx: AgentContext, all_steps: dict) -> StructuredOutput:
+        exec_data = all_steps.get("execute", {})
+        verify_data = all_steps.get("verify", {})
+        result_text = exec_data.get("result", f"[{specialty} completed with no output]")
+        final_confidence = verify_data.get("confidence", _conf)
+        out = self._make_output(
+            task=task,
+            ctx=ctx,
+            result=result_text,
+            status=OutputStatus.SUCCESS if verify_data.get("is_complete") else OutputStatus.PARTIAL,
+            confidence=final_confidence,
+            data={
+                "specialty": specialty,
+                "level": _lvl.name,
+                "tool_turns": exec_data.get("tool_turns", 0),
+                "mode": exec_data.get("mode", "unknown"),
+                "plan_steps": len(all_steps.get("plan", {}).get("steps", [])),
+            },
+        )
+        out.requires_human_review = _review or verify_data.get("approval_needed", False)
+        if _lvl == AgentLevel.LEVEL_4:
+            out.data["telemetry"] = {
+                "agent_level": "LEVEL_4",
+                "domain": specialty.lower().replace(" ", "_"),
+                "triggers": _triggers,
+                "escalate_to": _escalate,
+            }
+        return out
+
+    # ---- Step: SAVE_MEMORY ----
+    async def save_memory(self, output: StructuredOutput, ctx: AgentContext) -> None:
+        state = self._load_state()
+        state.history.append({
+            "task_id": output.task_id,
+            "status": output.status.value,
+            "result_snippet": output.result[:120],
+            "confidence": output.confidence,
+            "timestamp": output.completed_at,
+        })
+        if _lvl in (AgentLevel.LEVEL_3, AgentLevel.LEVEL_4):
+            state.metrics["total_runs"] = state.metrics.get("total_runs", 0) + 1
+            state.metrics["last_confidence"] = output.confidence
+            if _lvl == AgentLevel.LEVEL_4:
+                state.metrics["telemetry_events"] = state.metrics.get("telemetry_events", 0) + 1
+        self._save_state(state)
+        if ctx.memory and output.status == OutputStatus.SUCCESS:
+            try:
+                domain_key = specialty.lower().replace(" ", "_")
+                ctx.memory.write(domain_key, {
+                    "last_result": output.result[:500],
+                    "task_id": output.task_id,
+                    "timestamp": output.completed_at,
+                })
+            except Exception:
+                pass
+
+    class_name = agent_id.replace("-", "_").title().replace("_", "") + "Agent"
+    worker_class = type(class_name, (LeveledAgent,), {
+        "agent_id": agent_id,
+        "model": _model,
+        "spec": _spec,
+        "observe": observe,
+        "analyze": analyze,
+        "plan": plan,
+        "execute": execute,
+        "verify": verify,
+        "report": report,
+        "save_memory": save_memory,
+    })
+    return worker_class

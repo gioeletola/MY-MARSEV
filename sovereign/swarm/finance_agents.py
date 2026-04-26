@@ -6,13 +6,14 @@ Crypto, Real Estate, Insurance, and Financial Planning agents.
 """
 from __future__ import annotations
 
-from sovereign.swarm.base_agent import BaseAgent, _make_worker
+from sovereign.swarm.base_agent import BaseAgent
+from sovereign.swarm.leveled_agent import AgentLevel, _make_leveled_worker
 
 # ---------------------------------------------------------------------------
 # Finance OS Chief
 # ---------------------------------------------------------------------------
 
-FinanceOSChief = _make_worker(
+FinanceOSChief = _make_leveled_worker(
     "finance_os_chief",
     "Finance OS Chief",
     (
@@ -21,17 +22,22 @@ FinanceOSChief = _make_worker(
         "Coordinate all finance sub-agents. Produce monthly financial dashboard. "
         "Alert on any financial risk or opportunity requiring immediate attention."
     ),
+    level=AgentLevel.LEVEL_4,
     tools=["memory_tool", "web_search", "code_exec"],
     model="claude-sonnet-4-6",
     confidence=0.88,
     requires_review=True,
+    triggers=["finance_alert", "monthly_review", "budget_breach"],
+    escalate_to="ceo",
+    requires_approval_for=["EXECUTE"],
+    mission="Orchestrate all financial intelligence operations",
 )
 
 # ---------------------------------------------------------------------------
 # Cashflow & Budget
 # ---------------------------------------------------------------------------
 
-CashflowAnalystAgent = _make_worker(
+CashflowAnalystAgent = _make_leveled_worker(
     "cashflow_analyst",
     "Cashflow Analyst",
     (
@@ -39,12 +45,16 @@ CashflowAnalystAgent = _make_worker(
         "irregular expenses. Produce cashflow statement. Identify cashflow risks (negative months). "
         "Optimize timing of income and expenses. Maintain 3-month rolling cashflow forecast."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.86,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Cashflow Analyst",
 )
 
-BudgetManagerAgent = _make_worker(
+BudgetManagerAgent = _make_leveled_worker(
     "budget_manager",
     "Budget Manager",
     (
@@ -53,12 +63,16 @@ BudgetManagerAgent = _make_worker(
         "Track actual vs budget. Alert on category overspend. "
         "Suggest budget adjustments based on spending patterns."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.85,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Budget Manager",
 )
 
-ExpenseTrackerAgent = _make_worker(
+ExpenseTrackerAgent = _make_leveled_worker(
     "expense_tracker",
     "Expense Tracker",
     (
@@ -67,15 +81,19 @@ ExpenseTrackerAgent = _make_worker(
         "Flag unusual expenses. Find optimization opportunities. "
         "Output: expense breakdown with savings potential."
     ),
+    level=AgentLevel.LEVEL_2,
     tools=["memory_tool", "code_exec"],
     confidence=0.85,
+    triggers=[],
+    escalate_to="finance_os_chief",
+    mission="Expense Tracker",
 )
 
 # ---------------------------------------------------------------------------
 # Investment & Portfolio
 # ---------------------------------------------------------------------------
 
-PortfolioManagerAgent = _make_worker(
+PortfolioManagerAgent = _make_leveled_worker(
     "portfolio_manager",
     "Portfolio Manager",
     (
@@ -84,12 +102,16 @@ PortfolioManagerAgent = _make_worker(
         "drawdown. Identify rebalancing needs. Surface performance attribution. "
         "IMPORTANT: Always recommend consulting a licensed advisor for execution."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "web_search", "code_exec"],
     confidence=0.84,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Portfolio Manager",
 )
 
-InvestmentResearchAgent = _make_worker(
+InvestmentResearchAgent = _make_leveled_worker(
     "investment_research",
     "Investment Research Agent",
     (
@@ -98,12 +120,16 @@ InvestmentResearchAgent = _make_worker(
         "Produce investment thesis documents. Compare against benchmarks. "
         "Flag: red flags, macro headwinds, sector risks. All analysis for informational purposes."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["web_search", "memory_tool", "code_exec"],
     confidence=0.82,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Investment Research Agent",
 )
 
-AssetAllocationAgent = _make_worker(
+AssetAllocationAgent = _make_leveled_worker(
     "asset_allocation",
     "Asset Allocation Agent",
     (
@@ -112,16 +138,20 @@ AssetAllocationAgent = _make_worker(
         "Recommend allocation shifts. Model different scenarios. "
         "Track correlation between holdings."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.83,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Asset Allocation Agent",
 )
 
 # ---------------------------------------------------------------------------
 # Risk Management
 # ---------------------------------------------------------------------------
 
-FinancialRiskAgent = _make_worker(
+FinancialRiskAgent = _make_leveled_worker(
     "financial_risk",
     "Financial Risk Agent",
     (
@@ -130,12 +160,16 @@ FinancialRiskAgent = _make_worker(
         "Calculate Value at Risk (VaR). Stress-test portfolio. "
         "Recommend hedging strategies. Maintain risk register."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.83,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Financial Risk Agent",
 )
 
-InsuranceAuditorAgent = _make_worker(
+InsuranceAuditorAgent = _make_leveled_worker(
     "insurance_auditor",
     "Insurance Auditor",
     (
@@ -145,12 +179,16 @@ InsuranceAuditorAgent = _make_worker(
         "Alert on policy renewals and premium changes. "
         "Recommend coverage adjustments based on life changes."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool"],
     confidence=0.82,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Insurance Auditor",
 )
 
-EmergencyFundAgent = _make_worker(
+EmergencyFundAgent = _make_leveled_worker(
     "emergency_fund",
     "Emergency Fund Monitor",
     (
@@ -159,15 +197,19 @@ EmergencyFundAgent = _make_worker(
         "Optimize yield on emergency reserves (HYSA, T-bills). "
         "Define tiered emergency response protocols."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool"],
     confidence=0.86,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Emergency Fund Monitor",
 )
 
 # ---------------------------------------------------------------------------
 # Tax Planning
 # ---------------------------------------------------------------------------
 
-TaxOptimizerAgent = _make_worker(
+TaxOptimizerAgent = _make_leveled_worker(
     "tax_optimizer",
     "Tax Optimizer",
     (
@@ -177,16 +219,20 @@ TaxOptimizerAgent = _make_worker(
         "Track tax position throughout the year. "
         "ALWAYS note: consult a licensed tax professional before implementing."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "web_search"],
     confidence=0.80,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Tax Optimizer",
 )
 
 # ---------------------------------------------------------------------------
 # Wealth Building
 # ---------------------------------------------------------------------------
 
-WealthBuilderAgent = _make_worker(
+WealthBuilderAgent = _make_leveled_worker(
     "wealth_builder",
     "Wealth Builder",
     (
@@ -195,11 +241,15 @@ WealthBuilderAgent = _make_worker(
         "Identify wealth leaks. Optimize savings rate. "
         "Compare current trajectory vs goals. Surface highest-leverage wealth actions."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.85,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Wealth Builder",
 )
 
-FinancialIndependenceAgent = _make_worker(
+FinancialIndependenceAgent = _make_leveled_worker(
     "financial_independence",
     "Financial Independence Agent",
     (
@@ -209,15 +259,19 @@ FinancialIndependenceAgent = _make_worker(
         "Calculate FI number, FI date, required savings rate. "
         "Track progress monthly."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.85,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Financial Independence Agent",
 )
 
 # ---------------------------------------------------------------------------
 # Crypto & Alternative Assets
 # ---------------------------------------------------------------------------
 
-CryptoPortfolioAgent = _make_worker(
+CryptoPortfolioAgent = _make_leveled_worker(
     "crypto_portfolio",
     "Crypto Portfolio Agent",
     (
@@ -227,16 +281,20 @@ CryptoPortfolioAgent = _make_worker(
         "Research DeFi yield opportunities with risk assessment. "
         "IMPORTANT: Crypto is high-risk; all analysis is informational."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "web_search"],
     confidence=0.78,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Crypto Portfolio Agent",
 )
 
 # ---------------------------------------------------------------------------
 # Real Estate
 # ---------------------------------------------------------------------------
 
-RealEstateAnalystAgent = _make_worker(
+RealEstateAnalystAgent = _make_leveled_worker(
     "real_estate_analyst",
     "Real Estate Analyst",
     (
@@ -246,16 +304,20 @@ RealEstateAnalystAgent = _make_worker(
         "Research market trends in target areas. "
         "Model leverage scenarios."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "web_search", "code_exec"],
     confidence=0.82,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Real Estate Analyst",
 )
 
 # ---------------------------------------------------------------------------
 # Additional personal finance workers (Section 11)
 # ---------------------------------------------------------------------------
 
-AllocationAgent = _make_worker(
+AllocationAgent = _make_leveled_worker(
     "allocation_agent",
     "Allocation Agent",
     (
@@ -265,12 +327,16 @@ AllocationAgent = _make_worker(
         "Recommend tactical tilts based on market conditions. "
         "IMPORTANT: All recommendations for informational purposes only."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.83,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Allocation Agent",
 )
 
-ScenarioFinanceAgent = _make_worker(
+ScenarioFinanceAgent = _make_leveled_worker(
     "scenario_finance",
     "Scenario Finance Agent",
     (
@@ -280,12 +346,16 @@ ScenarioFinanceAgent = _make_worker(
         "windfall gains, recession. "
         "Help the user make robust financial decisions that survive multiple scenarios."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "code_exec"],
     confidence=0.82,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Scenario Finance Agent",
 )
 
-BlackMapGeoRiskAgent = _make_worker(
+BlackMapGeoRiskAgent = _make_leveled_worker(
     "blackmap_georisk",
     "BlackMap GeoRisk Agent",
     (
@@ -295,12 +365,16 @@ BlackMapGeoRiskAgent = _make_worker(
         "Recommend: geographic diversification of assets, jurisdiction strategies. "
         "For informational and planning purposes."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["web_search", "memory_tool"],
     confidence=0.78,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="BlackMap GeoRisk Agent",
 )
 
-MoneyLeakAssassinAgent = _make_worker(
+MoneyLeakAssassinAgent = _make_leveled_worker(
     "money_leak_assassin",
     "Money Leak Assassin Agent",
     (
@@ -310,11 +384,15 @@ MoneyLeakAssassinAgent = _make_worker(
         "Track cumulative savings from eliminated leaks. "
         "Monthly money leak audit."
     ),
+    level=AgentLevel.LEVEL_2,
     tools=["memory_tool"],
     confidence=0.87,
+    triggers=[],
+    escalate_to="finance_os_chief",
+    mission="Money Leak Assassin Agent",
 )
 
-LifestyleCreepAgent = _make_worker(
+LifestyleCreepAgent = _make_leveled_worker(
     "lifestyle_creep",
     "Lifestyle Creep Agent",
     (
@@ -324,15 +402,19 @@ LifestyleCreepAgent = _make_worker(
         "Alert on lifestyle creep patterns. "
         "Help maintain savings rate discipline through income increases."
     ),
+    level=AgentLevel.LEVEL_2,
     tools=["memory_tool", "code_exec"],
     confidence=0.84,
+    triggers=[],
+    escalate_to="finance_os_chief",
+    mission="Lifestyle Creep Agent",
 )
 
 # ---------------------------------------------------------------------------
 # Missing Section 11 Finance Workers
 # ---------------------------------------------------------------------------
 
-OpportunityRadarAgent = _make_worker(
+OpportunityRadarAgent = _make_leveled_worker(
     "opportunity_radar",
     "Opportunity Radar Agent",
     (
@@ -341,12 +423,16 @@ OpportunityRadarAgent = _make_worker(
         "market dislocations. Score each by risk/reward. Alert on time-sensitive "
         "opportunities. Maintain opportunity pipeline with status tracking."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["web_search", "memory_tool", "code_exec"],
     confidence=0.80,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Opportunity Radar Agent",
 )
 
-MacroNewsAgent = _make_worker(
+MacroNewsAgent = _make_leveled_worker(
     "macro_news",
     "Macro News Agent",
     (
@@ -355,12 +441,16 @@ MacroNewsAgent = _make_worker(
         "Assess impact on portfolio and cashflow. Produce daily macro briefing. "
         "Flag material events requiring immediate attention or portfolio adjustment."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["web_search", "memory_tool"],
     confidence=0.80,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Macro News Agent",
 )
 
-SpendingIntelligenceAgent = _make_worker(
+SpendingIntelligenceAgent = _make_leveled_worker(
     "spending_intelligence",
     "Spending Intelligence Agent",
     (
@@ -369,11 +459,15 @@ SpendingIntelligenceAgent = _make_worker(
         "spending to goals alignment. Produce weekly spending intelligence "
         "report. Surface highest-impact optimisation opportunities."
     ),
+    level=AgentLevel.LEVEL_2,
     tools=["memory_tool", "code_exec"],
     confidence=0.85,
+    triggers=[],
+    escalate_to="finance_os_chief",
+    mission="Spending Intelligence Agent",
 )
 
-PredictiveResearchAgent = _make_worker(
+PredictiveResearchAgent = _make_leveled_worker(
     "predictive_research",
     "Predictive Research Agent",
     (
@@ -382,12 +476,16 @@ PredictiveResearchAgent = _make_worker(
         "Build forward-looking models for income, expenses, and asset values. "
         "Quantify forecast uncertainty. All models for informational purposes."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["web_search", "memory_tool", "code_exec"],
     confidence=0.78,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Predictive Research Agent",
 )
 
-AssetWatchAgent = _make_worker(
+AssetWatchAgent = _make_leveled_worker(
     "asset_watch",
     "Asset Watch Agent",
     (
@@ -397,12 +495,16 @@ AssetWatchAgent = _make_worker(
         "Alert on significant value changes or events requiring action. "
         "Maintain live net worth dashboard."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["web_search", "memory_tool"],
     confidence=0.83,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Asset Watch Agent",
 )
 
-DueDiligenceAgent = _make_worker(
+DueDiligenceAgent = _make_leveled_worker(
     "due_diligence",
     "Due Diligence Agent",
     (
@@ -412,9 +514,13 @@ DueDiligenceAgent = _make_worker(
         "Produce due diligence report with pass/fail/conditional verdict. "
         "IMPORTANT: Always recommend professional legal/financial review before action."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["web_search", "memory_tool", "code_exec"],
     confidence=0.80,
     requires_review=True,
+    triggers=["finance_task"],
+    escalate_to="finance_os_chief",
+    mission="Due Diligence Agent",
 )
 
 # ---------------------------------------------------------------------------

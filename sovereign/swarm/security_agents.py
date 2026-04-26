@@ -12,47 +12,13 @@ from __future__ import annotations
 
 import logging
 
-from sovereign.output.output_contract import OutputStatus, StructuredOutput
-from sovereign.swarm.base_agent import AgentContext, AgentTask, BaseAgent
+from sovereign.swarm.base_agent import BaseAgent
+from sovereign.swarm.leveled_agent import AgentLevel, _make_leveled_worker
 
 logger = logging.getLogger(__name__)
 
 
-def _w(agent_id, specialty, instructions, tools=None, model="claude-sonnet-4-6",
-        requires_review=True, confidence=0.88):
-    _tools = tools or ["memory_tool"]
-    _model = model
-    _review = requires_review
-    _conf = confidence
-
-    async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
-        try:
-            if not task.tools_allowed:
-                task.tools_allowed = list(_tools)
-            prompt = (
-                f"You are the {specialty} of the SOVEREIGN AI OS Security Layer.\n\n"
-                f"{instructions}\n\n"
-                f"Security Task:\n{task.objective}\n\n"
-                "Respond with specific findings, severity ratings, and remediation steps. "
-                "Flag anything requiring immediate human attention."
-            )
-            result, history = await self._call_with_tools(
-                [{"role": "user", "content": prompt}], ctx, task, max_tokens=2048
-            )
-            out = self._make_output(task=task, ctx=ctx, result=result,
-                                    status=OutputStatus.SUCCESS, confidence=_conf,
-                                    data={"specialty": specialty, "tool_turns": len(history)})
-            out.requires_human_review = _review
-            return out
-        except Exception as exc:
-            logger.error("SecurityAgent %s failed: %s", agent_id, exc)
-            return StructuredOutput.failure(ctx.session_id, agent_id, task.task_id, str(exc))
-
-    return type(f"{agent_id.replace('-','_').title()}Agent",
-                (BaseAgent,), {"agent_id": agent_id, "model": _model, "run": run})
-
-
-SecuritySentinelAgent = _w(
+SecuritySentinelAgent = _make_leveled_worker(
     "security_sentinel",
     "Security Sentinel",
     (
@@ -67,12 +33,17 @@ SecuritySentinelAgent = _w(
         "Output format: severity (CRITICAL/HIGH/MEDIUM/LOW), finding, affected component, "
         "immediate action required."
     ),
+    level=AgentLevel.LEVEL_4,
     tools=["memory_tool"],
     model="claude-opus-4-6",
     confidence=0.92,
+    triggers=["security_event", "anomaly_detected", "incident"],
+    escalate_to="ceo",
+    requires_approval_for=["EXECUTE"],
+    mission="Security Sentinel",
 )
 
-PermissionAuditorAgent = _w(
+PermissionAuditorAgent = _make_leveled_worker(
     "permission_auditor",
     "Permission Auditor",
     (
@@ -87,11 +58,15 @@ PermissionAuditorAgent = _w(
         "Flag any permission violation immediately. "
         "Zero tolerance for unauthorized privilege escalation."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool"],
     confidence=0.90,
+    triggers=["security_task", "audit_request"],
+    escalate_to="security_sentinel",
+    mission="Permission Auditor",
 )
 
-DataLeakMonitorAgent = _w(
+DataLeakMonitorAgent = _make_leveled_worker(
     "data_leak_monitor",
     "Data Leak Monitor",
     (
@@ -106,11 +81,15 @@ DataLeakMonitorAgent = _w(
         "Categories to monitor: passwords, API keys, SSN, financial account numbers, "
         "health records, private communications, location data."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool"],
     confidence=0.91,
+    triggers=["security_task", "audit_request"],
+    escalate_to="security_sentinel",
+    mission="Data Leak Monitor",
 )
 
-IncidentResponseAgent = _w(
+IncidentResponseAgent = _make_leveled_worker(
     "incident_response",
     "Incident Response Agent",
     (
@@ -127,13 +106,18 @@ IncidentResponseAgent = _w(
         "5. Maintain incident register and resolution times\n\n"
         "Response SLAs: CRITICAL < 5 min, HIGH < 1 hour, MEDIUM < 24 hours."
     ),
+    level=AgentLevel.LEVEL_4,
     tools=["memory_tool"],
     model="claude-opus-4-6",
     confidence=0.91,
     requires_review=True,
+    triggers=["security_event", "anomaly_detected", "incident"],
+    escalate_to="ceo",
+    requires_approval_for=["EXECUTE"],
+    mission="Incident Response Agent",
 )
 
-BackupIntegrityAgent = _w(
+BackupIntegrityAgent = _make_leveled_worker(
     "backup_integrity",
     "Backup Integrity Agent",
     (
@@ -148,8 +132,12 @@ BackupIntegrityAgent = _w(
         "Critical backup targets: identity memory, financial data, decision ledger, "
         "offline queue, sovereign exit data, legacy layer."
     ),
+    level=AgentLevel.LEVEL_3,
     tools=["memory_tool", "file_ops"],
     confidence=0.89,
+    triggers=["security_task", "audit_request"],
+    escalate_to="security_sentinel",
+    mission="Backup Integrity Agent",
 )
 
 SECURITY_AGENTS: list[type[BaseAgent]] = [

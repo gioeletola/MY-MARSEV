@@ -309,6 +309,23 @@ class BaseAgent(ABC):
 # Worker factory — shared across all domain agent modules
 # ---------------------------------------------------------------------------
 
+_CHIEF_IDS = frozenset({
+    "finance_os_chief", "bi_chief", "crm_chief", "marketing_chief", "hr_chief",
+    "finance_ops_chief", "legal_ops_chief", "partner_chief", "codebridge_chief",
+    "media_chief", "personal_os_chief", "imperial_commander", "security_sentinel",
+    "incident_response", "option_generator", "research_centre_chief",
+    "code_bridge_chief",
+})
+
+_LEVEL2_IDS = frozenset({
+    "expense_tracker", "bill_reminder", "receipt_processor", "net_worth_calculator",
+    "financial_report", "clip_finder", "publishing_queue", "thumbnail_brief",
+    "content_recycling", "deadline_chaser", "recap_dispatch", "pipeline_cleaner",
+    "follow_up_prestige", "prestige_risk", "journal_logger", "reminder_sender",
+    "grocery_tracker",
+})
+
+
 def _make_worker(
     agent_id: str,
     specialty: str,
@@ -319,39 +336,41 @@ def _make_worker(
     confidence: float = 0.82,
 ):
     """
-    Build a concrete BaseAgent subclass from a plain descriptor.
+    Build a concrete LeveledAgent subclass from a plain descriptor.
 
-    All swarm domain files (finance, business, personal, black_tier, …) import
-    this function instead of defining their own local copy.
+    Delegates to _make_leveled_worker (lazy import to avoid circular deps).
+    Level is auto-assigned: LEVEL_4 for chiefs, LEVEL_2 for simple trackers,
+    LEVEL_3 for everything else.
     """
-    _tools = tools or ["memory_tool"]
-    _model = model
-    _review = requires_review
-    _conf = confidence
+    from sovereign.swarm.leveled_agent import AgentLevel, _make_leveled_worker  # noqa: PLC0415
 
-    async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
-        try:
-            if not task.tools_allowed:
-                task.tools_allowed = list(_tools)
-            prompt = (
-                f"You are the {specialty} of the SOVEREIGN AI OS.\n\n"
-                f"{instructions}\n\n"
-                f"Task:\n{task.objective}\n\n"
-                "Be precise, structured, and actionable."
-            )
-            result, history = await self._call_with_tools(
-                [{"role": "user", "content": prompt}], ctx, task, max_tokens=2048
-            )
-            out = self._make_output(
-                task=task, ctx=ctx, result=result,
-                status=OutputStatus.SUCCESS, confidence=_conf,
-                data={"specialty": specialty, "tool_turns": len(history)},
-            )
-            out.requires_human_review = _review
-            return out
-        except Exception as exc:
-            logger.error("Agent %s failed: %s", agent_id, exc)
-            return StructuredOutput.failure(ctx.session_id, agent_id, task.task_id, str(exc))
+    if agent_id in _CHIEF_IDS:
+        level = AgentLevel.LEVEL_4
+        triggers = ["domain_alert", "monthly_review"]
+        escalate_to = "ceo"
+        approval = ["EXECUTE"]
+    elif agent_id in _LEVEL2_IDS:
+        level = AgentLevel.LEVEL_2
+        triggers = []
+        escalate_to = "chief_of_staff"
+        approval = []
+    else:
+        level = AgentLevel.LEVEL_3
+        triggers = ["task_request"]
+        escalate_to = "chief_of_staff"
+        approval = []
 
-    class_name = agent_id.replace("-", "_").title().replace("_", "") + "Agent"
-    return type(class_name, (BaseAgent,), {"agent_id": agent_id, "model": _model, "run": run})
+    return _make_leveled_worker(
+        agent_id=agent_id,
+        specialty=specialty,
+        instructions=instructions,
+        level=level,
+        tools=tools,
+        model=model,
+        requires_review=requires_review,
+        confidence=confidence,
+        triggers=triggers,
+        escalate_to=escalate_to,
+        requires_approval_for=approval,
+        mission=specialty,
+    )
