@@ -82,3 +82,36 @@ class BusinessIntelligenceCenter:
 
     def list_domains(self) -> list[str]:
         return sorted(set(self.DOMAIN_MAP.values()))
+
+    def status(self) -> dict:
+        from datetime import datetime, timezone
+        return {
+            "center_id": CENTER_ID,
+            "description": DESCRIPTION,
+            "agents": AGENTS,
+            "capabilities": self.list_capabilities(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def list_capabilities(self) -> list[str]:
+        return [
+            "KPI dashboard: define, track, and alert on business metrics",
+            "Forecasting: revenue, pipeline, and operational projections",
+            "Competitor intelligence: pricing, positioning, and strategy monitoring",
+            "Opportunity scanner: emerging markets and whitespace identification",
+            "Scenario simulation: best/base/worst case financial and strategic models",
+            "Risk register: probability × impact scoring with mitigation plans",
+        ]
+
+    def daily_intelligence_brief_objective(self) -> str:
+        """Return objective for daily BI morning brief task."""
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%d %B %Y")
+        return (
+            f"Generate the daily business intelligence brief for {today}. Include: "
+            "1) Top 3 KPI movements (green/amber/red), "
+            "2) Pipeline delta vs yesterday, "
+            "3) One competitor signal, "
+            "4) One emerging opportunity, "
+            "5) Risk items requiring action today."
+        )

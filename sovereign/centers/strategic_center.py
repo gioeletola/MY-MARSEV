@@ -75,3 +75,40 @@ class StrategicCenter:
 
     def list_domains(self) -> list[str]:
         return sorted(set(self.DOMAIN_MAP.values()))
+
+    def status(self) -> dict:
+        from datetime import datetime, timezone
+        return {
+            "center_id": "strategic_centre",
+            "description": "Black-Tier Strategic Intelligence",
+            "agents": list(set(self.DOMAIN_MAP.values())),
+            "capabilities": self.list_capabilities(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def list_capabilities(self) -> list[str]:
+        return [
+            "Decision intelligence: structured briefs, bias detection, reversibility scoring",
+            "Attention engineering: focus optimisation, distraction shields, deep-work scheduling",
+            "Opportunity radar: market gaps, undervalued assets, asymmetric bets",
+            "Network strategy: relationship mapping, warm-intro paths, status positioning",
+            "Legacy architecture: impact mapping, estate planning, sovereign exit design",
+            "Resilience: SPOF detection, optionality building, anti-fragility audit",
+            "Reality twin: life simulation, trajectory analysis, scenario modeling",
+            "Privacy & security: information hygiene, exposure audit, counter-intelligence",
+        ]
+
+    def strategic_review_objective(self) -> str:
+        """Return objective for quarterly strategic review."""
+        from datetime import datetime, timezone
+        quarter = (datetime.now(timezone.utc).month - 1) // 3 + 1
+        year = datetime.now(timezone.utc).year
+        return (
+            f"Conduct the Q{quarter} {year} strategic review. Include: "
+            "1) Progress against 90-day goals (score 0-10), "
+            "2) Strategic position vs competitors (SWOT update), "
+            "3) Top 3 opportunities to pursue next quarter, "
+            "4) Top 3 risks to mitigate, "
+            "5) One paradigm shift or contrarian insight, "
+            "6) Revised 90-day plan."
+        )

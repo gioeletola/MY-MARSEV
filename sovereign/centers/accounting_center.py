@@ -79,3 +79,48 @@ class AccountingCenter:
 
     def list_domains(self) -> list[str]:
         return sorted(set(self.DOMAIN_MAP.values()))
+
+    def status(self) -> dict:
+        from datetime import datetime, timezone
+        return {
+            "center_id": CENTER_ID,
+            "description": DESCRIPTION,
+            "requires_review": REQUIRES_REVIEW,
+            "agents": AGENTS,
+            "capabilities": self.list_capabilities(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def list_capabilities(self) -> list[str]:
+        return [
+            "Real-time cashflow analysis and 30-day rolling forecast",
+            "Budget vs actual tracking with variance alerts",
+            "Expense categorisation and anomaly detection",
+            "Tax optimisation recommendations and deadline tracking",
+            "P&L snapshot with per-category drill-down",
+            "Financial risk scoring and exposure mapping",
+        ]
+
+    def schedule_monthly_close(self) -> dict:
+        """Return a schedule descriptor for monthly financial close tasks."""
+        from datetime import datetime, timezone
+        return {
+            "center_id": CENTER_ID,
+            "task": "Monthly Financial Close",
+            "cron": "0 8 1 * *",
+            "agent_id": "finance_ops_chief",
+            "steps": ["cashflow_analyst", "budget_manager", "expense_tracker", "tax_optimizer"],
+            "requires_review": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def budget_alert_thresholds(self) -> dict[str, float]:
+        """Default alert thresholds (% of budget consumed) per category."""
+        return {
+            "operating_expenses": 0.85,
+            "marketing": 0.90,
+            "payroll": 0.95,
+            "capex": 0.80,
+            "r_and_d": 0.90,
+            "travel": 0.75,
+        }

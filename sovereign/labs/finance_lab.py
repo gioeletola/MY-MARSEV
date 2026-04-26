@@ -42,6 +42,32 @@ class FinanceLab(LabsFramework):
     }
     requires_human_review: bool = False
     model: str = "claude-sonnet-4-6"
+    experiment_templates = [
+        {
+            "name": "Portfolio Optimisation — Sharpe Ratio Maximisation",
+            "description": "Test whether rebalancing allocation using rolling-window Sharpe maximisation improves risk-adjusted returns vs static 60/40.",
+            "hypothesis": {"statement": "Dynamic rebalancing based on 90-day rolling Sharpe ratios will outperform static 60/40", "metric": "sharpe_ratio_improvement", "success_threshold": 0.20, "baseline": 0.0},
+            "control_config": {"allocation": "60/40", "rebalance": "annual"},
+            "treatment_config": {"allocation": "dynamic", "window_days": 90, "rebalance": "monthly"},
+            "tags": ["finance", "portfolio", "sharpe"],
+        },
+        {
+            "name": "Cashflow Forecast Accuracy — ML vs Rule-based",
+            "description": "Compare 30-day cashflow forecast accuracy between rule-based projection and ML regression model.",
+            "hypothesis": {"statement": "ML regression model achieves ≥15% lower MAPE than rule-based forecast", "metric": "model_accuracy", "success_threshold": 0.75, "baseline": 0.60},
+            "control_config": {"model": "rule_based"},
+            "treatment_config": {"model": "ml_regression", "features": ["seasonality", "trend", "anomalies"]},
+            "tags": ["finance", "cashflow", "forecasting"],
+        },
+        {
+            "name": "Tax Optimisation — Tax-Loss Harvesting Impact",
+            "description": "Measure tax savings from systematic tax-loss harvesting on a diversified portfolio.",
+            "hypothesis": {"statement": "Tax-loss harvesting reduces annual tax liability by ≥10%", "metric": "allocation_efficiency", "success_threshold": 0.80, "baseline": 0.65},
+            "control_config": {"harvesting": False},
+            "treatment_config": {"harvesting": True, "threshold_pct": 5.0},
+            "tags": ["finance", "tax", "optimisation"],
+        },
+    ]
 
     def __init__(self, data_path: str = "data/labs/finance_experiments.json") -> None:
         super().__init__(data_path=data_path)

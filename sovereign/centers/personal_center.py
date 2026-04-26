@@ -78,3 +78,48 @@ class PersonalCenter:
 
     def list_domains(self) -> list[str]:
         return sorted(set(self.DOMAIN_MAP.values()))
+
+    def status(self) -> dict:
+        from datetime import datetime, timezone
+        return {
+            "center_id": "personal_centre",
+            "description": "Personal Life Operating System",
+            "agents": list(set(self.DOMAIN_MAP.values())),
+            "capabilities": self.list_capabilities(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def list_capabilities(self) -> list[str]:
+        return [
+            "Morning briefing: goals, calendar, energy, top 3 priorities",
+            "Habit tracking and streak monitoring with nudge alerts",
+            "Weekly review: wins, misses, reflection, and next-week plan",
+            "Relationship management: follow-ups, birthdays, touchpoints",
+            "Learning path optimisation aligned to identity goals",
+            "Travel planning: itinerary, logistics, culture briefing",
+            "Social intelligence: network mapping and relationship scoring",
+            "Subscription audit: value-for-money and cancellation recommendations",
+        ]
+
+    def morning_briefing_objective(self) -> str:
+        """Return a pre-built objective string for the morning briefing task."""
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%A %d %B %Y")
+        return (
+            f"Generate a concise morning briefing for {today}. Include: "
+            "1) Today's top 3 priorities, 2) Energy and focus recommendation, "
+            "3) Key calendar items, 4) One habit to reinforce today, "
+            "5) One personal growth action."
+        )
+
+    def weekly_review_objective(self) -> str:
+        """Return a pre-built objective string for the weekly review task."""
+        return (
+            "Run a structured weekly review: "
+            "1) Wins this week (3-5 items), "
+            "2) Misses and root cause analysis, "
+            "3) Habits maintained vs broken, "
+            "4) Relationship touchpoints done, "
+            "5) Next week top 3 goals, "
+            "6) One thing to change or improve."
+        )

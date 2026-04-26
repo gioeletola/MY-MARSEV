@@ -181,6 +181,134 @@ class LabsFramework:
         }
 
     # ------------------------------------------------------------------
+    # High-level lab operations (use class attributes from subclasses)
+    # ------------------------------------------------------------------
+
+    # Subclasses can override these class-level attributes
+    lab_id: str = "base"
+    lab_name: str = "Base Lab"
+    description: str = ""
+    agents: list[str] = []
+    tools: list[str] = ["memory_tool"]
+    benchmarks: dict[str, float] = {}
+    output_standards: dict[str, str] = {}
+    requires_human_review: bool = False
+    model: str = "claude-sonnet-4-6"
+    experiment_templates: list[dict[str, Any]] = []  # subclasses populate
+
+    def quick_experiment(self, template_index: int = 0) -> Experiment:
+        """
+        Create and start an experiment from the lab's built-in templates.
+        Falls back to a generic template if none are defined.
+        """
+        templates = getattr(self, "experiment_templates", [])
+        if templates and template_index < len(templates):
+            tmpl = templates[template_index]
+        else:
+            tmpl = {
+                "name": f"{self.lab_name} — Quick Experiment",
+                "description": f"Auto-generated experiment for {self.lab_name}.",
+                "hypothesis": {
+                    "statement": f"Applying {self.lab_name} methods will improve output quality",
+                    "metric": "quality_score",
+                    "success_threshold": 0.75,
+                    "baseline": 0.5,
+                },
+                "tags": [self.lab_id, "quick"],
+            }
+        hyp = Hypothesis(**tmpl["hypothesis"])
+        exp = self.create_experiment(
+            name=tmpl["name"],
+            description=tmpl["description"],
+            hypothesis=hyp,
+            control_config=tmpl.get("control_config", {}),
+            treatment_config=tmpl.get("treatment_config", {}),
+            tags=tmpl.get("tags", [self.lab_id]),
+        )
+        self.start(exp.experiment_id)
+        return exp
+
+    def suggest_experiments(self) -> list[str]:
+        """Return a list of experiment ideas specific to this lab domain."""
+        templates = getattr(self, "experiment_templates", [])
+        if templates:
+            return [t["name"] for t in templates]
+        return [f"{self.lab_name}: hypothesis-driven experiment (no templates defined)"]
+
+    def status_report(self) -> dict[str, Any]:
+        """Rich status report for this lab instance."""
+        db = self.dashboard()
+        running = self.running_experiments()
+        return {
+            "lab_id": self.lab_id,
+            "lab_name": self.lab_name,
+            "description": self.description,
+            "agents": self.agents,
+            "tools": self.tools,
+            "benchmarks": self.benchmarks,
+            "experiment_summary": db,
+            "running": [{"id": e.experiment_id, "name": e.name} for e in running],
+            "templates_available": len(getattr(self, "experiment_templates", [])),
+        }
+
+    async def run_analysis(
+        self,
+        topic: str,
+        context: str = "",
+        claude_client: Any = None,
+        max_tokens: int = 2048,
+    ) -> dict[str, Any]:
+        """
+        Run a Claude-powered analysis on a topic within this lab's domain.
+
+        Returns a dict with keys: analysis, lab_id, topic, model, tokens_used.
+        Falls back to a stub if no claude_client is provided.
+        """
+        context_block = f"Context:\n{context}\n\n" if context else ""
+        prompt = (
+            f"You are the {self.lab_name} of the SOVEREIGN AI OS.\n\n"
+            f"Lab Description: {self.description}\n\n"
+            f"Available Agents: {', '.join(self.agents)}\n"
+            f"Success Benchmarks: {self.benchmarks}\n\n"
+            f"{context_block}"
+            f"Topic to Analyse:\n{topic}\n\n"
+            "Provide a structured, actionable analysis. Include:\n"
+            "1. Key findings (3-5 bullet points)\n"
+            "2. Recommended experiments to run\n"
+            "3. Risk factors\n"
+            "4. Expected outcomes\n"
+            "5. Next steps"
+        )
+
+        if claude_client is None:
+            return {
+                "analysis": f"[{self.lab_name} stub — no Claude client provided]\nTopic: {topic}",
+                "lab_id": self.lab_id,
+                "topic": topic,
+                "model": self.model,
+                "tokens_used": 0,
+            }
+
+        try:
+            response = await claude_client.complete(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.model,
+                max_tokens=max_tokens,
+            )
+            text = "".join(b.text for b in response.content if hasattr(b, "text"))
+            tokens = response.usage.input_tokens + response.usage.output_tokens
+            return {
+                "analysis": text,
+                "lab_id": self.lab_id,
+                "topic": topic,
+                "model": self.model,
+                "tokens_used": tokens,
+            }
+        except Exception as exc:
+            logger.error("LabsFramework.run_analysis failed: %s", exc)
+            return {"analysis": f"[Error: {exc}]", "lab_id": self.lab_id, "topic": topic, "model": self.model, "tokens_used": 0}
+
+    # ------------------------------------------------------------------
 
     def _get(self, experiment_id: str) -> Experiment:
         exp = self._experiments.get(experiment_id)

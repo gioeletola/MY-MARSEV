@@ -41,6 +41,24 @@ class ResearchLab(LabsFramework):
     }
     requires_human_review: bool = False
     model: str = "claude-sonnet-4-6"
+    experiment_templates = [
+        {
+            "name": "Source Quality Scoring — Automated Credibility Assessment",
+            "description": "Compare human vs AI-scored source credibility ratings on a sample of 100 articles.",
+            "hypothesis": {"statement": "AI credibility scoring agrees with expert ratings ≥85% of the time", "metric": "source_quality_score", "success_threshold": 0.85, "baseline": 0.65},
+            "control_config": {"scoring": "human_expert"},
+            "treatment_config": {"scoring": "ai_automated", "criteria": ["author", "venue", "citations", "recency"]},
+            "tags": ["research", "sources", "quality"],
+        },
+        {
+            "name": "Knowledge Synthesis Speed — Deep vs Wide Research",
+            "description": "Measure insight quality per hour for depth-first vs breadth-first literature search strategies.",
+            "hypothesis": {"statement": "Depth-first search produces higher synthesis coherence for narrow topics", "metric": "synthesis_coherence", "success_threshold": 0.80, "baseline": 0.60},
+            "control_config": {"strategy": "breadth_first", "sources": 20},
+            "treatment_config": {"strategy": "depth_first", "sources": 20, "citation_depth": 3},
+            "tags": ["research", "synthesis", "methodology"],
+        },
+    ]
 
     def __init__(self, data_path: str = "data/labs/research_experiments.json") -> None:
         super().__init__(data_path=data_path)
