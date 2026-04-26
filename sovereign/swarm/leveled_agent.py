@@ -39,11 +39,15 @@ class AgentLevel(IntEnum):
                escalation, and ApprovalGate integration.
     LEVEL_4 — Command Agent: cross-agent orchestration, real-time telemetry,
                multi-domain authority, and self-optimization triggers.
+    LEVEL_5 — Sovereign Executive: constitutional authority, system-wide
+               governance, cross-domain veto, approval-gate control, and
+               strategic session orchestration (CEO, Guardian, ChiefOfStaff).
     """
 
     LEVEL_2 = 2
     LEVEL_3 = 3
     LEVEL_4 = 4
+    LEVEL_5 = 5
 
 
 class WorkflowStep(str, Enum):

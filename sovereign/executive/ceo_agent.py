@@ -27,7 +27,7 @@ OPERATING_MODES = [
 
 class CEOAgent(LeveledAgent):
     """
-    The top-level executive agent — LEVEL_3 Autonomous Operational Agent.
+    The top-level executive agent — LEVEL_5 Sovereign Executive.
 
     Responsibilities:
     - Interpret user intent at strategic level
@@ -53,7 +53,7 @@ class CEOAgent(LeveledAgent):
 
     spec = AgentSpec(
         agent_id="ceo",
-        level=AgentLevel.LEVEL_3,
+        level=AgentLevel.LEVEL_5,
         mission="Strategic intent analysis and operating mode selection",
         triggers=["new_request", "mode_change", "escalation"],
         tools_allowed=["memory_tool", "web_search"],

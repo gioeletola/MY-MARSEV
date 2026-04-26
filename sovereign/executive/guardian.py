@@ -25,7 +25,7 @@ class GuardianAgent(LeveledAgent):
     """
     Runs on claude-sonnet-4-6 with a safety-focused system prompt.
 
-    LEVEL_3 Autonomous Operational Agent — acts as the safety gate for
+    LEVEL_5 Sovereign Executive — acts as the safety gate for
     all EXECUTE-class actions in the swarm.
 
     Called synchronously in the agent dispatch path before any EXECUTE
@@ -48,7 +48,7 @@ class GuardianAgent(LeveledAgent):
 
     spec = AgentSpec(
         agent_id="guardian",
-        level=AgentLevel.LEVEL_3,
+        level=AgentLevel.LEVEL_5,
         mission="Safety review and approval gating for all EXECUTE-class actions",
         triggers=["execute_action", "approval_request"],
         tools_allowed=["memory_tool"],

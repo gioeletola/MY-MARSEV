@@ -98,13 +98,25 @@ def classify_all_agents() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Pre-population: executive core (LEVEL_3)
+# Pre-population: sovereign executive core (LEVEL_5)
 # ---------------------------------------------------------------------------
 
-_LEVEL_3_CORE = [
+_LEVEL_5_SOVEREIGN = [
     "ceo",
     "chief_of_staff",
     "guardian",
+    "coordinator",
+    "task_setter_executive",
+]
+
+for _aid in _LEVEL_5_SOVEREIGN:
+    AGENT_LEVELS[_aid] = AgentLevel.LEVEL_5
+
+# ---------------------------------------------------------------------------
+# Pre-population: executive support (LEVEL_3)
+# ---------------------------------------------------------------------------
+
+_LEVEL_3_CORE = [
     "system",
     "orchestrator",
 ]
@@ -120,7 +132,6 @@ _LEVEL_2_WORKERS = [
     # From worker_agent.py
     "worker",
     # From base_agent._make_worker factory — common swarm workers
-    "task_setter",
     "approval_gate",
     "ephemeral",
     "special",

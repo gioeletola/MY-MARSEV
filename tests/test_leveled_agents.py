@@ -409,15 +409,15 @@ async def test_leveled_agent_error_in_step_continues():
 
 
 # ---------------------------------------------------------------------------
-# 9. CEO spec is LEVEL_3
+# 9. CEO spec is LEVEL_5
 # ---------------------------------------------------------------------------
 
 
 def test_ceo_spec_is_level_3():
-    """CEOAgent.spec.level must be LEVEL_3."""
+    """CEOAgent.spec.level must be LEVEL_5 (Sovereign Executive)."""
     from sovereign.executive.ceo_agent import CEOAgent
 
-    assert CEOAgent.spec.level == AgentLevel.LEVEL_3
+    assert CEOAgent.spec.level == AgentLevel.LEVEL_5
     assert CEOAgent.spec.agent_id == "ceo"
     assert CEOAgent.spec.confidence_threshold == 0.8
     assert "mode_change" in CEOAgent.spec.requires_approval_for
@@ -435,7 +435,7 @@ def test_guardian_spec_requires_approval():
     from sovereign.executive.guardian import GuardianAgent
 
     spec = GuardianAgent.spec
-    assert spec.level == AgentLevel.LEVEL_3
+    assert spec.level == AgentLevel.LEVEL_5
     assert spec.agent_id == "guardian"
     assert spec.escalate_to == "ceo"
 
