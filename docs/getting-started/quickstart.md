@@ -10,7 +10,7 @@ Assumes you have completed [Installation](installation.md) and have `ANTHROPIC_A
 python main.py status
 ```
 
-Output shows a table of health checks and token usage:
+Prints a table of health checks and current token usage:
 
 ```
 ┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┓
@@ -34,7 +34,7 @@ Overall: OK
 python main.py demo
 ```
 
-Sends a fixed briefing request through the full pipeline and prints a rich panel:
+Sends a fixed briefing request through the full pipeline and prints a rich output panel:
 
 ```
 ╭─ SUCCESS  ceo_agent · abc12345 ──────────────────────────────────────╮
@@ -50,7 +50,7 @@ Tokens — in:1240 out:387 cache_read:890 confidence:88%
 
 ---
 
-## 3. Run a single request
+## 3. Send a one-shot request
 
 ```bash
 python main.py run "Summarize the latest developments in AI safety"
@@ -78,7 +78,7 @@ python main.py run "Plan a 5-day trip to Tokyo" --mode travel
 python main.py run --interactive
 ```
 
-Drops into a persistent session where the context carries over between messages:
+Drops into a persistent session where context carries over between messages:
 
 ```
 ╭─ SOVEREIGN AI OS — Interactive Mode ─────────────────────────────────╮
@@ -104,7 +104,7 @@ Goodbye.
 python main.py brief
 ```
 
-Shows urgent tasks, open decisions, 7-day mood average, and your daily non-negotiables. Optionally sends to Telegram:
+Shows urgent tasks, open decisions, mood average, and daily non-negotiables. Optionally sends to Telegram if `TELEGRAM_BOT_TOKEN` is set:
 
 ```bash
 python main.py brief --telegram
@@ -118,32 +118,66 @@ python main.py brief --telegram
 python main.py serve --port 8080
 ```
 
-Open `http://localhost:8080` — the single-page web UI includes:
+Open `http://localhost:8080`. The web UI includes:
 
 - **Chat panel** — type a message, press Enter, watch streaming tokens
-- **Mode selector** — switch between command / business / finance / etc.
-- **Memory viewer** — browse all 14 memory domains in the left sidebar
-- **Health panel** — live token usage, agent status, latency, circuit breakers
+- **Mode selector** — switch between 16 operating modes
+- **Memory viewer** — browse all 14 memory domains
+- **Health panel** — live token usage, agent status, latency
 
-Other web UI routes:
-
-| URL | Description |
-|---|---|
-| `/` | Main chat interface |
-| `/dashboard` | Executive dashboard |
-| `/finance` | Finance cockpit |
-| `/business` | Business wall |
-| `/approvals` | Pending approval queue |
-| `/hud` | Jarvis HUD (full-screen overlay) |
-| `/settings` | User preferences |
-| `/admin` | System administration |
-| `/health` | JSON health endpoint |
+| URL | Template | Description |
+|---|---|---|
+| `/` | `index.html` | Main chat interface |
+| `/dashboard` | `executive_dashboard` | Executive KPI dashboard |
+| `/finance` | `finance_cockpit` | Finance cockpit |
+| `/business` | `business_wall` | Business operations wall |
+| `/approvals` | `approvals_center` | Pending approval queue |
+| `/hud` | `jarvis_hud` | Jarvis full-screen HUD |
+| `/expansion` | `expansion_dashboard` | Capability gaps + expansion |
+| `/entities` | `entities_panel` | Connected entity management |
+| `/settings` | `settings_panel` | User preferences |
+| `/admin` | `admin_panel` | System administration |
+| `/health` | — | JSON health endpoint |
 
 ---
 
-## All CLI Commands
+## 7. Browse connectors
 
-### Top-level commands
+```bash
+python main.py connector list
+```
+
+Shows all 41 connectors with status (`connected` / `beta` / `stub`) and last sync time.
+
+```bash
+# Trigger a manual sync
+python main.py connector sync github
+
+# Health check all connectors
+python main.py connector health
+```
+
+---
+
+## 8. List experimental labs
+
+```bash
+python main.py lab list
+```
+
+Shows all 21 labs with their IDs. To inspect a specific lab:
+
+```bash
+python main.py lab status finance
+python main.py lab experiments finance
+python main.py lab run finance --template 0
+```
+
+---
+
+## Full CLI Reference
+
+### Core commands
 
 ```bash
 python main.py run [PROMPT] [--mode MODE] [--interactive] [--verbose]
@@ -152,8 +186,8 @@ python main.py status                        # health + token usage
 python main.py serve [--host HOST] [--port PORT] [--reload]
 python main.py telegram [--token TOKEN]      # Telegram bot (long-poll)
 python main.py brief [--telegram]            # morning briefing
-python main.py report [--print]             # weekly life report
-python main.py health [--engines]           # quick health check
+python main.py report [--print]              # weekly life report
+python main.py health [--engines]            # quick health check
 ```
 
 ### Agent sub-commands
@@ -166,9 +200,18 @@ python main.py agent info <agent_id>
 ### Connector sub-commands
 
 ```bash
-python main.py connector list               # all 41 connectors + status
-python main.py connector sync <id>          # trigger immediate sync
-python main.py connector health             # health of all connectors
+python main.py connector list
+python main.py connector sync <connector_id>
+python main.py connector health
+```
+
+### Lab sub-commands
+
+```bash
+python main.py lab list
+python main.py lab status <lab_id>
+python main.py lab experiments <lab_id>
+python main.py lab run <lab_id> --template 0
 ```
 
 ### Skill sub-commands
@@ -214,10 +257,16 @@ Pass `--mode MODE` to `python main.py run` or switch in the web UI.
 | `travel` | Trip planning, itineraries, bookings |
 | `research` | Deep multi-source research with citations |
 | `builder` | Code generation, architecture, prototyping |
-| `local_offline` | Full local mode — Ollama/Qwen only, no cloud |
+| `local_offline` | Full local mode — Ollama only, no cloud |
 | `survival` | Minimal mode — bare essentials only |
+| `founder` | Startup ops — fundraising, team, GTM |
+| `war` | High-stakes decision-making |
+| `prestige` | Brand, luxury, high-touch service |
+| `silent` | Background processing, no interruptions |
+| `recovery` | Post-crisis stabilisation |
+| `emergency` | Critical incident response |
 
-Set the default in `config/sovereign.yaml`:
+Set the default mode in `config/sovereign.yaml`:
 
 ```yaml
 default_mode: command
