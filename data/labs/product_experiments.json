@@ -1,0 +1,58 @@
+{
+  "79e2cd0e": {
+    "experiment_id": "79e2cd0e",
+    "name": "Product Lab \u2014 Feature Adoption A/B",
+    "description": "Test guided onboarding vs self-serve for new feature adoption.",
+    "hypothesis": {
+      "statement": "Guided onboarding improves feature adoption rate above 70%",
+      "metric": "feature_adoption_rate",
+      "success_threshold": 0.7,
+      "baseline": 0.4
+    },
+    "status": "running",
+    "control_config": {
+      "onboarding": "self_serve"
+    },
+    "treatment_config": {
+      "onboarding": "guided"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.591656+00:00",
+    "started_at": "2026-04-27T16:19:40.591643+00:00",
+    "completed_at": "",
+    "tags": [
+      "product",
+      "onboarding",
+      "adoption"
+    ]
+  },
+  "e6f8f7a3": {
+    "experiment_id": "e6f8f7a3",
+    "name": "Product Lab \u2014 QA Coverage Benchmark",
+    "description": "Automated test suite vs manual QA for bug detection coverage.",
+    "hypothesis": {
+      "statement": "Automated suite achieves \u226590% bug detection coverage",
+      "metric": "bug_detection_coverage",
+      "success_threshold": 0.9,
+      "baseline": 0.65
+    },
+    "status": "draft",
+    "control_config": {
+      "qa": "manual"
+    },
+    "treatment_config": {
+      "qa": "automated"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.591800+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "product",
+      "qa",
+      "testing"
+    ]
+  }
+}

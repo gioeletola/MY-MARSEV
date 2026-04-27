@@ -1,0 +1,93 @@
+{
+  "fcfcc48d": {
+    "experiment_id": "fcfcc48d",
+    "name": "Habit Loop Detection \u2014 Cue-Routine-Reward Mapping",
+    "description": "Identify dominant habit loops from daily activity logs and measure intervention success.",
+    "hypothesis": {
+      "statement": "AI-detected habit cues match self-reported patterns \u226580% of the time",
+      "metric": "pattern_detection_precision",
+      "success_threshold": 0.8,
+      "baseline": 0.55
+    },
+    "status": "running",
+    "control_config": {
+      "detection": "self_reported"
+    },
+    "treatment_config": {
+      "detection": "ai_log_analysis",
+      "window_days": 14
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.578204+00:00",
+    "started_at": "2026-04-27T16:19:40.578191+00:00",
+    "completed_at": "",
+    "tags": [
+      "behavioral",
+      "habits",
+      "detection"
+    ]
+  },
+  "989d06d7": {
+    "experiment_id": "989d06d7",
+    "name": "Cognitive Bias Nudge \u2014 Pre-Decision Framing",
+    "description": "Test whether presenting a bias warning before decisions reduces loss-aversion and anchoring effects.",
+    "hypothesis": {
+      "statement": "Bias framing nudges improve decision quality score by \u226515%",
+      "metric": "intervention_success_rate",
+      "success_threshold": 0.65,
+      "baseline": 0.5
+    },
+    "status": "draft",
+    "control_config": {
+      "nudge": false
+    },
+    "treatment_config": {
+      "nudge": true,
+      "bias_types": [
+        "anchoring",
+        "loss_aversion",
+        "confirmation"
+      ]
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.578223+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "behavioral",
+      "bias",
+      "nudge"
+    ]
+  },
+  "360b5814": {
+    "experiment_id": "360b5814",
+    "name": "Impulse Filter Effectiveness \u2014 Delay Intervention",
+    "description": "Measure whether a 10-minute delay prompt reduces impulsive decisions flagged by the impulse filter.",
+    "hypothesis": {
+      "statement": "10-minute delay prompts reduce impulsive action rate by \u226525%",
+      "metric": "intervention_success_rate",
+      "success_threshold": 0.65,
+      "baseline": 0.4
+    },
+    "status": "draft",
+    "control_config": {
+      "delay_minutes": 0
+    },
+    "treatment_config": {
+      "delay_minutes": 10,
+      "reflection_prompt": true
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.578253+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "behavioral",
+      "impulse",
+      "intervention"
+    ]
+  }
+}

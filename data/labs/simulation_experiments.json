@@ -1,0 +1,86 @@
+{
+  "e0424113": {
+    "experiment_id": "e0424113",
+    "name": "Simulation Lab \u2014 Monte Carlo Portfolio Stress Test",
+    "description": "Run 10,000 Monte Carlo scenarios to assess portfolio VaR.",
+    "hypothesis": {
+      "statement": "Portfolio stress test achieves \u226590% simulation accuracy",
+      "metric": "simulation_accuracy",
+      "success_threshold": 0.9,
+      "baseline": 0.7
+    },
+    "status": "running",
+    "control_config": {
+      "simulations": 1000
+    },
+    "treatment_config": {
+      "simulations": 10000
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.594997+00:00",
+    "started_at": "2026-04-27T16:19:40.594979+00:00",
+    "completed_at": "",
+    "tags": [
+      "simulation",
+      "monte_carlo",
+      "portfolio"
+    ]
+  },
+  "45930dd6": {
+    "experiment_id": "45930dd6",
+    "name": "Simulation Lab \u2014 Black Swan Scenario Coverage",
+    "description": "Test whether tail-risk scenarios are represented in scenario library.",
+    "hypothesis": {
+      "statement": "Extended library achieves \u226585% scenario coverage",
+      "metric": "scenario_coverage",
+      "success_threshold": 0.85,
+      "baseline": 0.55
+    },
+    "status": "draft",
+    "control_config": {
+      "library": "standard"
+    },
+    "treatment_config": {
+      "library": "extended_tail_risk"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.595160+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "simulation",
+      "black_swan",
+      "risk"
+    ]
+  },
+  "d311df10": {
+    "experiment_id": "d311df10",
+    "name": "Simulation Lab \u2014 Convergence Speed Optimisation",
+    "description": "Latin hypercube sampling vs random sampling for faster convergence.",
+    "hypothesis": {
+      "statement": "Latin hypercube achieves \u226595% convergence rate at half the iterations",
+      "metric": "convergence_rate",
+      "success_threshold": 0.95,
+      "baseline": 0.75
+    },
+    "status": "draft",
+    "control_config": {
+      "sampling": "random"
+    },
+    "treatment_config": {
+      "sampling": "latin_hypercube"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.595425+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "simulation",
+      "sampling",
+      "optimisation"
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "781cba15": {
+    "experiment_id": "781cba15",
+    "name": "Sleep Protocol Optimisation \u2014 Sleep Window Timing",
+    "description": "Compare cognitive performance metrics for consistent vs variable sleep window schedules over 4 weeks.",
+    "hypothesis": {
+      "statement": "Consistent sleep windows improve next-day cognitive performance by \u226515%",
+      "metric": "protocol_adherence",
+      "success_threshold": 0.8,
+      "baseline": 0.55
+    },
+    "status": "running",
+    "control_config": {
+      "schedule": "variable"
+    },
+    "treatment_config": {
+      "schedule": "fixed",
+      "window_hours": 8,
+      "consistency_check": true
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.579328+00:00",
+    "started_at": "2026-04-27T16:19:40.579314+00:00",
+    "completed_at": "",
+    "tags": [
+      "bio",
+      "sleep",
+      "performance"
+    ]
+  },
+  "57cbff8c": {
+    "experiment_id": "57cbff8c",
+    "name": "Nutrition Timing \u2014 Pre-Workout Macronutrient Impact",
+    "description": "Measure workout performance correlation against pre-workout carbohydrate and protein intake timing.",
+    "hypothesis": {
+      "statement": "Protein + carb meal 90min before training improves performance score by \u226510% vs fasted",
+      "metric": "outcome_correlation",
+      "success_threshold": 0.7,
+      "baseline": 0.5
+    },
+    "status": "draft",
+    "control_config": {
+      "pre_workout": "fasted"
+    },
+    "treatment_config": {
+      "pre_workout": "fed",
+      "macros": {
+        "protein_g": 30,
+        "carbs_g": 60
+      },
+      "timing_min": 90
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.579454+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "bio",
+      "nutrition",
+      "performance"
+    ]
+  },
+  "9f7a9472": {
+    "experiment_id": "9f7a9472",
+    "name": "Recovery Protocol \u2014 Active vs Passive Rest",
+    "description": "Compare muscle recovery rate and next-session readiness score for active recovery vs complete rest days.",
+    "hypothesis": {
+      "statement": "Active recovery days improve readiness score by \u226510% vs passive rest",
+      "metric": "outcome_correlation",
+      "success_threshold": 0.7,
+      "baseline": 0.55
+    },
+    "status": "draft",
+    "control_config": {
+      "recovery": "passive"
+    },
+    "treatment_config": {
+      "recovery": "active",
+      "activity": "low_intensity_cardio",
+      "duration_min": 30
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.579503+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "bio",
+      "recovery",
+      "fitness"
+    ]
+  }
+}

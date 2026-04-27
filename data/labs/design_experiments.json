@@ -1,0 +1,100 @@
+{
+  "092b9aaa": {
+    "experiment_id": "092b9aaa",
+    "name": "Brand Consistency Audit \u2014 AI vs Human Evaluation",
+    "description": "Compare brand consistency scores assigned by AI aesthetic analysis vs human creative directors across 50 assets.",
+    "hypothesis": {
+      "statement": "AI brand scoring aligns with human creative director ratings \u226590% of the time",
+      "metric": "brand_consistency",
+      "success_threshold": 0.9,
+      "baseline": 0.65
+    },
+    "status": "running",
+    "control_config": {
+      "evaluator": "human_creative_director"
+    },
+    "treatment_config": {
+      "evaluator": "ai_style_curator",
+      "criteria": [
+        "color",
+        "typography",
+        "tone",
+        "layout"
+      ]
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.583658+00:00",
+    "started_at": "2026-04-27T16:19:40.583644+00:00",
+    "completed_at": "",
+    "tags": [
+      "design",
+      "brand",
+      "consistency"
+    ]
+  },
+  "83d7a5e2": {
+    "experiment_id": "83d7a5e2",
+    "name": "Visual System Coherence \u2014 Systematic Style Guide vs Ad-hoc",
+    "description": "Measure aesthetic coherence scores for design output produced with a documented style guide vs ad-hoc design decisions.",
+    "hypothesis": {
+      "statement": "Style guide-constrained design scores \u226515% higher on aesthetic coherence than ad-hoc",
+      "metric": "aesthetic_coherence",
+      "success_threshold": 0.85,
+      "baseline": 0.65
+    },
+    "status": "draft",
+    "control_config": {
+      "approach": "ad_hoc"
+    },
+    "treatment_config": {
+      "approach": "style_guide",
+      "components": [
+        "color_palette",
+        "typography",
+        "spacing",
+        "imagery"
+      ]
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.583689+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "design",
+      "style_guide",
+      "coherence"
+    ]
+  },
+  "c4c21c60": {
+    "experiment_id": "c4c21c60",
+    "name": "Concept Lab Iteration Speed \u2014 AI-Assisted Concepting",
+    "description": "Measure time-to-first-viable-concept for AI-assisted ideation vs traditional manual design concepting.",
+    "hypothesis": {
+      "statement": "AI-assisted concepting reduces time-to-viable-concept by \u226540% without sacrificing quality",
+      "metric": "brand_consistency",
+      "success_threshold": 0.9,
+      "baseline": 0.7
+    },
+    "status": "draft",
+    "control_config": {
+      "method": "manual_concepting"
+    },
+    "treatment_config": {
+      "method": "ai_assisted",
+      "iterations": 5,
+      "feedback_loops": 2
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.583843+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "design",
+      "concepting",
+      "speed"
+    ]
+  }
+}

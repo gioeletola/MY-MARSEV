@@ -1,27 +1,33 @@
 # SOVEREIGN AI OS
 
-> Multi-agent AI operating system — 200+ specialized agents across business, personal, finance, security, and strategy domains.
+> 280+ specialized agents · 41 connectors · 23 labs · 16 operating modes · FastAPI web UI
+
+A self-directed, multi-agent AI operating system built on the Anthropic Claude API. Orchestrates a stratified hierarchy of agents across business, personal, finance, security, research, and strategy domains — with full memory persistence, semantic search, a7-layer security stack, and a real-time WebSocket dashboard.
+
+---
 
 ## Quick Start
 
 ```bash
-# Install
+# 1. Install
 pip install -e ".[dev]"
 
-# Copy and configure environment
+# 2. Configure
 cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY
+# Set ANTHROPIC_API_KEY (required), SOVEREIGN_PASSWORD, AUTH_SECRET_KEY
 
-# Start the web UI
+# 3. Start web UI
 python main.py serve --port 8080
 # Open http://localhost:8080
 
-# CLI demo (no API key needed)
-python main.py demo
-
-# System status
-python main.py status
+# 4. Or use the CLI
+python main.py run "Analyse my cashflow and suggest 3 savings actions"
+python main.py run --interactive     # REPL mode
+python main.py demo                  # full pipeline test
+python main.py brief                 # morning briefing
 ```
+
+---
 
 ## Architecture
 
@@ -30,101 +36,166 @@ User Input
   │
   ▼
 InputPipeline (input_fabric/)
-  │  Normalise, classify, extract intent
+  │  Normalise · classify · extract intent · security scan
   ▼
-CEOAgent (executive/)
-  │  Intent analysis + operating mode selection
+CEOAgent  [LEVEL 5]                        claude-opus-4-6
+  │  Strategic intent analysis + mode selection
   ▼
-ChiefOfStaff → TaskSetter
-  │  Task decomposition into parallel sub-tasks
+ChiefOfStaff → Coordinator  [LEVEL 5]      claude-sonnet-4-6
+  │  Task decomposition (1–5 parallel tasks) + agent routing
   ▼
-AgentSwarm (swarm/)          ← Semaphore(5) concurrency gate
-  │  200+ specialised agents dispatched in parallel
+AgentSwarm  [LEVEL 2–4]    ←── Semaphore(5) concurrency gate
+  │  280+ specialized agents dispatched in parallel
+  │  7-step workflow: OBSERVE→ANALYZE→PLAN→EXECUTE→VERIFY→REPORT→SAVE_MEMORY
   ▼
-GuardianAgent + ApprovalGate (authority/)
-  │  Safety checks + human-in-the-loop escalation
+GuardianAgent + ApprovalGate
+  │  7-layer security · risk scoring · human-in-the-loop escalation
   ▼
 StructuredOutput
   │
-  ├── DecisionLedger  — append-only audit log
-  └── MemoryManager   — 14-domain persistent memory
+  ├── DecisionLedger    append-only JSONL audit log
+  ├── MemoryManager     14-domain persistent memory + semantic search
+  └── MetricsCollector  latency · tokens · cost tracking
 ```
+
+---
 
 ## Features
 
-- **200+ specialised agents** spanning business, personal, finance, security, and strategy domains
-- **10 operating modes** — command, business, personal, finance, study, travel, research, builder, local_offline, survival
-- **14-domain memory system** with TF-IDF semantic search and optional ChromaDB vector store
-- **Bayesian A/B experiment tracking** with auto-promotion of winning variants
-- **Prompt caching** — ~70% reduction in input token cost via `cache_control: ephemeral`
-- **Human-in-the-loop approval gate** — configurable risk thresholds, auto or CLI mode
-- **RBAC + spending limits + risk scoring** — full governance layer
-- **FastAPI + WebSocket** web UI with JWT authentication
-- **Telegram bot integration** for mobile access
-- **Proactive suggestions** and goal monitoring
-- **Docker-ready** — single `docker-compose up` to start
+| Category | Details |
+|---|---|
+| **Agents** | 280+ agents in 5 tiers (L2–L5) across Finance, Business, Personal, Imperial, Security, Offline, Black-Tier |
+| **Memory** | 14 domains (identity, financial, project, decision, diary, health, learning, relationship, …) with lazy-cached TF-IDF semantic search; upgrades to dense embeddings with `pip install -e ".[embeddings]"` |
+| **Connectors** | 41 integrations: 21 connected, 17 beta, 3 stub — Binance, Stripe, Telegram, Slack, Spotify, Strava, Shopify, Discord, Linear, CoinGecko, and more |
+| **Labs** | 23 experimental labs (Finance, Simulation, Cyber, Red Team, Strategy, Bio, Behavioral, …) with DRAFT→RUNNING→COMPLETED→GRADUATED lifecycle |
+| **Operating Modes** | 16 modes: command, business, personal, finance, study, travel, research, builder, local_offline, survival, founder, war, prestige, silent, recovery, emergency |
+| **Security** | 7-layer SecurityStack: prompt injection detection, PII masking, dangerous command blocking, RBAC, secret obfuscation, audit log, incident escalation |
+| **Governance** | RBAC, EscalationChain, SpendingLimits, RiskScoringEngine, ChangeManagement |
+| **Web UI** | FastAPI + WebSocket + JWT auth + 9 HTML templates (dashboard, finance cockpit, business wall, HUD, approvals, expansion, entities, settings, admin) |
+| **Prompt caching** | `cache_control: ephemeral` on static system prompt → ~70% token cost reduction |
+| **Proactive** | GoalMonitor, SuggestionEngine, SilentOps, DailyDigest, EventEngine |
+
+---
+
+## CLI Reference
+
+```bash
+# Core
+python main.py run "prompt"          # one-shot
+python main.py run --interactive     # REPL
+python main.py demo                  # full pipeline test
+python main.py status                # system health
+python main.py serve --port 8080     # web UI
+python main.py telegram              # Telegram bot
+python main.py brief                 # morning briefing
+python main.py report --print        # weekly report
+
+# Agents
+python main.py agent list
+python main.py agent info <agent_id>
+
+# Connectors (41 total)
+python main.py connector list
+python main.py connector sync <connector_id>
+python main.py connector health
+
+# Labs (23 experimental labs)
+python main.py lab list
+python main.py lab status <lab_id>
+python main.py lab experiments <lab_id>
+python main.py lab run <lab_id> --template 0
+
+# Skills
+python main.py skill list
+python main.py skill run <skill_id> --input '{"key": "value"}'
+python main.py skill enable <skill_id>
+
+# Vault (encrypted secrets)
+python main.py vault set <key> <value>
+python main.py vault get <key>
+python main.py vault list
+python main.py vault delete <key>
+
+# Model catalog
+python main.py model list
+python main.py model list --tier frontier
+python main.py model list --local
+```
+
+---
 
 ## API Reference
 
 | Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/status` | No | System health and version |
-| POST | `/api/auth/login` | No | Obtain JWT token |
-| GET | `/api/goals` | Yes | List active goals |
-| POST | `/api/goals` | Yes | Create a new goal |
-| GET | `/api/projects` | Yes | List projects |
-| POST | `/api/projects` | Yes | Create a project |
-| GET | `/api/finance/summary` | Yes | Finance dashboard summary |
-| GET | `/api/finance/transactions` | Yes | Transaction list |
-| POST | `/api/finance/transactions` | Yes | Record a transaction |
-| GET | `/api/entities` | Yes | List connected entities |
-| POST | `/api/entities` | Yes | Register a connected entity |
-| GET | `/api/mode` | Yes | Current operating mode |
-| POST | `/api/mode` | Yes | Switch operating mode |
-| GET | `/api/memory/{domain}` | Yes | Read memory domain |
-| POST | `/api/memory/{domain}` | Yes | Write to memory domain |
-| GET | `/api/agents` | Yes | List all registered agents |
-| GET | `/expansion` | Yes | Expansion center UI |
-| GET | `/entities` | Yes | Entity management UI |
+|---|---|---|---|
+| POST | `/api/auth/login` | — | Obtain JWT token |
+| GET | `/health` | — | System health JSON |
+| WS | `/ws?token=<jwt>` | JWT | Real-time agent streaming |
+| GET | `/api/usage` | JWT | Token usage stats |
+| GET | `/api/agents` | — | All registered agents |
+| GET | `/api/mode` | — | Current operating mode |
+| POST | `/api/mode` | JWT | Switch mode |
+| GET | `/api/memory/{domain}` | JWT | Read memory domain |
+| GET | `/api/finance/summary` | — | Finance dashboard |
+| GET | `/api/finance/transactions` | — | Transaction list |
+| GET | `/api/goals` | — | Active goals |
+| POST | `/api/goals` | JWT | Create goal |
+| GET | `/api/projects` | — | Projects list |
+| GET | `/api/connectors` | — | All connector statuses |
+| GET | `/api/integrations` | — | Integration manager state |
+| GET | `/api/next-actions` | — | Next action list |
+| GET | `/api/morning-brief` | — | Morning briefing JSON |
+| GET | `/expansion` | — | Expansion dashboard UI |
+| GET | `/entities` | — | Entity management UI |
+| GET | `/admin` | — | Admin panel |
+
+---
+
+## Operating Modes (16)
+
+| Mode | Use case |
+|---|---|
+| `command` | Direct execution — maximum capability |
+| `business` | CRM, finance, HR, legal, strategy |
+| `personal` | Calendar, diary, health, goals |
+| `finance` | Cashflow, budgeting, investment |
+| `study` | Notes, summarisation, quizzing |
+| `travel` | Itinerary, bookings, logistics |
+| `research` | Multi-source synthesis, reports |
+| `builder` | Code, architecture, deployment |
+| `local_offline` | No external API calls |
+| `survival` | Crisis mode — minimal footprint |
+| `founder` | Startup ops — fundraising, team, GTM |
+| `war` | High-stakes decision-making |
+| `prestige` | Brand, luxury, high-touch service |
+| `silent` | Background processing, no interruptions |
+| `recovery` | Post-crisis stabilisation |
+| `emergency` | Critical incident response |
+
+---
 
 ## Configuration
 
 | Variable | Required | Purpose |
-|----------|----------|---------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API access |
-| `AUTH_SECRET_KEY` | No | JWT signing key (default: insecure placeholder) |
-| `SOVEREIGN_PASSWORD` | No | Web UI login password |
-| `TELEGRAM_BOT_TOKEN` | No | Telegram bot integration |
-| `OPENAI_API_KEY` | No | OpenAI fallback / Whisper transcription |
-| `GEMINI_API_KEY` | No | Google Gemini integration |
-| `SLACK_WEBHOOK_URL` | No | Slack notification webhook |
-| `NOTION_API_KEY` | No | Notion workspace integration |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | **Yes** | Claude API access |
+| `SOVEREIGN_PASSWORD` | Recommended | Web UI login password |
+| `AUTH_SECRET_KEY` | Recommended | JWT signing key (64-char random) |
+| `SECRET_MANAGER_KEY` | Optional | Vault encryption key |
+| `TELEGRAM_BOT_TOKEN` | Optional | Telegram bot |
+| `SLACK_BOT_TOKEN` | Optional | Slack integration |
+| `BINANCE_API_KEY` | Optional | Binance trading |
+| `STRIPE_SECRET_KEY` | Optional | Stripe payments |
 
-Copy `.env.example` to `.env` and fill in the values you need.
+See `.env.example` for the full list of 50+ connector variables.
 
-## Operating Modes
+---
 
-| Mode | Description |
-|------|-------------|
-| `command` | Direct command execution — maximum capability, minimal friction |
-| `business` | Business operations — CRM, finance, HR, legal, strategy |
-| `personal` | Personal productivity — calendar, diary, health, goals |
-| `finance` | Financial analysis — cashflow, budgeting, investment tracking |
-| `study` | Learning and research — note-taking, summarisation, quizzing |
-| `travel` | Travel planning and logistics — itinerary, bookings, packing |
-| `research` | Deep research — multi-source synthesis, citations, reports |
-| `builder` | Engineering and building — code, architecture, deployment |
-| `local_offline` | Offline-capable tasks — no external API calls required |
-| `survival` | Minimal footprint — crisis mode with essential functions only |
-
-## Adding Agents / Tools / Integrations
+## Extending SOVEREIGN
 
 ### New Agent
-
 ```python
-# In sovereign/swarm/your_domain_agents.py
-from sovereign.swarm.worker_agent import WorkerAgent
-
+# sovereign/swarm/your_domain_agents.py
 NewAgent = _make_worker(
     "unique_agent_id",
     "Human Readable Specialty",
@@ -134,72 +205,71 @@ NewAgent = _make_worker(
     requires_review=False,
     confidence=0.82,
 )
-# Add to YOUR_AGENTS list and register in orchestrator.py _init_swarm()
+# Register in orchestrator.py _init_swarm()
 ```
 
-### New Tool
-
+### New Connector
 ```python
-# In sovereign/tools/builtin/my_tool.py
-from sovereign.tools.base_tool import BaseTool, ToolSchema
+# sovereign/integrations/connectors/my_connector.py
+class MyConnector(ConnectorBase):
+    connector_id = "my_service"
+    connector_name = "My Service"
+    connector_status = ConnectorStatus.CONNECTED
+    requires_oauth = False
 
-class MyTool(BaseTool):
-    @property
-    def schema(self) -> ToolSchema:
-        return ToolSchema(
-            name="my_tool",
-            description="What it does.",
-            input_schema={"type": "object", "properties": {}, "required": []},
-        )
-
-    async def execute(self, **params) -> dict:
-        try:
-            result = ...
-            return {"result": result, "error": None}
-        except Exception as exc:
-            return {"result": None, "error": str(exc)}
+    async def connect(self) -> bool: ...
+    async def sync(self) -> SyncResult: ...
+    async def health(self) -> ConnectorHealth: ...
+# Add to sovereign/integrations/connectors/__init__.py
 ```
 
-### New Integration
-
+### New Lab Experiment
 ```python
-# In sovereign/integrations/my_integration.py
-from sovereign.integrations.base_integration import BaseIntegration, IntegrationConfig
-
-class MyIntegration(BaseIntegration):
-    integration_id = "my_service"
-    name = "My Service"
-
-    def connect(self, config: IntegrationConfig) -> bool: ...
-    def disconnect(self) -> bool: ...
-    async def fetch(self, resource: str, params: dict) -> dict: ...
-    async def push(self, resource: str, data: dict) -> dict: ...
+from sovereign.labs import FinanceLab
+lab = FinanceLab()
+exp = lab.quick_experiment(template_index=0)  # starts from template
+lab.record_observation(exp.experiment_id, "Treatment shows 22% improvement")
+lab.record_result(exp.experiment_id, "sharpe_ratio_improvement", 0.23)
+result = lab.complete(exp.experiment_id)  # evaluates hypothesis
+lab.graduate(exp.experiment_id)           # promotes to production
 ```
 
-Register in `IntegrationManager.__init__()`.
+---
 
-## Running Tests
+## Development
 
 ```bash
-# Run all tests with coverage
-python -m pytest tests/ -q --tb=short --cov=sovereign --cov-report=term-missing
+# Tests
+python -m pytest tests/ -q --tb=short
 
-# Run a specific test file
-python -m pytest tests/test_registries.py -v
-
-# Lint check
+# Lint
 python -m ruff check .
+
+# Type check
+python -m mypy sovereign/
+
+# With dense embeddings (better memory search)
+pip install -e ".[embeddings]"
+
+# With PDF support
+pip install -e ".[pdf]"
+
+# All extras
+pip install -e ".[full,dev]"
 ```
+
+---
 
 ## Docker
 
 ```bash
-# Build and start all services
-docker-compose up --build
-
-# Detached mode
-docker-compose up -d
-
-# View logs
-docker-compose logs -f sovereign
+docker-compose up --build    # build and start
+docker-compose up -d         # detached
+docker-compose logs -f       # follow logs
 ```
+
+---
+
+## License
+
+Proprietary — all rights reserved.

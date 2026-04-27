@@ -14,7 +14,7 @@ ROOT = pathlib.Path(__file__).parent.parent
 
 def test_sovereign_version_string():
     import sovereign
-    assert sovereign.__version__ == "0.2.0"
+    assert sovereign.__version__ == "0.3.0"
 
 
 def test_sovereign_all_exports_version():
@@ -39,7 +39,7 @@ def test_pyproject_has_correct_name():
 
 def test_pyproject_has_correct_version():
     text = (ROOT / "pyproject.toml").read_text()
-    assert 'version = "0.2.0"' in text
+    assert 'version = "0.3.0"' in text
 
 
 def test_pyproject_has_requires_python():

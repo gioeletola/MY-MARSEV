@@ -1,0 +1,56 @@
+{
+  "67ac98fb": {
+    "experiment_id": "67ac98fb",
+    "name": "Social Lab \u2014 Network Mapping Coverage",
+    "description": "Map 1st and 2nd-degree connections and identify influence gaps.",
+    "hypothesis": {
+      "statement": "Systematic mapping achieves \u226580% network coverage",
+      "metric": "network_mapping_coverage",
+      "success_threshold": 0.8,
+      "baseline": 0.45
+    },
+    "status": "running",
+    "control_config": {
+      "mapping": "manual"
+    },
+    "treatment_config": {
+      "mapping": "ai_assisted"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.597229+00:00",
+    "started_at": "2026-04-27T16:19:40.597213+00:00",
+    "completed_at": "",
+    "tags": [
+      "social",
+      "network"
+    ]
+  },
+  "87bbccb1": {
+    "experiment_id": "87bbccb1",
+    "name": "Social Lab \u2014 Influence Signal Optimisation",
+    "description": "Test which social signals (publishing, speaking, writing) maximise influence.",
+    "hypothesis": {
+      "statement": "Curated signal strategy improves influence prediction accuracy",
+      "metric": "influence_prediction_accuracy",
+      "success_threshold": 0.75,
+      "baseline": 0.5
+    },
+    "status": "draft",
+    "control_config": {
+      "signals": "random"
+    },
+    "treatment_config": {
+      "signals": "curated"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.597432+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "social",
+      "influence"
+    ]
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "d995a70b": {
+    "experiment_id": "d995a70b",
+    "name": "SOP Automation \u2014 Manual vs Scripted Execution",
+    "description": "Measure error rate and execution time when replacing manual SOP steps with automated scripts.",
+    "hypothesis": {
+      "statement": "Automated SOP execution reduces error rate by \u226550% vs manual execution",
+      "metric": "automation_success_rate",
+      "success_threshold": 0.95,
+      "baseline": 0.75
+    },
+    "status": "running",
+    "control_config": {
+      "execution": "manual",
+      "steps": 10
+    },
+    "treatment_config": {
+      "execution": "scripted",
+      "error_handling": true,
+      "retries": 3
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.576748+00:00",
+    "started_at": "2026-04-27T16:19:40.576736+00:00",
+    "completed_at": "",
+    "tags": [
+      "automation",
+      "sop",
+      "reliability"
+    ]
+  },
+  "533ba803": {
+    "experiment_id": "533ba803",
+    "name": "Integration Pipeline Latency \u2014 Sequential vs Parallel Steps",
+    "description": "Compare total pipeline execution time for sequential vs parallelised integration task steps.",
+    "hypothesis": {
+      "statement": "Parallel execution reduces pipeline latency by \u226530%",
+      "metric": "execution_time_improvement",
+      "success_threshold": 0.3,
+      "baseline": 0.0
+    },
+    "status": "draft",
+    "control_config": {
+      "execution_mode": "sequential"
+    },
+    "treatment_config": {
+      "execution_mode": "parallel",
+      "max_workers": 4
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.576945+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "automation",
+      "integration",
+      "performance"
+    ]
+  },
+  "9c5a7658": {
+    "experiment_id": "9c5a7658",
+    "name": "Script Reliability \u2014 Idempotency Validation",
+    "description": "Verify that all automation scripts produce identical results when run multiple times on the same input.",
+    "hypothesis": {
+      "statement": "Idempotent scripts achieve \u226590% consistent output across 5 re-runs",
+      "metric": "script_reliability",
+      "success_threshold": 0.9,
+      "baseline": 0.7
+    },
+    "status": "draft",
+    "control_config": {
+      "idempotency_check": false
+    },
+    "treatment_config": {
+      "idempotency_check": true,
+      "runs": 5
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.577036+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "automation",
+      "reliability",
+      "idempotency"
+    ]
+  }
+}

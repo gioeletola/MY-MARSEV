@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sovereign-ai-os"
-version = "0.2.0"
-description = "Multi-agent AI operating system — 200+ specialized agents"
+version = "0.3.0"
+description = "SOVEREIGN AI OS — 280+ specialized agents, 41 connectors, 23 labs, FastAPI web UI"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
 readme = "README.md"
@@ -47,6 +47,14 @@ dev = [
 pdf = ["pymupdf>=1.24.0"]
 audio = ["openai-whisper>=20231117"]
 chromadb = ["chromadb>=0.5.0"]
+# Dense vector embeddings for semantic search (greatly improves memory search quality)
+embeddings = ["sentence-transformers>=3.0.0"]
+# All optional heavy deps
+full = [
+    "pymupdf>=1.24.0",
+    "sentence-transformers>=3.0.0",
+    "chromadb>=0.5.0",
+]
 
 [project.scripts]
 sovereign = "main:app"

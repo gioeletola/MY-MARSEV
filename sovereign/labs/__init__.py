@@ -1,5 +1,8 @@
 """Labs Framework for SOVEREIGN AI OS — 21 experimental research labs."""
-# pylint: disable=import-error  (3d_lab has a numeric prefix — valid module)
+# NOTE: sovereign/labs/3d_lab.py has a numeric prefix and cannot be imported
+# with dot notation.  It is discovered automatically by the glob-based lab
+# commands in main.py via importlib.import_module('sovereign.labs.3d_lab').
+# pylint: disable=import-error
 from sovereign.labs.ai_experiment_lab import AIExperimentLab
 from sovereign.labs.automation_lab import AutomationLab
 from sovereign.labs.behavioral_lab import BehavioralLab

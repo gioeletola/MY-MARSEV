@@ -1,0 +1,100 @@
+{
+  "8d3dfb38": {
+    "experiment_id": "8d3dfb38",
+    "name": "Country Risk Scoring \u2014 AI Model vs Commercial Index",
+    "description": "Compare AI-generated country risk scores against established commercial indices (EIU, PRS) across 20 markets.",
+    "hypothesis": {
+      "statement": "AI country risk scores correlate \u22650.80 with commercial index rankings",
+      "metric": "risk_signal_accuracy",
+      "success_threshold": 0.8,
+      "baseline": 0.55
+    },
+    "status": "running",
+    "control_config": {
+      "source": "commercial_index"
+    },
+    "treatment_config": {
+      "source": "ai_model",
+      "data_feeds": [
+        "news",
+        "regulatory",
+        "economic",
+        "political"
+      ]
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.587267+00:00",
+    "started_at": "2026-04-27T16:19:40.587252+00:00",
+    "completed_at": "",
+    "tags": [
+      "georisk",
+      "country_risk",
+      "scoring"
+    ]
+  },
+  "e3571e05": {
+    "experiment_id": "e3571e05",
+    "name": "Early Warning System \u2014 Geopolitical Event Lead Time",
+    "description": "Measure how many days before a geopolitical event the SOVEREIGN OS raises a risk alert.",
+    "hypothesis": {
+      "statement": "Multi-signal monitoring provides \u226514-day early warning for 80% of major geopolitical events",
+      "metric": "early_warning_lead_time_days",
+      "success_threshold": 14.0,
+      "baseline": 3.0
+    },
+    "status": "draft",
+    "control_config": {
+      "monitoring": "manual_news"
+    },
+    "treatment_config": {
+      "monitoring": "automated_multi_signal",
+      "signals": [
+        "sanctions",
+        "election",
+        "protest",
+        "trade"
+      ]
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.587428+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "georisk",
+      "early_warning",
+      "geopolitical"
+    ]
+  },
+  "477b389a": {
+    "experiment_id": "477b389a",
+    "name": "Regulatory Mapping Coverage \u2014 Jurisdiction Completeness Audit",
+    "description": "Audit completeness of regulatory mapping across 30 target jurisdictions compared to ground-truth legal database.",
+    "hypothesis": {
+      "statement": "AI regulatory mapping achieves \u226585% coverage of material regulations per jurisdiction",
+      "metric": "regulatory_mapping_completeness",
+      "success_threshold": 0.85,
+      "baseline": 0.6
+    },
+    "status": "draft",
+    "control_config": {
+      "method": "manual_legal_review"
+    },
+    "treatment_config": {
+      "method": "ai_regulatory_scan",
+      "jurisdictions": 30,
+      "update_frequency": "weekly"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.587552+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "georisk",
+      "regulatory",
+      "compliance"
+    ]
+  }
+}

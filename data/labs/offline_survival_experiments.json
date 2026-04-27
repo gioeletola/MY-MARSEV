@@ -1,0 +1,56 @@
+{
+  "4b5246ec": {
+    "experiment_id": "4b5246ec",
+    "name": "Offline Lab \u2014 Survival Kit Completeness Audit",
+    "description": "Verify offline knowledge pack covers all 10 critical emergency scenarios.",
+    "hypothesis": {
+      "statement": "Structured kit achieves \u226590% offline coverage",
+      "metric": "offline_coverage",
+      "success_threshold": 0.9,
+      "baseline": 0.6
+    },
+    "status": "running",
+    "control_config": {
+      "kit": "unstructured"
+    },
+    "treatment_config": {
+      "kit": "structured_indexed"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.590678+00:00",
+    "started_at": "2026-04-27T16:19:40.590662+00:00",
+    "completed_at": "",
+    "tags": [
+      "offline",
+      "survival"
+    ]
+  },
+  "5319da81": {
+    "experiment_id": "5319da81",
+    "name": "Offline Lab \u2014 Protocol Completeness Test",
+    "description": "Validate emergency protocols cover medical, evacuation, and comms scenarios.",
+    "hypothesis": {
+      "statement": "Validated protocols score \u226595% completeness",
+      "metric": "protocol_completeness",
+      "success_threshold": 0.95,
+      "baseline": 0.7
+    },
+    "status": "draft",
+    "control_config": {
+      "protocols": "basic"
+    },
+    "treatment_config": {
+      "protocols": "verified_full"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.590726+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "offline",
+      "emergency"
+    ]
+  }
+}

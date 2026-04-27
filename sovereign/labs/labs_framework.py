@@ -180,6 +180,52 @@ class LabsFramework:
             "graduated": [e.name for e in all_exp if e.status == ExperimentStatus.GRADUATED],
         }
 
+    def compare(self, exp_a: str, exp_b: str) -> dict[str, Any]:
+        """
+        Side-by-side comparison of two experiments on their shared metric.
+
+        Returns winner, delta, and per-metric breakdown.
+        """
+        a = self._get(exp_a)
+        b = self._get(exp_b)
+        metric = a.hypothesis.metric
+        val_a = a.results.get(metric, {}).get("value", a.hypothesis.baseline)
+        val_b = b.results.get(metric, {}).get("value", b.hypothesis.baseline)
+        winner = exp_a if val_a >= val_b else exp_b
+        return {
+            "experiment_a": {"id": exp_a, "name": a.name, "value": val_a},
+            "experiment_b": {"id": exp_b, "name": b.name, "value": val_b},
+            "metric": metric,
+            "winner": winner,
+            "delta": round(abs(val_a - val_b), 4),
+            "threshold": a.hypothesis.success_threshold,
+        }
+
+    def leaderboard(self, metric: str | None = None) -> list[dict[str, Any]]:
+        """
+        Rank completed/graduated experiments by metric score (descending).
+
+        If metric is None, uses each experiment's own hypothesis metric.
+        """
+        rows = []
+        for exp in self._experiments.values():
+            if exp.status not in (ExperimentStatus.COMPLETED, ExperimentStatus.GRADUATED):
+                continue
+            m = metric or exp.hypothesis.metric
+            value = exp.results.get(m, {}).get("value")
+            if value is None:
+                continue
+            rows.append({
+                "experiment_id": exp.experiment_id,
+                "name": exp.name,
+                "status": exp.status.value,
+                "metric": m,
+                "value": value,
+                "threshold": exp.hypothesis.success_threshold,
+                "passed": value >= exp.hypothesis.success_threshold,
+            })
+        return sorted(rows, key=lambda r: r["value"], reverse=True)
+
     # ------------------------------------------------------------------
     # High-level lab operations (use class attributes from subclasses)
     # ------------------------------------------------------------------

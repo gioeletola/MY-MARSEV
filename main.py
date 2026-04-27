@@ -538,6 +538,131 @@ def skill_run(
 
 
 # ---------------------------------------------------------------------------
+# lab sub-commands
+# ---------------------------------------------------------------------------
+
+lab_app = typer.Typer(name="lab", help="Manage experimental labs.", no_args_is_help=True)
+app.add_typer(lab_app)
+
+
+@lab_app.command("list")
+def lab_list() -> None:
+    """List all labs with experiment counts and status."""
+    import importlib
+    import pathlib as _pl
+    table = Table(title="SOVEREIGN Labs (21)")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Templates", justify="right")
+    table.add_column("Data File", style="dim")
+    for f in sorted(_pl.Path("sovereign/labs").glob("*.py")):
+        if f.name in ("__init__.py", "labs_framework.py"):
+            continue
+        try:
+            mod = importlib.import_module(f"sovereign.labs.{f.stem}")
+            for name in dir(mod):
+                obj = getattr(mod, name)
+                if isinstance(obj, type) and hasattr(obj, "lab_id") and obj.lab_id not in ("base", ""):
+                    data_f = _pl.Path(f"data/labs/{obj.lab_id}_experiments.json")
+                    exists = "[green]✓[/green]" if data_f.exists() else "[red]✗[/red]"
+                    table.add_row(
+                        obj.lab_id, obj.lab_name,
+                        str(len(getattr(obj, "experiment_templates", []))),
+                        exists,
+                    )
+        except Exception:
+            pass
+    console.print(table)
+
+
+@lab_app.command("status")
+def lab_status(lab_id: str = typer.Argument(..., help="Lab ID")) -> None:
+    """Show detailed status of a lab including running experiments."""
+    import importlib
+    import pathlib as _pl
+    for f in _pl.Path("sovereign/labs").glob("*.py"):
+        if f.name in ("__init__.py", "labs_framework.py"):
+            continue
+        try:
+            mod = importlib.import_module(f"sovereign.labs.{f.stem}")
+            for name in dir(mod):
+                obj = getattr(mod, name)
+                if isinstance(obj, type) and hasattr(obj, "lab_id") and obj.lab_id == lab_id:
+                    data_path = f"data/labs/{lab_id}_experiments.json"
+                    instance = obj(data_path=data_path)
+                    report = instance.status_report()
+                    console.print(Panel(
+                        f"[bold]{report['lab_name']}[/bold]\n{report['description']}\n\n"
+                        f"[dim]Agents:[/dim] {', '.join(report['agents'])}\n"
+                        f"[dim]Benchmarks:[/dim] {report['benchmarks']}\n"
+                        f"[dim]Templates:[/dim] {report['templates_available']}",
+                        title=f"Lab: {lab_id}",
+                        border_style="cyan",
+                    ))
+                    db = report["experiment_summary"]
+                    console.print(f"Total experiments: {db['total']} | By status: {db['by_status']}")
+                    if report["running"]:
+                        console.print("\n[yellow]Running:[/yellow]")
+                        for r in report["running"]:
+                            console.print(f"  · [{r['id']}] {r['name']}")
+                    return
+        except Exception as exc:
+            console.print(f"[red]Error: {exc}[/red]")
+            return
+    console.print(f"[red]Lab '{lab_id}' not found.[/red]")
+
+
+@lab_app.command("experiments")
+def lab_experiments(lab_id: str = typer.Argument(..., help="Lab ID")) -> None:
+    """List all experiments in a lab."""
+    import json as _json
+    import pathlib as _pl
+    data_path = _pl.Path(f"data/labs/{lab_id}_experiments.json")
+    if not data_path.exists():
+        console.print(f"[yellow]No data file for lab '{lab_id}'. Run: python main.py lab run {lab_id}[/yellow]")
+        return
+    raw = _json.loads(data_path.read_text())
+    table = Table(title=f"Experiments: {lab_id}")
+    table.add_column("ID", style="dim")
+    table.add_column("Name")
+    table.add_column("Status")
+    table.add_column("Tags", style="dim")
+    for exp_id, exp in raw.items():
+        s = exp.get("status", "draft")
+        sc = {"running": "yellow", "completed": "green", "graduated": "magenta", "failed": "red", "draft": "dim"}.get(s, "white")
+        table.add_row(exp_id, exp["name"], f"[{sc}]{s}[/{sc}]", ", ".join(exp.get("tags", [])))
+    console.print(table)
+
+
+@lab_app.command("run")
+def lab_run(
+    lab_id: str = typer.Argument(..., help="Lab ID"),
+    template: int = typer.Option(0, "--template", "-t", help="Template index (0-based)"),
+) -> None:
+    """Start a quick experiment in a lab from its templates."""
+    import importlib
+    import pathlib as _pl
+    for f in _pl.Path("sovereign/labs").glob("*.py"):
+        if f.name in ("__init__.py", "labs_framework.py"):
+            continue
+        try:
+            mod = importlib.import_module(f"sovereign.labs.{f.stem}")
+            for name in dir(mod):
+                obj = getattr(mod, name)
+                if isinstance(obj, type) and hasattr(obj, "lab_id") and obj.lab_id == lab_id:
+                    data_path = f"data/labs/{lab_id}_experiments.json"
+                    instance = obj(data_path=data_path)
+                    exp = instance.quick_experiment(template_index=template)
+                    console.print(f"[green]✓ Started experiment:[/green] [{exp.experiment_id}] {exp.name}")
+                    console.print(f"[dim]Status: {exp.status.value} | Hypothesis: {exp.hypothesis.statement}[/dim]")
+                    return
+        except Exception as exc:
+            console.print(f"[red]Error: {exc}[/red]")
+            return
+    console.print(f"[red]Lab '{lab_id}' not found.[/red]")
+
+
+# ---------------------------------------------------------------------------
 # model sub-commands
 # ---------------------------------------------------------------------------
 

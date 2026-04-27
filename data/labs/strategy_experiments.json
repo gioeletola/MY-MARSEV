@@ -1,0 +1,97 @@
+{
+  "13700df3": {
+    "experiment_id": "13700df3",
+    "name": "Blue Ocean Opportunity Scan",
+    "description": "Identify uncontested market spaces by mapping competitor feature clusters and finding whitespace.",
+    "hypothesis": {
+      "statement": "Systematic blue ocean canvas analysis will surface \u22653 viable uncontested market spaces",
+      "metric": "scenario_coverage",
+      "success_threshold": 0.9,
+      "baseline": 0.5
+    },
+    "status": "running",
+    "control_config": {
+      "method": "porter_five_forces"
+    },
+    "treatment_config": {
+      "method": "blue_ocean_canvas",
+      "dimensions": 12
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.598568+00:00",
+    "started_at": "2026-04-27T16:19:40.598549+00:00",
+    "completed_at": "",
+    "tags": [
+      "strategy",
+      "market",
+      "blue_ocean"
+    ]
+  },
+  "794c0549": {
+    "experiment_id": "794c0549",
+    "name": "Scenario Planning \u2014 3-Horizon Model",
+    "description": "Build and stress-test 3-horizon growth scenarios against macro risk factors.",
+    "hypothesis": {
+      "statement": "3-horizon scenario models reduce strategic surprise rate by \u226525%",
+      "metric": "risk_identification_rate",
+      "success_threshold": 0.85,
+      "baseline": 0.6
+    },
+    "status": "draft",
+    "control_config": {
+      "horizons": 1,
+      "scenarios": [
+        "base"
+      ]
+    },
+    "treatment_config": {
+      "horizons": 3,
+      "scenarios": [
+        "bear",
+        "base",
+        "bull"
+      ],
+      "risk_factors": 8
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.598589+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "strategy",
+      "scenarios",
+      "risk"
+    ]
+  },
+  "0b9a3b22": {
+    "experiment_id": "0b9a3b22",
+    "name": "KPI Alignment Audit",
+    "description": "Test whether linking individual KPIs to strategic objectives improves team alignment scores.",
+    "hypothesis": {
+      "statement": "OKR-aligned KPIs improve strategic alignment score by \u226520%",
+      "metric": "kpi_alignment_score",
+      "success_threshold": 0.8,
+      "baseline": 0.6
+    },
+    "status": "draft",
+    "control_config": {
+      "kpi_method": "ad_hoc"
+    },
+    "treatment_config": {
+      "kpi_method": "okr_linked",
+      "review_cadence": "weekly"
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.598621+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "strategy",
+      "kpi",
+      "alignment"
+    ]
+  }
+}

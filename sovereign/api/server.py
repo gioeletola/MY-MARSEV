@@ -613,6 +613,82 @@ async def list_connectors() -> JSONResponse:
 
 
 # ---------------------------------------------------------------------------
+# REST API — Labs
+# ---------------------------------------------------------------------------
+
+@app.get("/api/labs")
+async def list_labs() -> JSONResponse:
+    """Return status summary for all 21 experimental labs."""
+    import importlib
+    import pathlib as _pl
+    labs_info = []
+    for f in sorted(_pl.Path("sovereign/labs").glob("*.py")):
+        if f.name in ("__init__.py", "labs_framework.py"):
+            continue
+        try:
+            mod = importlib.import_module(f"sovereign.labs.{f.stem}")
+            for name in dir(mod):
+                obj = getattr(mod, name)
+                if (
+                    isinstance(obj, type)
+                    and hasattr(obj, "lab_id")
+                    and obj.lab_id not in ("base", "")
+                ):
+                    data_path = _pl.Path(f"data/labs/{obj.lab_id}_experiments.json")
+                    instance = obj(data_path=str(data_path))
+                    db = instance.dashboard()
+                    labs_info.append({
+                        "lab_id": obj.lab_id,
+                        "lab_name": obj.lab_name,
+                        "description": obj.description,
+                        "agents": obj.agents,
+                        "model": obj.model,
+                        "templates": len(getattr(obj, "experiment_templates", [])),
+                        "experiments": db,
+                    })
+        except Exception:
+            pass
+    return JSONResponse({"labs": labs_info, "total": len(labs_info)})
+
+
+@app.get("/api/labs/{lab_id}/experiments")
+async def lab_experiments(lab_id: str) -> JSONResponse:
+    """Return all experiments for a specific lab."""
+    import importlib
+    import pathlib as _pl
+    for f in _pl.Path("sovereign/labs").glob("*.py"):
+        if f.name in ("__init__.py", "labs_framework.py"):
+            continue
+        try:
+            mod = importlib.import_module(f"sovereign.labs.{f.stem}")
+            for name in dir(mod):
+                obj = getattr(mod, name)
+                if isinstance(obj, type) and hasattr(obj, "lab_id") and obj.lab_id == lab_id:
+                    data_path = _pl.Path(f"data/labs/{lab_id}_experiments.json")
+                    instance = obj(data_path=str(data_path))
+                    exps = [
+                        {
+                            "experiment_id": e.experiment_id,
+                            "name": e.name,
+                            "status": e.status.value,
+                            "hypothesis": {
+                                "statement": e.hypothesis.statement,
+                                "metric": e.hypothesis.metric,
+                                "threshold": e.hypothesis.success_threshold,
+                            },
+                            "tags": e.tags,
+                            "created_at": e.created_at,
+                            "started_at": e.started_at,
+                        }
+                        for e in instance.list_experiments()
+                    ]
+                    return JSONResponse({"lab_id": lab_id, "experiments": exps})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+    return JSONResponse({"error": f"Lab '{lab_id}' not found"}, status_code=404)
+
+
+# ---------------------------------------------------------------------------
 # REST API — Expansion (capability gaps + model performance)
 # ---------------------------------------------------------------------------
 

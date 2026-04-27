@@ -1,0 +1,67 @@
+{
+  "a78f0cfc": {
+    "experiment_id": "a78f0cfc",
+    "name": "Source Quality Scoring \u2014 Automated Credibility Assessment",
+    "description": "Compare human vs AI-scored source credibility ratings on a sample of 100 articles.",
+    "hypothesis": {
+      "statement": "AI credibility scoring agrees with expert ratings \u226585% of the time",
+      "metric": "source_quality_score",
+      "success_threshold": 0.85,
+      "baseline": 0.65
+    },
+    "status": "running",
+    "control_config": {
+      "scoring": "human_expert"
+    },
+    "treatment_config": {
+      "scoring": "ai_automated",
+      "criteria": [
+        "author",
+        "venue",
+        "citations",
+        "recency"
+      ]
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.593611+00:00",
+    "started_at": "2026-04-27T16:19:40.593592+00:00",
+    "completed_at": "",
+    "tags": [
+      "research",
+      "sources",
+      "quality"
+    ]
+  },
+  "97a85783": {
+    "experiment_id": "97a85783",
+    "name": "Knowledge Synthesis Speed \u2014 Deep vs Wide Research",
+    "description": "Measure insight quality per hour for depth-first vs breadth-first literature search strategies.",
+    "hypothesis": {
+      "statement": "Depth-first search produces higher synthesis coherence for narrow topics",
+      "metric": "synthesis_coherence",
+      "success_threshold": 0.8,
+      "baseline": 0.6
+    },
+    "status": "draft",
+    "control_config": {
+      "strategy": "breadth_first",
+      "sources": 20
+    },
+    "treatment_config": {
+      "strategy": "depth_first",
+      "sources": 20,
+      "citation_depth": 3
+    },
+    "results": {},
+    "observations": [],
+    "created_at": "2026-04-27T16:19:40.593799+00:00",
+    "started_at": "",
+    "completed_at": "",
+    "tags": [
+      "research",
+      "synthesis",
+      "methodology"
+    ]
+  }
+}
