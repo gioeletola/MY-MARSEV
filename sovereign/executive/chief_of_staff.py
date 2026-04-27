@@ -43,20 +43,36 @@ class ChiefOfStaff(BaseAgent):
 
     async def _decompose(self, brief: str, ctx: AgentContext) -> list[dict]:
         """Ask Claude to break the brief into a task list."""
+        mode = ctx.operating_mode
         prompt = (
-            f"You are the Chief of Staff of the SOVEREIGN AI OS.\n\n"
-            f"Strategic brief:\n{brief}\n\n"
-            f"Break this down into a prioritised list of specific, actionable tasks.\n"
-            f"For each task output a JSON object with: objective, priority (1-5), agent_hint.\n"
-            f"Return a JSON array of task objects only. No prose."
+            f"You are the Chief of Staff of the SOVEREIGN AI OS, operating in {mode!r} mode.\n\n"
+            f"Strategic brief from CEO:\n{brief}\n\n"
+            "Decompose this into 1–5 specific, parallel-executable tasks.\n"
+            "Rules:\n"
+            "- Tasks should be independent where possible (no unnecessary serialisation)\n"
+            "- Use agent_hint to suggest the best specialist agent\n"
+            "- Priority 1=critical, 3=normal, 5=background\n"
+            "- Include estimated_tokens (100-2000) based on complexity\n"
+            "- Include depends_on (list of task indices, 0-based) for sequential tasks\n\n"
+            "Return ONLY a JSON array, no prose:\n"
+            '[{"objective": "...", "priority": 3, "agent_hint": "worker", '
+            '"estimated_tokens": 500, "depends_on": []}]'
         )
         messages = [{"role": "user", "content": prompt}]
-        raw = await self._call_claude(messages, ctx, max_tokens=1024)
+        raw = await self._call_claude(messages, ctx, max_tokens=1500)
         import json
         try:
-            # Extract JSON from the response
             start = raw.find("[")
             end = raw.rfind("]") + 1
-            return json.loads(raw[start:end]) if start >= 0 else []
+            tasks = json.loads(raw[start:end]) if start >= 0 else []
+            # Validate and normalise fields
+            for t in tasks:
+                t.setdefault("priority", 3)
+                t.setdefault("agent_hint", "worker")
+                t.setdefault("estimated_tokens", 500)
+                t.setdefault("depends_on", [])
+            return tasks or [{"objective": brief, "priority": 3, "agent_hint": "worker",
+                               "estimated_tokens": 500, "depends_on": []}]
         except Exception:
-            return [{"objective": brief, "priority": 3, "agent_hint": "worker"}]
+            return [{"objective": brief, "priority": 3, "agent_hint": "worker",
+                     "estimated_tokens": 500, "depends_on": []}]

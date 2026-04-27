@@ -23,9 +23,9 @@ _API_BASE = "https://api.telegram.org/bot{token}"
 class TelegramConnector(ConnectorBase):
     connector_id = "telegram"
     connector_name = "Telegram Bot"
-    connector_description = "Polls Telegram bot messages and commands; supports sending replies."
-    connector_status = ConnectorStatus.STUB
-    requires_oauth = False   # Bot token auth
+    connector_description = "Polls Telegram bot messages and commands; supports sending replies and media."
+    connector_status = ConnectorStatus.CONNECTED
+    requires_oauth = False  # Bot token auth
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
@@ -34,12 +34,21 @@ class TelegramConnector(ConnectorBase):
             or os.getenv("TELEGRAM_BOT_TOKEN")
             or ""
         )
+        self._default_chat_id: int | str | None = (
+            self._config.get("chat_id")
+            or os.getenv("TELEGRAM_CHAT_ID")
+            or None
+        )
         self._allowed_chat_ids: list[int] = self._config.get("allowed_chat_ids", [])
         self._offset: int = 0
         self._messages: list[dict] = []
 
     def _base_url(self) -> str:
         return _API_BASE.format(token=self._token)
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
     async def connect(self) -> bool:
         if not self._token:
@@ -79,7 +88,8 @@ class TelegramConnector(ConnectorBase):
                 data = resp.json()
                 if not data.get("ok"):
                     return SyncResult(
-                        connector_id=self.connector_id, success=False,
+                        connector_id=self.connector_id,
+                        success=False,
                         errors=[data.get("description", "unknown error")],
                     )
 
@@ -107,21 +117,6 @@ class TelegramConnector(ConnectorBase):
             self.connector_status = ConnectorStatus.ERROR
             return SyncResult(connector_id=self.connector_id, success=False, errors=[str(exc)])
 
-    async def send_message(self, chat_id: int, text: str, parse_mode: str = "Markdown") -> bool:
-        if not self._token:
-            return False
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    f"{self._base_url()}/sendMessage",
-                    json={"chat_id": chat_id, "text": text, "parse_mode": parse_mode},
-                )
-                return resp.json().get("ok", False)
-        except Exception as exc:
-            self._logger.error("TelegramConnector: sendMessage error: %s", exc)
-            return False
-
     async def health(self) -> ConnectorHealth:
         return ConnectorHealth(
             connector_id=self.connector_id,
@@ -135,6 +130,108 @@ class TelegramConnector(ConnectorBase):
                 "allowed_chats": len(self._allowed_chat_ids),
             },
         )
+
+    # ------------------------------------------------------------------
+    # Domain methods
+    # ------------------------------------------------------------------
+
+    async def send_message(
+        self,
+        text: str,
+        chat_id: int | str | None = None,
+        parse_mode: str = "HTML",
+    ) -> dict:
+        """
+        Send a text message to `chat_id` (defaults to TELEGRAM_CHAT_ID).
+        Returns the Telegram Message object dict or raises on error.
+        """
+        if not self._token:
+            raise RuntimeError("TelegramConnector: no bot token configured")
+        target = chat_id or self._default_chat_id
+        if target is None:
+            raise RuntimeError("TelegramConnector: no chat_id provided and TELEGRAM_CHAT_ID not set")
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{self._base_url()}/sendMessage",
+                    json={"chat_id": target, "text": text, "parse_mode": parse_mode},
+                )
+                data = resp.json()
+                if data.get("ok"):
+                    return data.get("result", {})
+                raise RuntimeError(f"TelegramConnector: sendMessage failed: {data.get('description')}")
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            self._logger.error("TelegramConnector: sendMessage error: %s", exc)
+            raise
+
+    async def send_photo(
+        self,
+        photo_url: str,
+        caption: str = "",
+        chat_id: int | str | None = None,
+    ) -> dict:
+        """
+        Send a photo (by URL) to `chat_id`.
+        Returns the Telegram Message object dict.
+        """
+        if not self._token:
+            raise RuntimeError("TelegramConnector: no bot token configured")
+        target = chat_id or self._default_chat_id
+        if target is None:
+            raise RuntimeError("TelegramConnector: no chat_id provided and TELEGRAM_CHAT_ID not set")
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{self._base_url()}/sendPhoto",
+                json={"chat_id": target, "photo": photo_url, "caption": caption},
+            )
+            data = resp.json()
+            if data.get("ok"):
+                return data.get("result", {})
+            raise RuntimeError(f"TelegramConnector: sendPhoto failed: {data.get('description')}")
+
+    async def get_updates(self, offset: int = 0, limit: int = 10) -> list[dict]:
+        """
+        Fetch up to `limit` pending updates starting from `offset`.
+        Returns a list of Telegram Update objects.
+        """
+        if not self._token:
+            return []
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{self._base_url()}/getUpdates",
+                params={"offset": offset, "limit": limit, "timeout": 0},
+            )
+            data = resp.json()
+            return data.get("result", []) if data.get("ok") else []
+
+    async def get_chat_info(self, chat_id: int | str | None = None) -> dict:
+        """
+        Return info about the given chat (defaults to TELEGRAM_CHAT_ID).
+        """
+        if not self._token:
+            raise RuntimeError("TelegramConnector: no bot token configured")
+        target = chat_id or self._default_chat_id
+        if target is None:
+            raise RuntimeError("TelegramConnector: no chat_id provided and TELEGRAM_CHAT_ID not set")
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{self._base_url()}/getChat",
+                params={"chat_id": target},
+            )
+            data = resp.json()
+            if data.get("ok"):
+                return data.get("result", {})
+            raise RuntimeError(f"TelegramConnector: getChat failed: {data.get('description')}")
+
+    # ------------------------------------------------------------------
+    # Convenience
+    # ------------------------------------------------------------------
 
     def get_messages(self) -> list[dict]:
         return self._messages

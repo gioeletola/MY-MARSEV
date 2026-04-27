@@ -13,6 +13,8 @@ import logging
 import pathlib
 from typing import Any
 
+from sovereign.memory.access_patterns.semantic import SemanticIndex
+
 logger = logging.getLogger(__name__)
 
 MEMORY_DOMAINS = [
@@ -52,6 +54,8 @@ class MemoryManager:
         # Lazy-loaded in-memory caches per domain
         self._caches: dict[str, dict[str, Any]] = {d: {} for d in MEMORY_DOMAINS}
         self._loaded: set[str] = set()
+        # Lazy semantic indexes per domain; invalidated on write
+        self._semantic_indexes: dict[str, SemanticIndex] = {}
 
     # ------------------------------------------------------------------
     # Direct access
@@ -69,6 +73,8 @@ class MemoryManager:
         await self._load(domain)
         self._caches[domain][key] = value
         await self._persist(domain)
+        # Invalidate the cached semantic index so it is rebuilt on next search
+        self._semantic_indexes.pop(domain, None)
         logger.debug("Memory write", domain=domain, key=key)
 
     async def delete(self, domain: str, key: str) -> bool:
@@ -79,6 +85,8 @@ class MemoryManager:
         self._caches[domain].pop(key, None)
         if existed:
             await self._persist(domain)
+            # Invalidate semantic index
+            self._semantic_indexes.pop(domain, None)
         return existed
 
     async def list_keys(self, domain: str) -> list[str]:
@@ -88,7 +96,7 @@ class MemoryManager:
         return list(self._caches[domain])
 
     # ------------------------------------------------------------------
-    # Semantic search — TF-IDF cosine similarity
+    # Semantic search — vector embeddings with TF-IDF fallback
     # ------------------------------------------------------------------
 
     async def semantic_search(
@@ -98,18 +106,32 @@ class MemoryManager:
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
         """
-        TF-IDF cosine similarity search across one or all memory domains.
+        Embedding-based cosine similarity search across one or all memory domains.
 
-        Flattens all record values to plain text, builds a TF-IDF matrix,
-        and ranks by cosine similarity to the query. Falls back to
-        substring matching if scikit-learn is not available.
+        Uses SemanticIndex (sentence-transformers if available, otherwise enhanced
+        TF-IDF with character + word n-grams).  Indexes are built lazily per
+        domain and cached in self._semantic_indexes; they are invalidated whenever
+        a domain is written to.
 
-        For higher accuracy, enable ChromaDB: pip install sovereign-ai-os[chromadb]
+        Returns a list of dicts: [{"key": str, "score": float, "value": Any}].
+        The "domain" key is also included when searching across multiple domains.
         """
         domains_to_search = [domain] if domain else MEMORY_DOMAINS
 
-        # Gather all documents
-        docs: list[tuple[str, str, Any]] = []  # (domain, key, record)
+        if domain:
+            # Single-domain search — use (or build) the per-domain index
+            self._ensure_domain(domain)
+            await self._load(domain)
+            index = await self._get_semantic_index(domain)
+            hits = index.search(query, top_k=top_k)
+            results: list[dict[str, Any]] = []
+            for key, score in hits:
+                value = self._caches[domain].get(key)
+                results.append({"key": key, "score": score, "value": value})
+            return results
+
+        # Multi-domain search: gather all docs, build a combined index
+        docs: list[tuple[str, str, Any]] = []  # (domain, key, value)
         for d in domains_to_search:
             try:
                 await self._load(d)
@@ -121,50 +143,53 @@ class MemoryManager:
         if not docs:
             return []
 
-        texts = [self._record_to_text(rec) for _, _, rec in docs]
+        # Build a transient index over all docs
+        key_text: dict[str, str] = {}
+        # Use "domain::key" as the composite key to avoid collisions
+        composite_keys = []
+        for d, key, value in docs:
+            ck = f"{d}::{key}"
+            key_text[ck] = self._record_to_text(value)
+            composite_keys.append(ck)
 
-        try:
-            import numpy as np
-            from sklearn.feature_extraction.text import TfidfVectorizer
-            from sklearn.metrics.pairwise import cosine_similarity
+        index = SemanticIndex()
+        index.build(key_text)
+        hits = index.search(query, top_k=top_k)
 
-            corpus = texts + [query]
-            vectorizer = TfidfVectorizer(
-                strip_accents="unicode",
-                lowercase=True,
-                ngram_range=(1, 2),
-                max_features=10_000,
+        results = []
+        # Map composite key back to domain/key/value
+        ck_to_doc = {f"{d}::{key}": (d, key, value) for d, key, value in docs}
+        for ck, score in hits:
+            d, key, value = ck_to_doc[ck]
+            results.append({"domain": d, "key": key, "score": score, "value": value})
+        return results
+
+    async def rebuild_semantic_index(self, domain: str) -> SemanticIndex:
+        """
+        Force-rebuild the semantic index for *domain* and cache it.
+
+        Useful after bulk writes or external data changes.
+        """
+        self._ensure_domain(domain)
+        await self._load(domain)
+        self._semantic_indexes.pop(domain, None)
+        return await self._get_semantic_index(domain)
+
+    async def _get_semantic_index(self, domain: str) -> SemanticIndex:
+        """Return the cached SemanticIndex for *domain*, building it if needed."""
+        if domain not in self._semantic_indexes:
+            key_text = {
+                key: self._record_to_text(value)
+                for key, value in self._caches[domain].items()
+            }
+            index = SemanticIndex()
+            index.build(key_text)
+            self._semantic_indexes[domain] = index
+            logger.debug(
+                "Built semantic index for domain=%s mode=%s size=%d",
+                domain, index.mode, len(index),
             )
-            tfidf = vectorizer.fit_transform(corpus)
-            # Last row = query vector; all others = documents
-            query_vec = tfidf[-1]
-            doc_vecs = tfidf[:-1]
-            scores = cosine_similarity(query_vec, doc_vecs)[0]
-
-            # Rank by score descending
-            ranked_idx = np.argsort(scores)[::-1]
-            results: list[dict[str, Any]] = []
-            for idx in ranked_idx[:top_k]:
-                if scores[idx] > 0.0:
-                    d, key, record = docs[idx]
-                    results.append({
-                        "domain": d,
-                        "key": key,
-                        "record": record,
-                        "score": float(round(scores[idx], 4)),
-                    })
-            return results
-
-        except ImportError:
-            # Fallback: substring matching
-            logger.warning("scikit-learn not available — falling back to substring search")
-            q = query.lower()
-            results = [
-                {"domain": d, "key": k, "record": rec, "score": 0.5}
-                for d, k, rec in docs
-                if q in self._record_to_text(rec).lower()
-            ]
-            return results[:top_k]
+        return self._semantic_indexes[domain]
 
     @staticmethod
     def _record_to_text(record: Any) -> str:

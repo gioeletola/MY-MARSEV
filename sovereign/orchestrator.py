@@ -183,6 +183,8 @@ class SovereignOrchestrator:
     _VALID_MODES = frozenset({
         "command", "business", "personal", "finance",
         "study", "travel", "research", "builder", "local_offline", "survival",
+        # Extended modes
+        "founder", "war", "prestige", "silent", "recovery", "emergency",
     })
 
     def set_mode(self, mode_name: str) -> bool:

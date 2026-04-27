@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from typing import Any
 
 from sovereign.integrations.connectors.connector_base import (

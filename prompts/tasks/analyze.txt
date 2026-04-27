@@ -1,0 +1,35 @@
+## Task: Deep Analysis
+
+Conduct a structured, evidence-based analysis of the following topic.
+
+Context:
+{{ context }}
+
+Topic to analyse:
+{{ topic }}
+
+Return your analysis in this structure:
+
+## Executive Summary
+One paragraph distilling the key insight.
+
+## Key Findings
+- Finding 1 (with evidence)
+- Finding 2 (with evidence)
+- Finding 3 (with evidence)
+
+## Opportunities
+- Top opportunity with rationale
+- Second opportunity with rationale
+
+## Risks & Constraints
+- Risk 1 with severity (low/medium/high)
+- Risk 2 with severity
+
+## Recommended Actions
+1. Immediate action (this week)
+2. Short-term action (this month)
+3. Long-term action (this quarter)
+
+## Confidence
+State your confidence level (0-100%) and what would improve it.

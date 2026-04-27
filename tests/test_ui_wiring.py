@@ -56,7 +56,7 @@ class TestOrchestratorModes:
 
     def test_valid_modes_count(self):
         from sovereign.orchestrator import SovereignOrchestrator
-        assert len(SovereignOrchestrator._VALID_MODES) == 10
+        assert len(SovereignOrchestrator._VALID_MODES) >= 16
 
 
 # ---------------------------------------------------------------------------

@@ -52,6 +52,7 @@
       content: ''; display: inline-block; width: 6px; height: 6px;
       border-radius: 50%; margin-right: 6px; vertical-align: middle;
       animation: pulse 2s infinite;
+      transition: background-color 0.4s ease;
     }
     .pulse-dot.active::before  { background: #06b6d4; }
     .pulse-dot.idle::before    { background: #6b7280; }
@@ -60,7 +61,8 @@
       0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
     }
     .streaming-cursor::after {
-      content: '▋'; animation: blink 0.7s infinite; color: #06b6d4;
+      content: '▋'; animation: blink 0.5s step-end infinite; color: #06b6d4;
+      font-size: 1.1em; vertical-align: baseline;
     }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
     .msg-user   { background: linear-gradient(135deg, #1e1e35, #1a1a2e); border-left: 2px solid #7c3aed; }
@@ -109,9 +111,57 @@
     .bar-fill  { height: 100%; border-radius: 9999px; transition: width 0.6s ease; }
     /* View tab active */
     .view-tab-active { color: #06b6d4; border-color: #06b6d4; }
+    /* Header gradient */
+    header { background: linear-gradient(180deg, #13131e 0%, #11111a 100%) !important; }
+    /* Input focus glow */
+    .input-glow:focus-within {
+      box-shadow: 0 0 0 1px rgba(6,182,212,0.3), 0 0 12px rgba(6,182,212,0.1);
+      transition: box-shadow 0.2s ease;
+    }
+    /* Character counter */
+    .char-counter { font-size: 0.65rem; color: #6b7280; font-family: 'JetBrains Mono', monospace; }
+    .char-counter.warn { color: #f59e0b; }
+    .char-counter.danger { color: #f43f5e; }
+    /* Blockquote */
+    .prose-sm blockquote {
+      border-left: 3px solid #7c3aed;
+      padding-left: 0.75rem;
+      color: #94a3b8;
+      font-style: italic;
+      margin: 0.5rem 0;
+    }
+    /* HR */
+    .prose-sm hr { border-color: #1e1e2e; margin: 0.75rem 0; }
+    /* Table */
+    .prose-sm table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 0.5rem 0; }
+    .prose-sm th { background: #1e1e2e; color: #94a3b8; padding: 0.3rem 0.6rem; text-align: left; border: 1px solid #2e2e4e; }
+    .prose-sm td { padding: 0.3rem 0.6rem; border: 1px solid #1e1e2e; color: #cbd5e1; }
+    .prose-sm tr:nth-child(even) td { background: rgba(30,30,46,0.3); }
+    /* Mobile sidebar toggle */
+    @media (max-width: 768px) {
+      aside.left-sidebar { position: fixed; left: -14rem; top: 0; bottom: 0; z-index: 40; transition: left 0.25s ease; }
+      aside.left-sidebar.open { left: 0; }
+      .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 39; }
+      .sidebar-overlay.open { display: block; }
+    }
+    /* Mode dot colours */
+    .mode-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
+    .mode-dot.command  { background: #06b6d4; }
+    .mode-dot.business { background: #7c3aed; }
+    .mode-dot.finance  { background: #f59e0b; }
+    .mode-dot.personal { background: #34d399; }
+    .mode-dot.research { background: #818cf8; }
+    .mode-dot.builder  { background: #fb923c; }
+    .mode-dot.study    { background: #a78bfa; }
+    .mode-dot.travel   { background: #38bdf8; }
+    .mode-dot.survival { background: #f43f5e; }
+    .mode-dot.default  { background: #6b7280; }
   </style>
 </head>
 <body class="font-sans h-screen flex flex-col overflow-hidden">
+
+<!-- Mobile sidebar overlay -->
+<div class="sidebar-overlay" :class="sidebarOpen ? 'open' : ''" @click="sidebarOpen = false" x-show="loggedIn" x-cloak></div>
 
 <!-- Login Modal -->
 <div x-show="showLogin" x-cloak
@@ -130,8 +180,10 @@
              type="password"
              placeholder="Enter sovereign password"
              autocomplete="current-password"
+             x-ref="loginInput"
              class="w-full bg-bg border border-border rounded-lg px-3 py-2.5 text-sm text-slate-200 font-mono
-                    focus:outline-none focus:border-cyan placeholder-muted mb-3 transition-colors"
+                    focus:outline-none focus:border-cyan focus:shadow-[0_0_0_2px_rgba(6,182,212,0.2)]
+                    placeholder-muted mb-3 transition-all duration-200"
              :class="loginError ? 'border-rose' : ''"
              @keydown.enter.prevent="login()"/>
       <p x-show="loginError" class="text-xs text-rose mb-3" x-text="loginError"></p>
@@ -139,7 +191,11 @@
               :disabled="loginLoading || !loginPassword"
               class="w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-all
                      bg-gradient-to-r from-cyan to-violet hover:opacity-90 disabled:opacity-40
-                     focus:outline-none focus:ring-2 focus:ring-cyan/50">
+                     focus:outline-none focus:ring-2 focus:ring-cyan/50 flex items-center justify-center gap-2">
+        <svg x-show="loginLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
         <span x-text="loginLoading ? 'Authenticating…' : 'Connect'"></span>
       </button>
     </form>
@@ -150,9 +206,19 @@
 <!-- Top bar -->
 <header class="flex items-center justify-between px-4 py-2 border-b border-border bg-surface shrink-0" x-show="loggedIn">
   <div class="flex items-center gap-3">
+    <!-- Mobile sidebar toggle -->
+    <button @click="sidebarOpen = !sidebarOpen"
+            class="md:hidden text-muted hover:text-cyan p-1 rounded transition-colors" title="Toggle sidebar">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
     <div class="w-7 h-7 rounded-md bg-gradient-to-br from-cyan to-violet flex items-center justify-center text-xs font-bold text-white">S</div>
-    <span class="font-semibold tracking-wide text-sm text-slate-200">SOVEREIGN AI OS</span>
-    <span class="text-xs text-muted font-mono ml-2" x-text="'v0.3 · ' + mode"></span>
+    <span class="font-semibold tracking-wide text-sm text-slate-200 hidden sm:inline">SOVEREIGN AI OS</span>
+    <div class="flex items-center gap-1.5 ml-1">
+      <span :class="'mode-dot ' + (selectedMode || 'default')"></span>
+      <span class="text-xs text-muted font-mono" x-text="'v0.3 · ' + mode"></span>
+    </div>
     <!-- View tab switcher -->
     <div class="flex items-center gap-1 ml-4">
       <button @click="activeView = 'chat'"
@@ -220,10 +286,14 @@
 <div class="flex flex-1 overflow-hidden" x-show="loggedIn" x-cloak>
 
   <!-- LEFT SIDEBAR — Sessions + Memory -->
-  <aside class="w-56 border-r border-border bg-surface flex flex-col shrink-0 overflow-hidden">
+  <aside class="left-sidebar w-56 border-r border-border bg-surface flex flex-col shrink-0 overflow-hidden"
+         :class="sidebarOpen ? 'open' : ''">
     <!-- Sessions -->
     <div class="px-3 pt-3 pb-1">
-      <p class="text-xs font-semibold text-muted uppercase tracking-widest mb-2">Sessions</p>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-semibold text-muted uppercase tracking-widest">Sessions</p>
+        <span class="text-xs font-mono bg-border rounded-full px-1.5 py-0.5 text-muted" x-text="sessions.length"></span>
+      </div>
       <template x-for="s in sessions.slice().reverse().slice(0,15)" :key="s.id">
         <div @click="loadSession(s)" :class="currentSession === s.id ? 'bg-border' : ''"
              class="sidebar-item rounded px-2 py-1.5 cursor-pointer mb-0.5 transition-colors">
@@ -561,7 +631,7 @@
         <h2 class="text-xl font-semibold text-slate-200 mb-2">SOVEREIGN AI OS</h2>
         <p class="text-sm text-muted max-w-md">Your total agentic operating system. 200+ agents, 14 memory domains, full executive core.</p>
         <div class="mt-6 grid grid-cols-2 gap-2 max-w-sm">
-          <template x-for="prompt in quickPrompts" :key="prompt">
+          <template x-for="prompt in contextualPrompts" :key="prompt">
             <button @click="sendPrompt(prompt)"
                     class="text-xs border border-border rounded-lg px-3 py-2 text-slate-400 hover:border-cyan hover:text-cyan transition-colors text-left">
               <span x-text="prompt"></span>
@@ -612,18 +682,26 @@
         </template>
       </div>
       <!-- Textarea + send -->
-      <div class="gradient-border rounded-xl overflow-hidden">
+      <div class="gradient-border input-glow rounded-xl overflow-hidden">
         <div class="flex items-end gap-2 bg-bg rounded-xl px-3 py-2">
           <textarea
             x-model="inputText"
-            @keydown.enter.prevent="if (!$event.shiftKey) sendMessage()"
+            @keydown.enter.prevent="if (!$event.shiftKey && !$event.ctrlKey && !$event.metaKey) sendMessage()"
             @keydown.ctrl.enter.prevent="sendMessage()"
-            placeholder="Ask anything… (Enter to send, Shift+Enter for newline)"
+            @keydown.meta.enter.prevent="sendMessage()"
+            @keydown.escape.prevent="if (isStreaming) cancelStream()"
+            :placeholder="placeholderText"
             rows="1"
             x-ref="input"
             @input="autoResize($el)"
             class="flex-1 bg-transparent text-sm text-slate-200 placeholder-muted resize-none outline-none font-mono leading-relaxed max-h-40 overflow-y-auto"
           ></textarea>
+          <!-- Clear button -->
+          <button x-show="inputText.length > 0 && !isStreaming"
+                  @click="inputText = ''; $refs.input.style.height = 'auto'"
+                  class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-muted hover:text-rose transition-colors text-sm"
+                  title="Clear input">×</button>
+          <!-- Send button -->
           <button @click="sendMessage()" :disabled="isStreaming || !inputText.trim()"
                   :class="isStreaming || !inputText.trim() ? 'opacity-30 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-cyan/20'"
                   class="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan to-violet flex items-center justify-center transition-all">
@@ -634,13 +712,18 @@
           </button>
         </div>
       </div>
-      <p class="text-xs text-muted mt-1.5 text-center font-mono">
-        <span x-text="mode + ' mode'"></span>
-        <span class="mx-1">·</span>
-        <span x-text="totalTokensFormatted + ' tokens used'"></span>
-        <span class="mx-1">·</span>
-        <span x-text="'$' + totalCostFormatted + ' est. cost'"></span>
-      </p>
+      <div class="flex items-center justify-between mt-1.5 text-xs text-muted font-mono">
+        <span x-text="currentDateTime"></span>
+        <span class="hidden sm:flex items-center gap-1">
+          <span x-text="totalTokensFormatted + ' tokens'"></span>
+          <span class="mx-0.5">·</span>
+          <span x-text="'$' + totalCostFormatted"></span>
+        </span>
+        <span x-show="inputText.length > 200"
+              :class="inputText.length > 800 ? 'char-counter danger' : (inputText.length > 500 ? 'char-counter warn' : 'char-counter')"
+              x-text="inputText.length + ' chars'"></span>
+        <span x-show="inputText.length <= 200" x-text="mode + ' mode'"></span>
+      </div>
     </div>
     </div><!-- end chat view -->
   </main>
@@ -718,7 +801,13 @@
 
     <!-- Decision log -->
     <div class="border-t border-border px-3 py-2 max-h-40 overflow-y-auto">
-      <p class="text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Decision Log</p>
+      <div class="flex items-center justify-between mb-1.5">
+        <p class="text-xs font-semibold text-muted uppercase tracking-widest">Decision Log</p>
+        <button @click="decisionLog = []"
+                class="text-xs text-muted hover:text-rose font-mono transition-colors" title="Clear log">
+          clear
+        </button>
+      </div>
       <template x-for="d in decisionLog.slice().reverse().slice(0, 8)" :key="d.id">
         <div class="py-0.5">
           <div class="flex items-start gap-1">
@@ -766,6 +855,9 @@ function sovereign() {
     activeDomainData: {},
     msgId:        0,
     streamingMsg: null,
+    sidebarOpen:  false,
+    currentDateTime: '',
+    placeholderText: 'Ask anything… (Enter to send, Shift+Enter for newline)',
     // Dashboard state
     activeView:        'chat',
     dashboard:         null,
@@ -781,6 +873,22 @@ function sovereign() {
       'What opportunities am I missing?',
       'Show my goal progress',
     ],
+
+    get contextualPrompts() {
+      const modePrompts = {
+        command:  ['Run system status', 'Show pending approvals', 'What needs my attention?', 'Executive briefing'],
+        business: ['Show today\'s pipeline', 'Summarise open deals', 'Weekly business brief', 'Revenue forecast'],
+        finance:  ['Portfolio health check', 'Show cash flow forecast', 'Budget vs actual', 'Net worth update'],
+        personal: ['Morning briefing', 'Top habits to review', 'Week in review', 'Energy check-in'],
+        research: ['Synthesise latest notes', 'Find knowledge gaps', 'Build a research brief', 'Key findings summary'],
+        builder:  ['Review code quality', 'Next sprint priorities', 'Technical debt summary', 'Ship readiness check'],
+        study:    ['What should I study today?', 'Quiz me on recent topics', 'Study plan this week', 'Learning progress'],
+        travel:   ['Trip checklist', 'Packing list', 'Local recommendations', 'Travel risk briefing'],
+        survival: ['Core priorities only', 'Resource inventory', 'Critical comms check', 'Emergency protocol'],
+        founder:  ['Investor update draft', 'Burn rate check', 'Team health pulse', 'Product roadmap review'],
+      };
+      return modePrompts[this.selectedMode] || this.quickPrompts;
+    },
 
     get totalTokensFormatted() {
       const t = (this.usage.input_tokens || 0) + (this.usage.output_tokens || 0);
@@ -809,6 +917,39 @@ function sovereign() {
       } else {
         this.showLogin = true;
       }
+      // Clock update
+      const updateClock = () => {
+        const now = new Date();
+        this.currentDateTime = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+          + ' · ' + now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      };
+      updateClock();
+      setInterval(updateClock, 30000);
+      // Placeholder cycling
+      const placeholders = [
+        'Ask anything… (Enter to send)',
+        'What do you want to build today?',
+        'Run a financial health check…',
+        'What are my top 3 priorities?',
+        'Show me my goal progress…',
+        'Cmd+K to focus · Shift+Enter for newline',
+      ];
+      let pi = 0;
+      setInterval(() => {
+        if (!this.inputText && !this.isStreaming) {
+          pi = (pi + 1) % placeholders.length;
+          this.placeholderText = placeholders[pi];
+        }
+      }, 5000);
+      // Global keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault();
+          if (this.loggedIn && this.$refs.input) {
+            this.$refs.input.focus();
+          }
+        }
+      });
     },
 
     // Auth
@@ -998,6 +1139,20 @@ function sovereign() {
     },
     sendPrompt(text) { this.inputText = text; this.sendMessage(); },
 
+    // Cancel active stream
+    cancelStream() {
+      if (this.isStreaming) {
+        this.sendWs({ type: 'cancel_stream', session_id: String(this.currentSession) });
+        this.isStreaming = false;
+        if (this.streamingMsg) {
+          this.streamingMsg.streaming = false;
+          this.streamingMsg.content += ' [cancelled]';
+          this.streamingMsg = null;
+        }
+        this.activeTasks = [];
+      }
+    },
+
     // Mode
     switchMode() {
       this.mode = this.selectedMode;
@@ -1060,23 +1215,81 @@ function sovereign() {
       if (this.decisionLog.length > 50) this.decisionLog.shift();
     },
 
-    // Markdown renderer (minimal, no external deps)
+    // Markdown renderer — HTML escaping always happens first to prevent XSS
     renderMarkdown(text) {
       if (!text) return '';
-      return text
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+      // Step 1: Extract code blocks before any other processing
+      const codeBlocks = [];
+      text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const idx = codeBlocks.length;
+        codeBlocks.push(`<pre class="bg-bg border border-border rounded p-3 text-xs text-slate-300 overflow-x-auto my-2"><code>${escaped}</code></pre>`);
+        return `\x00CODE${idx}\x00`;
+      });
+
+      // Step 2: HTML-escape the rest (safe from XSS)
+      text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // Step 3: Apply markdown transforms
+      // Headings
+      text = text
         .replace(/^#{3}\s(.+)$/gm, '<h3 class="text-sm font-semibold text-slate-200 mt-3 mb-1">$1</h3>')
         .replace(/^#{2}\s(.+)$/gm, '<h2 class="text-base font-semibold text-slate-100 mt-4 mb-2">$1</h2>')
-        .replace(/^#{1}\s(.+)$/gm, '<h1 class="text-lg font-bold text-white mt-4 mb-2">$1</h1>')
+        .replace(/^#{1}\s(.+)$/gm, '<h1 class="text-lg font-bold text-white mt-4 mb-2">$1</h1>');
+
+      // Horizontal rule
+      text = text.replace(/^-{3,}$/gm, '<hr/>');
+
+      // Blockquotes
+      text = text.replace(/^&gt;\s?(.+)$/gm,
+        '<blockquote>$1</blockquote>');
+
+      // Tables (basic: | col | col | rows)
+      text = text.replace(/((?:^\|.+\|\n?)+)/gm, (tableBlock) => {
+        const rows = tableBlock.trim().split('\n');
+        if (rows.length < 2) return tableBlock;
+        const isSep = (r) => /^\|[-:\s|]+\|$/.test(r.trim());
+        let html = '<table>';
+        let inBody = false;
+        rows.forEach((row, i) => {
+          if (isSep(row)) { inBody = true; return; }
+          const cells = row.trim().replace(/^\||\|$/g, '').split('|');
+          if (!inBody) {
+            html += '<thead><tr>' + cells.map(c => `<th>${c.trim()}</th>`).join('') + '</tr></thead><tbody>';
+          } else {
+            html += '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
+          }
+        });
+        html += inBody ? '</tbody></table>' : '</table>';
+        return html;
+      });
+
+      // Inline code (after block code extracted)
+      text = text.replace(/`([^`]+)`/g, '<code class="bg-border rounded px-1 py-0.5 text-cyan text-xs">$1</code>');
+
+      // Bold and italic
+      text = text
         .replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-100 font-semibold">$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em class="text-slate-300">$1</em>')
-        .replace(/`(.+?)`/g, '<code class="bg-border rounded px-1 py-0.5 text-cyan text-xs">$1</code>')
-        .replace(/```([\s\S]*?)```/g, '<pre class="bg-bg border border-border rounded p-3 text-xs text-slate-300 overflow-x-auto my-2"><code>$1</code></pre>')
-        .replace(/^- (.+)$/gm, '<li class="text-slate-300 ml-4 list-disc">$1</li>')
-        .replace(/^\d+\. (.+)$/gm, '<li class="text-slate-300 ml-4 list-decimal">$1</li>')
+        .replace(/\*(.+?)\*/g, '<em class="text-slate-300">$1</em>');
+
+      // Lists
+      text = text
+        .replace(/^[-*]\s(.+)$/gm, '<li class="text-slate-300 ml-4 list-disc">$1</li>')
+        .replace(/^\d+\.\s(.+)$/gm, '<li class="text-slate-300 ml-4 list-decimal">$1</li>');
+
+      // Paragraphs
+      text = text
         .replace(/\n\n/g, '</p><p class="mt-2">')
-        .replace(/\n/g, '<br/>')
-        .replace(/^/, '<p>').replace(/$/, '</p>');
+        .replace(/\n/g, '<br/>');
+      text = '<p>' + text + '</p>';
+
+      // Step 4: Restore code blocks
+      codeBlocks.forEach((block, idx) => {
+        text = text.replace(`\x00CODE${idx}\x00`, block);
+      });
+
+      return text;
     },
 
     authHeaders() {

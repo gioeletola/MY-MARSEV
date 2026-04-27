@@ -1,0 +1,39 @@
+## Task: Strategic Planning
+
+Create a concrete, executable plan for the following objective.
+
+Context:
+{{ context }}
+
+Objective:
+{{ objective }}
+
+Constraints:
+{{ constraints }}
+
+Return a structured plan:
+
+## Objective & Success Criteria
+- Clear statement of what done looks like
+- 2-3 measurable success metrics
+
+## Phase 1 — Foundation (Week 1)
+- [ ] Task 1 (owner, deadline)
+- [ ] Task 2 (owner, deadline)
+
+## Phase 2 — Execution (Weeks 2-4)
+- [ ] Task 1
+- [ ] Task 2
+
+## Phase 3 — Review & Iterate
+- [ ] Review mechanism
+- [ ] Adjustment criteria
+
+## Dependencies & Blockers
+- What must be true before starting
+- Known blockers and how to remove them
+
+## Resource Requirements
+- Time: estimated hours/days
+- Tools/access needed
+- Decision authority required
