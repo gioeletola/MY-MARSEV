@@ -15,6 +15,24 @@ class OfflineSurvivalLab(LabsFramework):
     output_standards = {"survival_pack": "Verified offline kit with all critical resources indexed"}
     requires_human_review = False
     model = "claude-haiku-4-5-20251001"
+    experiment_templates = [
+        {
+            "name": "Offline Lab — Survival Kit Completeness Audit",
+            "description": "Verify offline knowledge pack covers all 10 critical emergency scenarios.",
+            "hypothesis": {"statement": "Structured kit achieves ≥90% offline coverage",
+                           "metric": "offline_coverage", "success_threshold": 0.90, "baseline": 0.60},
+            "control_config": {"kit": "unstructured"}, "treatment_config": {"kit": "structured_indexed"},
+            "tags": ["offline", "survival"],
+        },
+        {
+            "name": "Offline Lab — Protocol Completeness Test",
+            "description": "Validate emergency protocols cover medical, evacuation, and comms scenarios.",
+            "hypothesis": {"statement": "Validated protocols score ≥95% completeness",
+                           "metric": "protocol_completeness", "success_threshold": 0.95, "baseline": 0.70},
+            "control_config": {"protocols": "basic"}, "treatment_config": {"protocols": "verified_full"},
+            "tags": ["offline", "emergency"],
+        },
+    ]
 
     def __init__(self, data_path: str = "data/labs/offline_experiments.json") -> None:
         super().__init__(data_path=data_path)

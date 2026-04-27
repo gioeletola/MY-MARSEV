@@ -236,7 +236,8 @@ class TestHTMLPageRoutes:
 # ---------------------------------------------------------------------------
 
 class TestAuthRoutes:
-    def test_login_wrong_password_401(self, client):
+    def test_login_wrong_password_401(self, client, monkeypatch):
+        monkeypatch.setenv("SOVEREIGN_PASSWORD", "testpass")
         r = client.post("/api/auth/login", json={"password": "wrong"})
         assert r.status_code == 401
 
@@ -246,12 +247,10 @@ class TestAuthRoutes:
         assert r.status_code == 200
         assert "token" in r.json()
 
-    def test_login_default_password(self, client, monkeypatch):
-        # Remove env var so default "sovereign" is used
+    def test_login_no_password_env_returns_503(self, client, monkeypatch):
         monkeypatch.delenv("SOVEREIGN_PASSWORD", raising=False)
         r = client.post("/api/auth/login", json={"password": "sovereign"})
-        assert r.status_code == 200
-        assert "token" in r.json()
+        assert r.status_code == 503
 
 
 # ---------------------------------------------------------------------------

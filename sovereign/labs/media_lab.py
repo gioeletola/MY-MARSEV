@@ -42,6 +42,32 @@ class MediaLab(LabsFramework):
     }
     requires_human_review: bool = False
     model: str = "claude-sonnet-4-6"
+    experiment_templates: list = [
+        {
+            "name": "Media Lab — Thumbnail CTR A/B Test",
+            "description": "Compare two thumbnail designs for click-through rate improvement.",
+            "hypothesis": {"statement": "High-contrast thumbnail with face increases CTR by 15%",
+                           "metric": "thumbnail_ctr_improvement", "success_threshold": 0.15, "baseline": 0.05},
+            "control_config": {"thumbnail": "plain"}, "treatment_config": {"thumbnail": "high_contrast_face"},
+            "tags": ["media", "thumbnail", "ctr"],
+        },
+        {
+            "name": "Media Lab — Publishing Cadence Optimisation",
+            "description": "Test 3x/week vs 5x/week publishing cadence for audience growth.",
+            "hypothesis": {"statement": "Consistent 5x/week schedule improves on-time delivery rate",
+                           "metric": "publishing_on_time_rate", "success_threshold": 0.90, "baseline": 0.70},
+            "control_config": {"cadence": "3_per_week"}, "treatment_config": {"cadence": "5_per_week"},
+            "tags": ["media", "publishing", "cadence"],
+        },
+        {
+            "name": "Media Lab — Clip Selection Algorithm",
+            "description": "AI clip selection vs manual curator for engagement maximisation.",
+            "hypothesis": {"statement": "AI selection achieves ≥75% clip accuracy vs manual baseline",
+                           "metric": "clip_selection_accuracy", "success_threshold": 0.75, "baseline": 0.55},
+            "control_config": {"selection": "manual"}, "treatment_config": {"selection": "ai"},
+            "tags": ["media", "clips", "automation"],
+        },
+    ]
 
     def __init__(self, data_path: str = "data/labs/media_experiments.json") -> None:
         super().__init__(data_path=data_path)

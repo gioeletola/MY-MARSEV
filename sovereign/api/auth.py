@@ -57,10 +57,21 @@ def reset_rate_limit(ip: str) -> None:
         _attempts.pop(ip, None)
 
 _DEFAULT_SECRET = "sovereign-change-me-in-production"
+_WARNED_DEFAULT = False
 
 
 def _secret() -> str:
-    return os.environ.get("AUTH_SECRET_KEY", _DEFAULT_SECRET)
+    global _WARNED_DEFAULT
+    val = os.environ.get("AUTH_SECRET_KEY")
+    if val:
+        return val
+    if not _WARNED_DEFAULT:
+        _WARNED_DEFAULT = True
+        logger.warning(
+            "AUTH_SECRET_KEY is not set — using insecure default. "
+            "Set AUTH_SECRET_KEY in your .env before exposing this service."
+        )
+    return _DEFAULT_SECRET
 
 
 def _b64url_encode(data: bytes) -> str:

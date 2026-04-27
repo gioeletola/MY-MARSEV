@@ -217,6 +217,10 @@ class SecretManager:
     def list_names(self) -> list[str]:
         return list(self._secrets.keys())
 
+    # alias used by vault CLI
+    def list_keys(self) -> list[str]:
+        return self.list_names()
+
     def expired(self) -> list[str]:
         now = datetime.now(timezone.utc).isoformat()
         return [

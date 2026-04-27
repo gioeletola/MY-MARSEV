@@ -113,8 +113,42 @@
 </head>
 <body class="font-sans h-screen flex flex-col overflow-hidden">
 
+<!-- Login Modal -->
+<div x-show="showLogin" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div class="bg-surface border border-border rounded-xl p-8 w-full max-w-sm shadow-2xl glow-cyan">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan to-violet flex items-center justify-center text-sm font-bold text-white">S</div>
+      <div>
+        <p class="font-semibold text-slate-100 tracking-wide">SOVEREIGN AI OS</p>
+        <p class="text-xs text-muted font-mono">Authentication required</p>
+      </div>
+    </div>
+    <form @submit.prevent="login()">
+      <label class="block text-xs text-muted font-semibold uppercase tracking-widest mb-1.5">Password</label>
+      <input x-model="loginPassword"
+             type="password"
+             placeholder="Enter sovereign password"
+             autocomplete="current-password"
+             class="w-full bg-bg border border-border rounded-lg px-3 py-2.5 text-sm text-slate-200 font-mono
+                    focus:outline-none focus:border-cyan placeholder-muted mb-3 transition-colors"
+             :class="loginError ? 'border-rose' : ''"
+             @keydown.enter.prevent="login()"/>
+      <p x-show="loginError" class="text-xs text-rose mb-3" x-text="loginError"></p>
+      <button type="submit"
+              :disabled="loginLoading || !loginPassword"
+              class="w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-all
+                     bg-gradient-to-r from-cyan to-violet hover:opacity-90 disabled:opacity-40
+                     focus:outline-none focus:ring-2 focus:ring-cyan/50">
+        <span x-text="loginLoading ? 'Authenticating…' : 'Connect'"></span>
+      </button>
+    </form>
+    <p class="text-xs text-muted text-center mt-4 font-mono">Set SOVEREIGN_PASSWORD in your .env</p>
+  </div>
+</div>
+
 <!-- Top bar -->
-<header class="flex items-center justify-between px-4 py-2 border-b border-border bg-surface shrink-0">
+<header class="flex items-center justify-between px-4 py-2 border-b border-border bg-surface shrink-0" x-show="loggedIn">
   <div class="flex items-center gap-3">
     <div class="w-7 h-7 rounded-md bg-gradient-to-br from-cyan to-violet flex items-center justify-center text-xs font-bold text-white">S</div>
     <span class="font-semibold tracking-wide text-sm text-slate-200">SOVEREIGN AI OS</span>
@@ -175,11 +209,15 @@
     <!-- Health -->
     <button @click="showHealth = !showHealth"
             class="text-xs text-muted hover:text-slate-300 font-mono border border-border rounded px-2 py-1">health</button>
+    <!-- Logout -->
+    <button @click="logout()"
+            class="text-xs text-muted hover:text-rose font-mono border border-border rounded px-2 py-1 transition-colors"
+            title="Sign out">logout</button>
   </div>
 </header>
 
 <!-- Main 3-column layout -->
-<div class="flex flex-1 overflow-hidden">
+<div class="flex flex-1 overflow-hidden" x-show="loggedIn" x-cloak>
 
   <!-- LEFT SIDEBAR — Sessions + Memory -->
   <aside class="w-56 border-r border-border bg-surface flex flex-col shrink-0 overflow-hidden">
@@ -697,6 +735,14 @@
 <script>
 function sovereign() {
   return {
+    // Auth state
+    token:        localStorage.getItem('sovereign_token') || '',
+    loggedIn:     false,
+    showLogin:    false,
+    loginPassword: '',
+    loginError:   '',
+    loginLoading: false,
+
     // State
     wsStatus:     'disconnected',
     ws:           null,
@@ -751,19 +797,59 @@ function sovereign() {
     },
 
     init() {
-      this.connect();
-      this.pollHealth();
       this.memoryDomains = [
         'identity','operational','project','relationship','financial',
         'learning','inventory','health_routine','diary','legal_compliance',
         'decision','research','content','brand',
       ].map(n => ({ name: n, count: 0 }));
+      if (this.token) {
+        this.loggedIn = true;
+        this.connect();
+        this.pollHealth();
+      } else {
+        this.showLogin = true;
+      }
+    },
+
+    // Auth
+    async login() {
+      if (!this.loginPassword || this.loginLoading) return;
+      this.loginLoading = true;
+      this.loginError = '';
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: this.loginPassword }),
+        });
+        const data = await res.json();
+        if (!res.ok) { this.loginError = data.error || 'Login failed'; return; }
+        this.token = data.token;
+        localStorage.setItem('sovereign_token', this.token);
+        this.loggedIn = true;
+        this.showLogin = false;
+        this.loginPassword = '';
+        this.connect();
+        this.pollHealth();
+      } catch(e) {
+        this.loginError = 'Network error — is the server running?';
+      } finally {
+        this.loginLoading = false;
+      }
+    },
+    logout() {
+      localStorage.removeItem('sovereign_token');
+      this.token = '';
+      this.loggedIn = false;
+      this.showLogin = true;
+      if (this.ws) this.ws.close();
     },
 
     // WebSocket
     connect() {
+      if (!this.token) { this.showLogin = true; return; }
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const url   = `${proto}://${location.host}/ws`;
+      const url   = `${proto}://${location.host}/ws?token=${encodeURIComponent(this.token)}`;
       this.wsStatus = 'connecting';
       try {
         this.ws = new WebSocket(url);
@@ -818,6 +904,10 @@ function sovereign() {
           this.handleMemoryData(msg);
           break;
         case 'error':
+          if (msg.code === 'unauthorized') {
+            this.logout();
+            return;
+          }
           this.addMessage('system', msg.message, { error: true });
           this.isStreaming = false;
           break;
@@ -989,11 +1079,16 @@ function sovereign() {
         .replace(/^/, '<p>').replace(/$/, '</p>');
     },
 
+    authHeaders() {
+      return this.token ? { 'Authorization': 'Bearer ' + this.token } : {};
+    },
+
     // Dashboard
     async fetchDashboard() {
       this.dashboardLoading = true;
       try {
-        const res = await fetch('/api/dashboard');
+        const res = await fetch('/api/dashboard', { headers: this.authHeaders() });
+        if (res.status === 401) { this.logout(); return; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
         this.dashboard = await res.json();
         const now = new Date();
@@ -1009,7 +1104,7 @@ function sovereign() {
       this.reportSending = true;
       this.reportSent = false;
       try {
-        const res = await fetch('/api/dashboard/report', { method: 'POST' });
+        const res = await fetch('/api/dashboard/report', { method: 'POST', headers: this.authHeaders() });
         if (res.ok) {
           this.reportSent = true;
           setTimeout(() => { this.reportSent = false; }, 4000);

@@ -41,6 +41,24 @@ class ProductLab(LabsFramework):
     }
     requires_human_review: bool = False
     model: str = "claude-sonnet-4-6"
+    experiment_templates: list = [
+        {
+            "name": "Product Lab — Feature Adoption A/B",
+            "description": "Test guided onboarding vs self-serve for new feature adoption.",
+            "hypothesis": {"statement": "Guided onboarding improves feature adoption rate above 70%",
+                           "metric": "feature_adoption_rate", "success_threshold": 0.70, "baseline": 0.40},
+            "control_config": {"onboarding": "self_serve"}, "treatment_config": {"onboarding": "guided"},
+            "tags": ["product", "onboarding", "adoption"],
+        },
+        {
+            "name": "Product Lab — QA Coverage Benchmark",
+            "description": "Automated test suite vs manual QA for bug detection coverage.",
+            "hypothesis": {"statement": "Automated suite achieves ≥90% bug detection coverage",
+                           "metric": "bug_detection_coverage", "success_threshold": 0.90, "baseline": 0.65},
+            "control_config": {"qa": "manual"}, "treatment_config": {"qa": "automated"},
+            "tags": ["product", "qa", "testing"],
+        },
+    ]
 
     def __init__(self, data_path: str = "data/labs/product_experiments.json") -> None:
         super().__init__(data_path=data_path)

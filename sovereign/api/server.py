@@ -89,7 +89,13 @@ async def login(request: Request) -> JSONResponse:
         return JSONResponse({"error": "Too many login attempts"}, status_code=429)
     body = await request.json()
     password = body.get("password", "")
-    expected = os.environ.get("SOVEREIGN_PASSWORD", "sovereign")
+    expected = os.environ.get("SOVEREIGN_PASSWORD", "")
+    if not expected:
+        logger.warning(
+            "SOVEREIGN_PASSWORD is not set — authentication is disabled. "
+            "Set SOVEREIGN_PASSWORD in your .env before exposing this service."
+        )
+        return JSONResponse({"error": "Server not configured for authentication"}, status_code=503)
     if password != expected:
         return JSONResponse({"error": "Invalid password"}, status_code=401)
     reset_rate_limit(client_ip)
@@ -143,7 +149,17 @@ async def root(request: Request) -> HTMLResponse:
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
-    """Real-time bidirectional channel for agent streaming."""
+    """Real-time bidirectional channel for agent streaming (JWT required via ?token= param)."""
+    from sovereign.api.auth import verify_token
+    token = ws.query_params.get("token", "")
+    try:
+        verify_token(token)
+    except Exception:
+        await ws.accept()
+        await ws.send_json({"type": "error", "code": "unauthorized", "message": "Invalid or missing token"})
+        await ws.close(code=4401)
+        return
+
     await ws.accept()
     if _manager is None:
         await ws.send_json({"type": "error", "message": "Server not ready"})

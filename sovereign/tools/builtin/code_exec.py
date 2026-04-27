@@ -79,12 +79,36 @@ class CodeExecTool(BaseTool):
         """
         timeout_seconds = min(max(1, timeout_seconds), 30)
 
+        # Reject obviously dangerous patterns before spawning a process
+        _BLOCKED = [
+            "__import__('os').system", "subprocess", "os.system", "os.popen",
+            "shutil.rmtree", "open('/", "open(\"/", "socket", "urllib",
+            "requests", "httpx", "exec(", "eval(", "compile(",
+        ]
+        for pat in _BLOCKED:
+            if pat in code:
+                return {
+                    "stdout": "",
+                    "stderr": f"Blocked: pattern '{pat}' is not allowed in sandbox.",
+                    "exit_code": -2,
+                    "elapsed_ms": 0,
+                    "truncated": False,
+                    "timed_out": False,
+                }
+
         with tempfile.TemporaryDirectory(prefix="sovereign_exec_") as tmpdir:
             script = Path(tmpdir) / "script.py"
             script.write_text(code, encoding="utf-8")
 
             import time
             start = time.monotonic()
+
+            # Build restricted environment: no HOME, minimal PATH, no network hints
+            restricted_env = {
+                "PATH": "/usr/bin:/bin",
+                "PYTHONPATH": "",
+                "TMPDIR": tmpdir,
+            }
 
             try:
                 proc = await asyncio.create_subprocess_exec(
@@ -93,6 +117,7 @@ class CodeExecTool(BaseTool):
                     stderr=asyncio.subprocess.PIPE,
                     stdin=asyncio.subprocess.PIPE if input_data else asyncio.subprocess.DEVNULL,
                     cwd=tmpdir,
+                    env=restricted_env,
                 )
                 stdin_bytes = input_data.encode() if input_data else None
 
