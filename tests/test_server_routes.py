@@ -132,7 +132,7 @@ class TestPublicRoutes:
         assert r.status_code == 200
         data = r.json()
         assert data["service"] == "SOVEREIGN AI OS"
-        assert data["version"] == "0.2.0"
+        assert data["version"] == "0.3.0"
         assert "status" in data
 
     def test_get_health_200(self, client):
@@ -153,7 +153,7 @@ class TestPublicRoutes:
             srv._orchestrator = old
 
     def test_get_mode_returns_mode(self, client):
-        r = client.get("/api/mode")
+        r = client.get("/api/mode", headers=_auth_header())
         assert r.status_code == 200
         assert r.json()["mode"] == "command"
 
@@ -163,7 +163,7 @@ class TestPublicRoutes:
         try:
             srv._orchestrator = None
             tc = TestClient(srv.app, raise_server_exceptions=False)
-            r = tc.get("/api/mode")
+            r = tc.get("/api/mode", headers=_auth_header())
             assert r.status_code == 200
             assert r.json()["mode"] == "command"
         finally:
@@ -179,14 +179,14 @@ class TestPublicRoutes:
         assert r.status_code in (200, 404)
 
     def test_get_agents_200(self, client):
-        r = client.get("/api/agents")
+        r = client.get("/api/agents", headers=_auth_header())
         assert r.status_code == 200
         data = r.json()
         assert "count" in data
         assert "agents" in data
 
     def test_get_metrics_200(self, client):
-        r = client.get("/api/metrics")
+        r = client.get("/api/metrics", headers=_auth_header())
         assert r.status_code == 200
 
 
@@ -328,7 +328,7 @@ class TestProtectedRoutes:
 
 
 # ---------------------------------------------------------------------------
-# Finance API routes (no auth required)
+# Finance API routes (auth required)
 # ---------------------------------------------------------------------------
 
 class TestFinanceAPIRoutes:
@@ -337,7 +337,7 @@ class TestFinanceAPIRoutes:
             mock_store = MagicMock()
             mock_store.get_summary.return_value = {"net_worth": 100000}
             mock_cls.return_value = mock_store
-            r = client.get("/api/finance/summary")
+            r = client.get("/api/finance/summary", headers=_auth_header())
             assert r.status_code == 200
 
     def test_finance_portfolio(self, client):
@@ -346,7 +346,7 @@ class TestFinanceAPIRoutes:
             mock_store.get_portfolio.return_value = []
             mock_store.get_portfolio_by_class.return_value = {}
             mock_cls.return_value = mock_store
-            r = client.get("/api/finance/portfolio")
+            r = client.get("/api/finance/portfolio", headers=_auth_header())
             assert r.status_code == 200
             data = r.json()
             assert "holdings" in data
@@ -357,7 +357,7 @@ class TestFinanceAPIRoutes:
             mock_store = MagicMock()
             mock_store.get_cashflow_by_month.return_value = []
             mock_cls.return_value = mock_store
-            r = client.get("/api/finance/cashflow?months=6")
+            r = client.get("/api/finance/cashflow?months=6", headers=_auth_header())
             assert r.status_code == 200
             assert "cashflow" in r.json()
 
@@ -366,7 +366,7 @@ class TestFinanceAPIRoutes:
             mock_store = MagicMock()
             mock_store.get_transactions.return_value = []
             mock_cls.return_value = mock_store
-            r = client.get("/api/finance/transactions")
+            r = client.get("/api/finance/transactions", headers=_auth_header())
             assert r.status_code == 200
             data = r.json()
             assert "transactions" in data
@@ -383,7 +383,7 @@ class TestProjectsAPIRoutes:
             mock_store.get_projects.return_value = []
             mock_store.get_summary.return_value = {"total": 0}
             mock_cls.return_value = mock_store
-            r = client.get("/api/projects")
+            r = client.get("/api/projects", headers=_auth_header())
             assert r.status_code == 200
             data = r.json()
             assert "projects" in data
@@ -393,7 +393,7 @@ class TestProjectsAPIRoutes:
             mock_store = MagicMock()
             mock_store.create_project.return_value = {"project_id": "p1", "name": "Test"}
             mock_cls.return_value = mock_store
-            r = client.post("/api/projects", json={"name": "Test Project"})
+            r = client.post("/api/projects", json={"name": "Test Project"}, headers=_auth_header())
             assert r.status_code == 201
 
     def test_update_project(self, client):
@@ -401,7 +401,7 @@ class TestProjectsAPIRoutes:
             mock_store = MagicMock()
             mock_store.update_project.return_value = True
             mock_cls.return_value = mock_store
-            r = client.patch("/api/projects/p1", json={"status": "completed"})
+            r = client.patch("/api/projects/p1", json={"status": "completed"}, headers=_auth_header())
             assert r.status_code == 200
 
     def test_update_project_not_found(self, client):
@@ -409,7 +409,7 @@ class TestProjectsAPIRoutes:
             mock_store = MagicMock()
             mock_store.update_project.return_value = False
             mock_cls.return_value = mock_store
-            r = client.patch("/api/projects/missing", json={"status": "done"})
+            r = client.patch("/api/projects/missing", json={"status": "done"}, headers=_auth_header())
             assert r.status_code == 404
 
     def test_add_task_to_project(self, client):
@@ -417,7 +417,7 @@ class TestProjectsAPIRoutes:
             mock_store = MagicMock()
             mock_store.add_task.return_value = {"task_id": "t1", "title": "Do it"}
             mock_cls.return_value = mock_store
-            r = client.post("/api/projects/p1/tasks", json={"title": "Do it"})
+            r = client.post("/api/projects/p1/tasks", json={"title": "Do it"}, headers=_auth_header())
             assert r.status_code == 201
 
     def test_add_task_project_not_found(self, client):
@@ -425,7 +425,7 @@ class TestProjectsAPIRoutes:
             mock_store = MagicMock()
             mock_store.add_task.return_value = None
             mock_cls.return_value = mock_store
-            r = client.post("/api/projects/missing/tasks", json={"title": "Do it"})
+            r = client.post("/api/projects/missing/tasks", json={"title": "Do it"}, headers=_auth_header())
             assert r.status_code == 404
 
     def test_complete_task(self, client):
@@ -433,7 +433,7 @@ class TestProjectsAPIRoutes:
             mock_store = MagicMock()
             mock_store.complete_task.return_value = True
             mock_cls.return_value = mock_store
-            r = client.post("/api/projects/p1/tasks/t1/complete")
+            r = client.post("/api/projects/p1/tasks/t1/complete", headers=_auth_header())
             assert r.status_code == 200
 
     def test_complete_task_not_found(self, client):
@@ -441,7 +441,7 @@ class TestProjectsAPIRoutes:
             mock_store = MagicMock()
             mock_store.complete_task.return_value = False
             mock_cls.return_value = mock_store
-            r = client.post("/api/projects/p1/tasks/missing/complete")
+            r = client.post("/api/projects/p1/tasks/missing/complete", headers=_auth_header())
             assert r.status_code == 404
 
 
@@ -451,14 +451,14 @@ class TestProjectsAPIRoutes:
 
 class TestGoalsAPIRoutes:
     def test_list_goals(self, client):
-        r = client.get("/api/goals")
+        r = client.get("/api/goals", headers=_auth_header())
         assert r.status_code == 200
         data = r.json()
         assert "goals" in data
         assert "summary" in data
 
     def test_add_goal(self, client):
-        r = client.post("/api/goals", json={"title": "Run 10km"})
+        r = client.post("/api/goals", json={"title": "Run 10km"}, headers=_auth_header())
         assert r.status_code == 201
         data = r.json()
         assert "goal_id" in data
@@ -469,12 +469,12 @@ class TestGoalsAPIRoutes:
         goal.progress_pct = 50.0
         goal.status = MagicMock(value="active")
         orch.goal_monitor.update_progress.return_value = goal
-        r = client.patch("/api/goals/g1/progress", json={"value": 50.0})
+        r = client.patch("/api/goals/g1/progress", json={"value": 50.0}, headers=_auth_header())
         assert r.status_code == 200
 
     def test_update_goal_progress_not_found(self, client, orch):
         orch.goal_monitor.update_progress.return_value = None
-        r = client.patch("/api/goals/missing/progress", json={"value": 50.0})
+        r = client.patch("/api/goals/missing/progress", json={"value": 50.0}, headers=_auth_header())
         assert r.status_code == 404
 
 
@@ -484,12 +484,12 @@ class TestGoalsAPIRoutes:
 
 class TestExpansionAPIRoutes:
     def test_expansion_agents(self, client):
-        r = client.get("/api/expansion/agents")
+        r = client.get("/api/expansion/agents", headers=_auth_header())
         assert r.status_code == 200
         assert "by_stage" in r.json()
 
     def test_expansion_model_perf_no_tracker(self, client):
-        r = client.get("/api/expansion/model-perf")
+        r = client.get("/api/expansion/model-perf", headers=_auth_header())
         # Returns {} when no tracker attached
         assert r.status_code == 200
 
@@ -497,7 +497,7 @@ class TestExpansionAPIRoutes:
         tracker = MagicMock()
         tracker.to_dict.return_value = {"claude-sonnet-4-6": {"calls": 10}}
         orch._model_perf_tracker = tracker
-        r = client.get("/api/expansion/model-perf")
+        r = client.get("/api/expansion/model-perf", headers=_auth_header())
         assert r.status_code == 200
 
     def test_expansion_gaps(self, client):
@@ -505,7 +505,7 @@ class TestExpansionAPIRoutes:
              patch("sovereign.expansion.capability_gap_detector.WeeklyGapReport") as mock_rep:
             mock_det.return_value.all_gaps.return_value = []
             mock_rep.return_value.generate.return_value = {"gaps": []}
-            r = client.get("/api/expansion/gaps")
+            r = client.get("/api/expansion/gaps", headers=_auth_header())
             assert r.status_code == 200
 
 
@@ -515,13 +515,13 @@ class TestExpansionAPIRoutes:
 
 class TestEntitiesAPIRoutes:
     def test_list_entities(self, client):
-        r = client.get("/api/entities")
+        r = client.get("/api/entities", headers=_auth_header())
         assert r.status_code == 200
         assert "entities" in r.json()
 
     def test_get_entity_not_found(self, client, orch):
         orch.entity_provisioner.get_entity_summary.return_value = None
-        r = client.get("/api/entities/missing-id")
+        r = client.get("/api/entities/missing-id", headers=_auth_header())
         assert r.status_code == 404
 
     def test_provision_entity_with_auth(self, client, orch):
@@ -570,12 +570,12 @@ class TestEntitiesAPIRoutes:
 
 class TestSuggestionsIntegrations:
     def test_suggestions(self, client):
-        r = client.get("/api/suggestions")
+        r = client.get("/api/suggestions", headers=_auth_header())
         assert r.status_code == 200
         assert "suggestions" in r.json()
 
     def test_integrations(self, client):
-        r = client.get("/api/integrations")
+        r = client.get("/api/integrations", headers=_auth_header())
         assert r.status_code == 200
         assert "integrations" in r.json()
 
@@ -598,6 +598,7 @@ class TestFinanceImport:
                     "desc_col": "description",
                     "amount_col": "amount",
                 },
+                headers=_auth_header(),
             )
             assert r.status_code == 200
 
@@ -634,7 +635,7 @@ class TestNoOrchGuards:
         srv._orchestrator = None
         try:
             tc = TestClient(srv.app, raise_server_exceptions=False)
-            r = tc.get("/api/agents")
+            r = tc.get("/api/agents", headers=_auth_header())
             assert r.status_code == 503
         finally:
             srv._orchestrator = old_orch
@@ -657,7 +658,7 @@ class TestNoOrchGuards:
 
 class TestBriefDigestWatchdog:
     def test_brief_returns_200(self, client):
-        r = client.get("/api/brief")
+        r = client.get("/api/brief", headers=_auth_header())
         assert r.status_code == 200
         data = r.json()
         assert "generated_at" in data
@@ -668,7 +669,7 @@ class TestBriefDigestWatchdog:
         srv._orchestrator = None
         try:
             tc = TestClient(srv.app, raise_server_exceptions=False)
-            r = tc.get("/api/brief")
+            r = tc.get("/api/brief", headers=_auth_header())
             assert r.status_code == 503
         finally:
             srv._orchestrator = old
@@ -683,7 +684,7 @@ class TestBriefDigestWatchdog:
             new_callable=AsyncMock,
             return_value=digest_mock,
         ):
-            r = client.get("/api/digest")
+            r = client.get("/api/digest", headers=_auth_header())
         assert r.status_code == 200
         data = r.json()
         assert "text" in data
@@ -694,7 +695,7 @@ class TestBriefDigestWatchdog:
         orch.process_watchdog.health_summary.return_value = {
             "names": [], "details": {}, "total_restarts": 0, "crashed_names": []
         }
-        r = client.get("/api/watchdog")
+        r = client.get("/api/watchdog", headers=_auth_header())
         assert r.status_code == 200
         data = r.json()
         assert "total_restarts" in data
@@ -705,7 +706,7 @@ class TestBriefDigestWatchdog:
         srv._orchestrator = None
         try:
             tc = TestClient(srv.app, raise_server_exceptions=False)
-            r = tc.get("/api/watchdog")
+            r = tc.get("/api/watchdog", headers=_auth_header())
             assert r.status_code == 503
         finally:
             srv._orchestrator = old
@@ -714,7 +715,7 @@ class TestBriefDigestWatchdog:
         orch.webhook_router = MagicMock()
         orch.webhook_router.stats.return_value = {"total": 0, "processed": 0, "failed": 0}
         orch.webhook_router.event_history.return_value = []
-        r = client.get("/api/webhooks/stats")
+        r = client.get("/api/webhooks/stats", headers=_auth_header())
         assert r.status_code == 200
         data = r.json()
         assert "stats" in data
@@ -740,7 +741,7 @@ class TestBriefDigestWatchdog:
 
 class TestNextActionsAPI:
     def test_list_next_actions_200(self, client):
-        r = client.get("/api/next-actions")
+        r = client.get("/api/next-actions", headers=_auth_header())
         assert r.status_code in (200, 500)  # 500 if no data file, 200 if present
 
     def test_create_next_action_401_no_auth(self, client):
@@ -777,7 +778,7 @@ class TestNextActionsAPI:
 
 class TestConstitutionAPI:
     def test_get_constitution_200(self, client):
-        r = client.get("/api/constitution")
+        r = client.get("/api/constitution", headers=_auth_header())
         assert r.status_code in (200, 500)
 
     def test_update_constitution_401_no_auth(self, client):
@@ -796,7 +797,7 @@ class TestConstitutionAPI:
 
 class TestPersonalVersionAPI:
     def test_get_personal_version_200(self, client):
-        r = client.get("/api/personal-version")
+        r = client.get("/api/personal-version", headers=_auth_header())
         assert r.status_code in (200, 500)
 
     def test_save_personal_version_201(self, client):
