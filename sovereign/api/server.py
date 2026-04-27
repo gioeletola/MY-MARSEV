@@ -21,11 +21,14 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from sovereign import __version__
 from sovereign.api.auth import check_rate_limit, create_token, require_auth, reset_rate_limit
 from sovereign.api.ws_handler import WebSocketSessionManager
 
@@ -65,9 +68,47 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SOVEREIGN AI OS",
     description="Multi-agent orchestration operating system — web interface",
-    version="0.2.0",
+    version=__version__,
     lifespan=lifespan,
 )
+
+
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adds security headers to every HTTP response."""
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://fonts.googleapis.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "connect-src 'self' ws: wss:; "
+            "img-src 'self' data:;"
+        )
+        return response
+
+
+# ── Security middleware ────────────────────────────────────────────────────
+_allowed_origins_raw = os.environ.get("SOVEREIGN_ALLOWED_ORIGINS", "")
+_allowed_origins = (
+    [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
+    if _allowed_origins_raw
+    else ["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000"]
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "X-Signature-256", "X-Webhook-Timestamp"],
+)
+app.add_middleware(_SecurityHeadersMiddleware)
 
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
@@ -109,7 +150,7 @@ async def public_status() -> JSONResponse:
     import platform
     return JSONResponse({
         "service": "SOVEREIGN AI OS",
-        "version": "0.2.0",
+        "version": __version__,
         "status": "online" if _orchestrator is not None else "initialising",
         "python": platform.python_version(),
     })
@@ -255,7 +296,7 @@ async def resolve_escalation(
 
 
 @app.get("/api/agents")
-async def list_agents() -> JSONResponse:
+async def list_agents(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return count and summary of registered agents."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -265,7 +306,7 @@ async def list_agents() -> JSONResponse:
 
 
 @app.get("/api/metrics")
-async def metrics() -> JSONResponse:
+async def metrics(_: dict = Depends(require_auth)) -> JSONResponse:
     """Live session experiment metrics."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -277,7 +318,7 @@ async def metrics() -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/finance/summary")
-async def finance_summary() -> JSONResponse:
+async def finance_summary(_: dict = Depends(require_auth)) -> JSONResponse:
     """Finance KPI summary: net worth, cashflow, portfolio total."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -291,7 +332,8 @@ async def finance_summary() -> JSONResponse:
 
 @app.get("/api/finance/transactions")
 async def finance_transactions(
-    limit: int = 50, date_from: str = "", date_to: str = "", category: str = ""
+    limit: int = 50, date_from: str = "", date_to: str = "", category: str = "",
+    _: dict = Depends(require_auth),
 ) -> JSONResponse:
     """Recent transactions with optional filters."""
     if _orchestrator is None:
@@ -306,7 +348,7 @@ async def finance_transactions(
 
 
 @app.get("/api/finance/portfolio")
-async def finance_portfolio() -> JSONResponse:
+async def finance_portfolio(_: dict = Depends(require_auth)) -> JSONResponse:
     """Portfolio holdings by asset class."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -323,7 +365,7 @@ async def finance_portfolio() -> JSONResponse:
 
 
 @app.get("/api/finance/cashflow")
-async def finance_cashflow(months: int = 12) -> JSONResponse:
+async def finance_cashflow(months: int = 12, _: dict = Depends(require_auth)) -> JSONResponse:
     """Monthly cashflow bars for the last N months."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -343,7 +385,7 @@ class ImportCSVRequest(BaseModel):
 
 
 @app.post("/api/finance/import")
-async def finance_import_csv(body: ImportCSVRequest) -> JSONResponse:
+async def finance_import_csv(body: ImportCSVRequest, _: dict = Depends(require_auth)) -> JSONResponse:
     """Import bank statement CSV into the financial memory store."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -366,7 +408,7 @@ async def finance_import_csv(body: ImportCSVRequest) -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/projects")
-async def list_projects(status: str = "") -> JSONResponse:
+async def list_projects(status: str = "", _: dict = Depends(require_auth)) -> JSONResponse:
     """Return all projects, optionally filtered by status."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -390,7 +432,7 @@ class CreateProjectRequest(BaseModel):
 
 
 @app.post("/api/projects")
-async def create_project(body: CreateProjectRequest) -> JSONResponse:
+async def create_project(body: CreateProjectRequest, _: dict = Depends(require_auth)) -> JSONResponse:
     """Create a new project."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -417,7 +459,9 @@ class UpdateProjectRequest(BaseModel):
 
 
 @app.patch("/api/projects/{project_id}")
-async def update_project(project_id: str, body: UpdateProjectRequest) -> JSONResponse:
+async def update_project(
+    project_id: str, body: UpdateProjectRequest, _: dict = Depends(require_auth)
+) -> JSONResponse:
     """Update a project's fields."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -442,7 +486,7 @@ class AddTaskRequest(BaseModel):
 
 
 @app.post("/api/projects/{project_id}/tasks")
-async def add_task(project_id: str, body: AddTaskRequest) -> JSONResponse:
+async def add_task(project_id: str, body: AddTaskRequest, _: dict = Depends(require_auth)) -> JSONResponse:
     """Add a task to a project."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -458,7 +502,7 @@ async def add_task(project_id: str, body: AddTaskRequest) -> JSONResponse:
 
 
 @app.post("/api/projects/{project_id}/tasks/{task_id}/complete")
-async def complete_task(project_id: str, task_id: str) -> JSONResponse:
+async def complete_task(project_id: str, task_id: str, _: dict = Depends(require_auth)) -> JSONResponse:
     """Mark a task as complete."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -478,7 +522,7 @@ async def complete_task(project_id: str, task_id: str) -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/goals")
-async def list_goals() -> JSONResponse:
+async def list_goals(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return all active goals and a summary."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -515,7 +559,7 @@ class AddGoalRequest(BaseModel):
 
 
 @app.post("/api/goals")
-async def add_goal(body: AddGoalRequest) -> JSONResponse:
+async def add_goal(body: AddGoalRequest, _: dict = Depends(require_auth)) -> JSONResponse:
     """Add a new goal to the GoalMonitor."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -544,7 +588,9 @@ class UpdateProgressRequest(BaseModel):
 
 
 @app.patch("/api/goals/{goal_id}/progress")
-async def update_goal_progress(goal_id: str, body: UpdateProgressRequest) -> JSONResponse:
+async def update_goal_progress(
+    goal_id: str, body: UpdateProgressRequest, _: dict = Depends(require_auth)
+) -> JSONResponse:
     """Update a goal's current progress value."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -567,7 +613,7 @@ async def update_goal_progress(goal_id: str, body: UpdateProgressRequest) -> JSO
 # ---------------------------------------------------------------------------
 
 @app.get("/api/suggestions")
-async def list_suggestions() -> JSONResponse:
+async def list_suggestions(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return current proactive suggestions from SuggestionEngine."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -591,7 +637,7 @@ async def list_suggestions() -> JSONResponse:
 
 
 @app.get("/api/integrations")
-async def list_integrations() -> JSONResponse:
+async def list_integrations(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return status of all integration connectors."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -602,7 +648,7 @@ async def list_integrations() -> JSONResponse:
 
 
 @app.get("/api/connectors")
-async def list_connectors() -> JSONResponse:
+async def list_connectors(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return describe() dict for every connector registered in the SyncEngine."""
     try:
         from sovereign.integrations.connectors.sync_engine import get_sync_engine
@@ -617,7 +663,7 @@ async def list_connectors() -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/labs")
-async def list_labs() -> JSONResponse:
+async def list_labs(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return status summary for all 21 experimental labs."""
     import importlib
     import pathlib as _pl
@@ -652,7 +698,7 @@ async def list_labs() -> JSONResponse:
 
 
 @app.get("/api/labs/{lab_id}/experiments")
-async def lab_experiments(lab_id: str) -> JSONResponse:
+async def lab_experiments(lab_id: str, _: dict = Depends(require_auth)) -> JSONResponse:
     """Return all experiments for a specific lab."""
     import importlib
     import pathlib as _pl
@@ -699,7 +745,7 @@ async def expansion_dashboard(request: Request) -> HTMLResponse:
 
 
 @app.get("/api/expansion/gaps")
-async def expansion_gaps() -> JSONResponse:
+async def expansion_gaps(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return top capability gaps from the CapabilityGapDetector."""
     try:
         from sovereign.expansion.capability_gap_detector import (
@@ -716,7 +762,7 @@ async def expansion_gaps() -> JSONResponse:
 
 
 @app.get("/api/expansion/agents")
-async def expansion_agents() -> JSONResponse:
+async def expansion_agents(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return agents grouped by lifecycle stage (sandbox/shadow/production)."""
     if _orchestrator is None:
         return JSONResponse({"by_stage": {}})
@@ -735,7 +781,7 @@ async def expansion_agents() -> JSONResponse:
 
 
 @app.get("/api/expansion/model-perf")
-async def expansion_model_perf() -> JSONResponse:
+async def expansion_model_perf(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return per-model performance metrics from ModelPerformanceTracker."""
     if _orchestrator is None:
         return JSONResponse({})
@@ -793,8 +839,8 @@ async def memory_domain(domain: str, _: dict = Depends(require_auth)) -> JSONRes
 # ---------------------------------------------------------------------------
 
 @app.get("/api/mode")
-async def get_mode() -> JSONResponse:
-    """Return the current operating mode (public)."""
+async def get_mode(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Return the current operating mode."""
     if _orchestrator is None:
         return JSONResponse({"mode": "command"})
     return JSONResponse({"mode": _orchestrator.current_mode})
@@ -846,7 +892,7 @@ class ProvisionRequest(BaseModel):
 
 
 @app.get("/api/entities")
-async def list_entities(category: str = "") -> JSONResponse:
+async def list_entities(category: str = "", _: dict = Depends(require_auth)) -> JSONResponse:
     """List all provisioned entities."""
     if _orchestrator is None:
         return JSONResponse({"entities": []})
@@ -876,7 +922,7 @@ async def provision_entity(body: ProvisionRequest, _: dict = Depends(require_aut
 
 
 @app.get("/api/entities/{entity_id}")
-async def get_entity(entity_id: str) -> JSONResponse:
+async def get_entity(entity_id: str, _: dict = Depends(require_auth)) -> JSONResponse:
     """Get a single entity summary."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -928,7 +974,7 @@ async def update_entity(entity_id: str, body: dict, _: dict = Depends(require_au
 # ---------------------------------------------------------------------------
 
 @app.get("/api/providers")
-async def list_providers() -> JSONResponse:
+async def list_providers(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return health status for all model providers (Anthropic, OpenAI, Qwen, etc.)."""
     if _orchestrator is None:
         return JSONResponse({"providers": {}})
@@ -1053,7 +1099,7 @@ async def admin_provider_health(_: dict = Depends(require_auth)) -> JSONResponse
 # ---------------------------------------------------------------------------
 
 @app.get("/api/dashboard")
-async def life_dashboard() -> JSONResponse:
+async def life_dashboard(_: dict = Depends(require_auth)) -> JSONResponse:
     """Aggregate life data from all memory domains and return a unified dashboard snapshot."""
     import datetime as _dt
 
@@ -1261,7 +1307,7 @@ async def life_dashboard() -> JSONResponse:
 
 
 @app.post("/api/dashboard/report")
-async def dashboard_report() -> JSONResponse:
+async def dashboard_report(_: dict = Depends(require_auth)) -> JSONResponse:
     """Generate and send weekly report via Telegram."""
     try:
         from sovereign.reporting.weekly_report import run_weekly_report
@@ -1276,7 +1322,7 @@ async def dashboard_report() -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/brief")
-async def morning_brief() -> JSONResponse:
+async def morning_brief(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return today's morning briefing as structured JSON."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -1354,7 +1400,7 @@ async def morning_brief() -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/digest")
-async def daily_digest() -> JSONResponse:
+async def daily_digest(_: dict = Depends(require_auth)) -> JSONResponse:
     """Generate and return the daily digest report as text."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -1395,7 +1441,7 @@ async def send_daily_digest(_: dict = Depends(require_auth)) -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/watchdog")
-async def watchdog_status() -> JSONResponse:
+async def watchdog_status(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return the process watchdog health summary."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -1415,13 +1461,53 @@ async def inbound_webhook(
     event_type: str,
     request: Request,
 ) -> JSONResponse:
-    """Receive an inbound webhook, dispatch to registered handlers, and queue as AgentTask."""
-    if _orchestrator is None:
-        return JSONResponse({"error": "Not initialised"}, status_code=503)
+    """Receive an inbound webhook, validate HMAC signature, dispatch to handlers."""
+    import hashlib
+    import hmac
+    import json
+    import time as _time
+
+    raw_body = await request.body()
+
+    # Payload size limit: 64 KB
+    if len(raw_body) > 65_536:
+        return JSONResponse({"error": "Payload too large (max 64 KB)"}, status_code=413)
+
+    # HMAC-SHA256 validation — enforced when SOVEREIGN_WEBHOOK_SECRET is set
+    webhook_secret = os.environ.get("SOVEREIGN_WEBHOOK_SECRET", "")
+    if webhook_secret:
+        sig_header = request.headers.get("X-Signature-256", "")
+        ts_header = request.headers.get("X-Webhook-Timestamp", "")
+        if not sig_header or not ts_header:
+            logger.warning("Webhook %s/%s missing signature headers", source, event_type)
+            return JSONResponse({"error": "Missing X-Signature-256 or X-Webhook-Timestamp"}, status_code=401)
+        try:
+            ts = int(ts_header)
+            if abs(_time.time() - ts) > 300:
+                return JSONResponse({"error": "Webhook timestamp expired (max 5 min skew)"}, status_code=403)
+        except ValueError:
+            return JSONResponse({"error": "Invalid X-Webhook-Timestamp"}, status_code=400)
+        expected = hmac.new(
+            webhook_secret.encode(),
+            f"{ts_header}.{source}.{event_type}.".encode() + raw_body,
+            hashlib.sha256,
+        ).hexdigest()
+        received = sig_header.removeprefix("sha256=")
+        if not hmac.compare_digest(expected, received):
+            logger.warning("Webhook %s/%s signature mismatch", source, event_type)
+            return JSONResponse({"error": "Invalid webhook signature"}, status_code=401)
+    else:
+        logger.warning(
+            "SOVEREIGN_WEBHOOK_SECRET not set — webhook %s/%s accepted without auth", source, event_type
+        )
+
     try:
-        payload = await request.json()
+        payload = json.loads(raw_body) if raw_body else {}
     except Exception:
         payload = {}
+
+    if _orchestrator is None:
+        return JSONResponse({"error": "Not initialised"}, status_code=503)
     try:
         event = await _orchestrator.webhook_router.receive(source, event_type, payload)
         return JSONResponse({
@@ -1435,7 +1521,7 @@ async def inbound_webhook(
 
 
 @app.get("/api/webhooks/stats")
-async def webhook_stats() -> JSONResponse:
+async def webhook_stats(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return webhook processing statistics."""
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
@@ -1479,6 +1565,7 @@ async def list_next_actions(
     status: str = "",
     priority: str = "",
     context: str = "",
+    _: dict = Depends(require_auth),
 ) -> JSONResponse:
     """List next actions with optional status/priority/context filters."""
     try:
@@ -1570,7 +1657,7 @@ async def complete_next_action(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/constitution")
-async def get_constitution() -> JSONResponse:
+async def get_constitution(_: dict = Depends(require_auth)) -> JSONResponse:
     """Return the personal constitution and active red flags."""
     try:
         import pathlib
@@ -1624,7 +1711,7 @@ async def update_constitution(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/personal-version")
-async def get_personal_version(n: int = 6) -> JSONResponse:
+async def get_personal_version(n: int = 6, _: dict = Depends(require_auth)) -> JSONResponse:
     """Return the latest personal version snapshot and trend data."""
     try:
         import pathlib
@@ -1694,7 +1781,7 @@ async def save_personal_version(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/business-ideas")
-async def list_business_ideas(status: str = "") -> JSONResponse:
+async def list_business_ideas(status: str = "", _: dict = Depends(require_auth)) -> JSONResponse:
     """Return business ideas with optional status filter."""
     try:
         import pathlib
