@@ -240,7 +240,8 @@ class SovereignOrchestrator:
         # --- Step 2: Memory snapshot ---
         self._emit("step", {"step": 2, "name": "memory_snapshot", "session_id": session_id})
         snapshot = await self._memory.get_snapshot(
-            domains=["identity", "operational", "project", "decision"]
+            domains=["identity", "operational", "projects", "decision",
+                     "financial", "next_action", "personal_constitution"]
         )
         # Inject recent conversation history into snapshot
         snapshot["conversation_history"] = self._conversations.to_context_string(

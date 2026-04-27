@@ -78,6 +78,7 @@ models:
       - debugging
 
 routing_rules:
+  # ── Frontier (Opus 4.6) ──────────────────────────────────────────────
   - if:
       complexity_above: 0.8
     use: frontier
@@ -85,9 +86,34 @@ routing_rules:
       is_sensitive: true
     use: frontier
   - if:
+      agent_tier: "LEVEL_5"
+    use: frontier
+  - if:
+      task_type: "strategic_planning"
+    use: frontier
+  - if:
+      task_type: "legal_review"
+    use: frontier
+  - if:
+      task_type: "financial_decision"
+    use: frontier
+
+  # ── Fast (Haiku 4.5) ────────────────────────────────────────────────
+  - if:
       latency_budget_ms_below: 2000
     use: fast
   - if:
-      action_class: READ
+      action_class: "READ"
     use: fast
+  - if:
+      task_type: "classification"
+    use: fast
+  - if:
+      task_type: "simple_query"
+    use: fast
+  - if:
+      agent_tier: "LEVEL_2"
+    use: fast
+
+  # ── Default ─────────────────────────────────────────────────────────
   - default: balanced
