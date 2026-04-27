@@ -105,6 +105,7 @@ class TelegramIntegration(BaseIntegration):
             return False
 
     def fetch(self, resource: str, params: dict) -> dict:
+        """Telegram is push-only via Bot API; incoming updates arrive via long-poll loop."""
         return {}
 
     def push(self, resource: str, data: dict) -> dict:
