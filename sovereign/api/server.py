@@ -601,6 +601,17 @@ async def list_integrations() -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
+@app.get("/api/connectors")
+async def list_connectors() -> JSONResponse:
+    """Return describe() dict for every connector registered in the SyncEngine."""
+    try:
+        from sovereign.integrations.connectors.sync_engine import get_sync_engine
+        engine = get_sync_engine()
+        return JSONResponse({"connectors": engine.list_connectors()})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
 # ---------------------------------------------------------------------------
 # REST API — Expansion (capability gaps + model performance)
 # ---------------------------------------------------------------------------
@@ -1112,7 +1123,6 @@ async def life_dashboard() -> JSONResponse:
         pending_follow_ups = sum(1 for i in interactions if i.get("follow_up_needed"))
         # Dormant contacts: last_contact older than 90 days or never contacted
         import datetime as _dt3
-        today_str = _dt3.date.today().isoformat()
         cutoff = (_dt3.date.today() - _dt3.timedelta(days=90)).isoformat()
         dormant = sum(
             1 for c in contacts

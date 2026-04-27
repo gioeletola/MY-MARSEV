@@ -348,15 +348,23 @@ app.add_typer(connector_app)
 @connector_app.command("list")
 def connector_list() -> None:
     """List all registered connectors and their status."""
-    from sovereign.integrations.connectors import (
-        GitHubConnector, WeatherConnector, NotionConnector, GmailConnector,
-    )
-    connectors = [GitHubConnector(), WeatherConnector(), NotionConnector(), GmailConnector()]
-    table = Table(title="Connectors")
+    import inspect
+    import sovereign.integrations.connectors as _cpkg
+    from sovereign.integrations.connectors import __all__ as _call
+    from sovereign.integrations.connectors.connector_base import ConnectorStatus  # noqa: F401
+
+    connectors = []
+    for _name in _call:
+        _obj = getattr(_cpkg, _name, None)
+        if _obj and inspect.isclass(_obj) and hasattr(_obj, "connector_id") and _obj.connector_id:
+            connectors.append(_obj())
+
+    table = Table(title=f"Connectors ({len(connectors)} total)")
     table.add_column("ID", style="cyan")
     table.add_column("Name")
     table.add_column("Status")
     table.add_column("OAuth")
+    table.add_column("Description", style="dim")
     for c in connectors:
         status_colour = {
             "connected": "green", "beta": "yellow",
@@ -367,6 +375,7 @@ def connector_list() -> None:
             c.connector_name,
             f"[{status_colour}]{c.connector_status.value}[/{status_colour}]",
             "✓" if c.requires_oauth else "—",
+            c.connector_description or "—",
         )
     console.print(table)
 
@@ -376,19 +385,21 @@ def connector_sync(
     connector_id: str = typer.Argument(..., help="Connector ID to sync"),
 ) -> None:
     """Trigger an immediate sync for a connector."""
-    from sovereign.integrations.connectors import (
-        GitHubConnector, WeatherConnector, NotionConnector, GmailConnector,
-    )
+    import inspect
+    import sovereign.integrations.connectors as _cpkg
+    from sovereign.integrations.connectors import __all__ as _call
     from sovereign.integrations.connectors.sync_engine import SyncEngine
 
-    all_connectors = {
-        "github": GitHubConnector,
-        "weather": WeatherConnector,
-        "notion": NotionConnector,
-        "gmail": GmailConnector,
-    }
+    all_connectors = {}
+    for _name in _call:
+        _obj = getattr(_cpkg, _name, None)
+        if _obj and inspect.isclass(_obj) and hasattr(_obj, "connector_id") and _obj.connector_id:
+            all_connectors[_obj.connector_id] = _obj
+
     if connector_id not in all_connectors:
+        available = ", ".join(sorted(all_connectors.keys()))
         console.print(f"[red]Unknown connector: {connector_id}[/red]")
+        console.print(f"[yellow]Available connector IDs:[/yellow] {available}")
         raise typer.Exit(1)
 
     connector = all_connectors[connector_id]()
@@ -409,24 +420,36 @@ def connector_sync(
 @connector_app.command("health")
 def connector_health() -> None:
     """Check health of all connectors."""
-    from sovereign.integrations.connectors import (
-        GitHubConnector, WeatherConnector, NotionConnector, GmailConnector,
-    )
-    connectors = [GitHubConnector(), WeatherConnector(), NotionConnector(), GmailConnector()]
+    import inspect
+    import sovereign.integrations.connectors as _cpkg
+    from sovereign.integrations.connectors import __all__ as _call
+
+    connectors = []
+    for _name in _call:
+        _obj = getattr(_cpkg, _name, None)
+        if _obj and inspect.isclass(_obj) and hasattr(_obj, "connector_id") and _obj.connector_id:
+            connectors.append(_obj())
 
     async def _run():
-        table = Table(title="Connector Health")
+        health_results = await asyncio.gather(
+            *[c.health() for c in connectors], return_exceptions=True
+        )
+        table = Table(title=f"Connector Health ({len(connectors)} connectors)")
         table.add_column("ID", style="cyan")
         table.add_column("Status")
         table.add_column("Records")
-        for c in connectors:
-            h = await c.health()
-            sc = {"connected": "green", "beta": "yellow"}.get(h.status.value, "red")
-            table.add_row(
-                c.connector_id,
-                f"[{sc}]{h.status.value}[/{sc}]",
-                str(h.records_synced),
-            )
+        table.add_column("Error", style="dim")
+        for c, h in zip(connectors, health_results):
+            if isinstance(h, Exception):
+                table.add_row(c.connector_id, "[red]error[/red]", "—", str(h))
+            else:
+                sc = {"connected": "green", "beta": "yellow"}.get(h.status.value, "red")
+                table.add_row(
+                    c.connector_id,
+                    f"[{sc}]{h.status.value}[/{sc}]",
+                    str(h.records_synced),
+                    h.last_error or "—",
+                )
         console.print(table)
 
     asyncio.run(_run())

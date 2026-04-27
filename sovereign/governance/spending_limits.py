@@ -142,7 +142,7 @@ class SpendingLimitsEngine:
         engine = SpendingLimitsEngine()
         allowed, reason = engine.check(SpendingCategory.TOKENS, 0.50)
         if allowed:
-            engine.record_spend(SpendingCategory.TOKENS, 0.50, "claude-3 call")
+            engine.record_spend(SpendingCategory.TOKENS, 0.50, "claude-sonnet-4-6 call")
     """
 
     def __init__(self, persist_path: Path | None = None) -> None:

@@ -115,7 +115,7 @@ class ChangeManagement:
         cm = ChangeManagement()
         record = cm.propose(
             title="Upgrade CEO agent model",
-            description="Switch from claude-3-sonnet to claude-3-5-sonnet",
+            description="Switch from claude-sonnet-4-6 to claude-opus-4-6",
             change_type=ChangeType.MODEL,
             proposed_by="admin@example.com",
             risk_level="medium",

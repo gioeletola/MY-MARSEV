@@ -22,7 +22,7 @@ class ModelCapability:
 
 _BUILTIN: list[ModelCapability] = [
     # ── Anthropic ──────────────────────────────────────────────────────────
-    ModelCapability("claude-opus-4-7", "anthropic", 200_000, 32_000, True, True, True, 15.0, 75.0, "slow"),
+    ModelCapability("claude-opus-4-6", "anthropic", 200_000, 32_000, True, True, True, 15.0, 75.0, "slow"),
     ModelCapability("claude-sonnet-4-6", "anthropic", 200_000, 16_000, True, True, True, 3.0, 15.0, "medium"),
     ModelCapability("claude-haiku-4-5-20251001", "anthropic", 200_000, 8_000, True, True, True, 0.25, 1.25, "fast"),
     # ── OpenAI ────────────────────────────────────────────────────────────

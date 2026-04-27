@@ -20,7 +20,7 @@ class PrestigeMode(BaseMode):
             description="Ultra-high-quality output — board decks, investor memos, public statements",
             default_action_class=ActionClass.DRAFT,
             escalation_threshold=0.4,
-            preferred_model="claude-opus-4-7",
+            preferred_model="claude-opus-4-6",
             offline_capable=False,
             require_approval_for=["publish", "send", "EXECUTE_ACTION"],
         )
