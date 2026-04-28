@@ -1,0 +1,65 @@
+[skill]
+id = "sop-writer"
+name = "SOP Writer"
+description = "Write a clear, audit-ready Standard Operating Procedure document."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["business", "documentation", "operations"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "process_name"
+type = "string"
+description = "Name of the process or procedure"
+required = true
+
+[[inputs]]
+name = "process_description"
+type = "string"
+description = "Brief description of what this process does and why it exists"
+required = true
+
+[[inputs]]
+name = "department"
+type = "string"
+description = "Department or team responsible"
+required = false
+default = "Operations"
+
+[[inputs]]
+name = "frequency"
+type = "string"
+description = "How often this process runs (daily / weekly / monthly / as-needed)"
+required = false
+default = "as-needed"
+
+[[outputs]]
+name = "sop"
+type = "string"
+description = "Complete SOP document"
+
+[prompt]
+template = """Write a comprehensive Standard Operating Procedure (SOP) document.
+
+Process: {{process_name}}
+Description: {{process_description}}
+Responsible Department: {{department}}
+Frequency: {{frequency}}
+
+Structure the SOP as:
+1. Document Header (title, version, effective date, owner, approval status)
+2. Purpose & Scope
+3. Definitions & Abbreviations
+4. Roles & Responsibilities (RACI matrix)
+5. Prerequisites & Required Materials/Access
+6. Step-by-Step Procedure (numbered steps with sub-steps, decision points, and screenshots/diagram placeholders)
+7. Quality Checkpoints & Acceptance Criteria
+8. Exception Handling & Escalation Path
+9. Compliance & Audit Notes
+10. Revision History table
+
+Write clearly. Use imperative verbs. Make it audit-ready."""

@@ -1,0 +1,137 @@
+[skill]
+id = "learning-roadmap"
+name = "Learning Roadmap"
+description = "Create a personalized, structured learning roadmap for mastering a new skill or subject, with resources and milestones."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["learning", "personal"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "skill"
+type = "string"
+description = "What do you want to learn? (e.g. machine learning, Spanish, guitar, financial modeling)"
+required = true
+
+[[inputs]]
+name = "current_level"
+type = "string"
+description = "Your current level: complete beginner | some basics | intermediate | advanced"
+required = false
+default = "complete beginner"
+
+[[inputs]]
+name = "goal"
+type = "string"
+description = "What do you want to achieve? (e.g. get a job, pass an exam, build a project, hobby mastery)"
+required = false
+default = "general proficiency"
+
+[[inputs]]
+name = "time_available"
+type = "string"
+description = "Hours per week you can dedicate to learning"
+required = false
+default = "5 hours per week"
+
+[[inputs]]
+name = "learning_style"
+type = "string"
+description = "Preferred learning style: video | books | hands-on projects | structured course | mix"
+required = false
+default = "mix"
+
+[[inputs]]
+name = "timeline"
+type = "string"
+description = "How long do you have? (e.g. 3 months, 6 months, 1 year)"
+required = false
+default = "6 months"
+
+[[outputs]]
+name = "roadmap"
+type = "string"
+description = "Complete personalized learning roadmap"
+
+[[outputs]]
+name = "resource_list"
+type = "string"
+description = "Curated, prioritized list of learning resources"
+
+[prompt]
+template = """You are an expert learning designer and educational strategist. Create a personalized, actionable learning roadmap.
+
+SKILL TO LEARN: {{skill}}
+CURRENT LEVEL: {{current_level}}
+GOAL: {{goal}}
+TIME AVAILABLE: {{time_available}}
+LEARNING STYLE: {{learning_style}}
+TIMELINE: {{timeline}}
+
+Design a comprehensive learning roadmap:
+
+## Learning Goal Analysis
+- Clarify exactly what proficiency level is needed to achieve "{{goal}}"
+- Estimate total hours needed and whether {{timeline}} at {{time_available}} is realistic
+- Identify the 20% of knowledge that will give 80% of the results (Pareto principle)
+
+## Skill Breakdown — Knowledge Map
+Map the full skill into components:
+- **Core fundamentals** (must learn first)
+- **Essential skills** (primary focus)
+- **Advanced topics** (after solid foundation)
+- **Nice-to-have** (optional enrichment)
+
+## Phase-by-Phase Roadmap
+
+### Phase 1: Foundation [Weeks 1-X]
+**Goal:** [What you'll be able to do by the end]
+**Weekly Schedule:** [Breakdown of {{time_available}} per week]
+
+Topics to cover:
+- Topic 1: [why it matters, how long to spend]
+- Topic 2: [why it matters, how long to spend]
+
+Practice project: [Specific beginner project to build]
+Milestone check: [How to verify you've mastered this phase]
+
+### Phase 2: Core Skills [Weeks X-Y]
+[Same structure as Phase 1]
+
+### Phase 3: Applied Practice [Weeks Y-Z]
+[Same structure as Phase 1, focused on real projects]
+
+### Phase 4: Mastery & Portfolio [Weeks Z-end]
+[Capstone project, portfolio building, skill demonstration]
+
+## Curated Resource List ({{learning_style}} focused)
+
+### Free Resources
+| Resource | Type | Level | Time Commitment | Why It's Recommended |
+|----------|------|-------|----------------|---------------------|
+
+### Paid Resources (worth the investment)
+| Resource | Type | Cost | Level | Why It's Recommended |
+
+### Communities & Practice
+- Forums and communities to join
+- Practice platforms and tools
+- Accountability structures
+
+## Weekly Study Template
+A repeatable weekly structure for {{time_available}}:
+- [Day 1]: [Activity type and duration]
+- [Day 2-3]: [Activity type and duration]
+- [Weekend]: [Activity type and duration]
+
+## Milestones & Self-Assessment
+| Week | Milestone | Assessment Method |
+|------|-----------|------------------|
+
+## Common Pitfalls to Avoid
+Top 3 mistakes beginners make when learning {{skill}} and how to avoid them.
+"""

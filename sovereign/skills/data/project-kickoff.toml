@@ -1,0 +1,136 @@
+[skill]
+id = "project-kickoff"
+name = "Project Kickoff"
+description = "Generate a comprehensive project kickoff document with scope, charter, RACI, milestones, and risk summary."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["project", "planning"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "project_name"
+type = "string"
+description = "Name of the project"
+required = true
+
+[[inputs]]
+name = "objective"
+type = "string"
+description = "What does this project aim to achieve? What problem does it solve?"
+required = true
+
+[[inputs]]
+name = "stakeholders"
+type = "string"
+description = "List of stakeholders and their roles (e.g. Sarah Chen - Sponsor, Dev Team - Engineering Lead)"
+required = false
+default = ""
+
+[[inputs]]
+name = "timeline"
+type = "string"
+description = "Expected start and end date, or overall duration"
+required = false
+default = "TBD"
+
+[[inputs]]
+name = "budget"
+type = "string"
+description = "Approved budget or budget range"
+required = false
+default = "TBD"
+
+[[inputs]]
+name = "constraints"
+type = "string"
+description = "Known constraints, dependencies, or assumptions"
+required = false
+default = ""
+
+[[outputs]]
+name = "kickoff_document"
+type = "string"
+description = "Complete project kickoff / charter document"
+
+[[outputs]]
+name = "action_items"
+type = "string"
+description = "Immediate next steps and owners from the kickoff"
+
+[prompt]
+template = """You are a senior project manager (PMP certified) creating a professional project kickoff document.
+
+PROJECT NAME: {{project_name}}
+OBJECTIVE: {{objective}}
+STAKEHOLDERS: {{stakeholders}}
+TIMELINE: {{timeline}}
+BUDGET: {{budget}}
+CONSTRAINTS / ASSUMPTIONS: {{constraints}}
+
+Produce a comprehensive project kickoff document:
+
+---
+# PROJECT KICKOFF DOCUMENT
+## {{project_name}}
+**Version:** 1.0 | **Status:** Draft | **Date:** [Today]
+
+---
+
+## 1. Project Overview
+- **Purpose:** Why this project exists
+- **Business Problem:** What problem it solves
+- **Success Definition:** How we'll know when it's done and done well
+- **Out of Scope:** What this project explicitly does NOT include
+
+## 2. Goals & Success Criteria
+| Goal | Metric | Target | Measurement Method |
+|------|--------|--------|-------------------|
+List 3-5 SMART goals with measurable success criteria.
+
+## 3. Stakeholder Map & RACI
+| Role | Name | R | A | C | I | Key Interest |
+|------|------|---|---|---|---|-------------|
+(R=Responsible, A=Accountable, C=Consulted, I=Informed)
+
+## 4. Project Scope
+**In Scope:**
+- [Bullet list of what's included]
+
+**Out of Scope:**
+- [Bullet list of explicit exclusions]
+
+**Assumptions:**
+- [Key assumptions the project is built on]
+
+**Dependencies:**
+- [External dependencies that could affect delivery]
+
+## 5. High-Level Milestone Plan
+| Phase | Milestone | Target Date | Owner | Dependencies |
+|-------|-----------|------------|-------|-------------|
+Create 5-8 meaningful milestones for {{timeline}}.
+
+## 6. Budget Summary
+| Category | Estimated Cost | Notes |
+|----------|---------------|-------|
+Break down {{budget}} by category where possible.
+
+## 7. Key Risks (Top 5)
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|-----------|
+
+## 8. Communication Plan
+- Meeting cadence: [weekly standup, bi-weekly review, etc.]
+- Status reporting: [format and frequency]
+- Escalation path: [who to contact for what issue]
+
+## 9. Immediate Next Steps
+| Action Item | Owner | Due Date | Priority |
+|------------|-------|----------|----------|
+List 5-8 actions that must happen in the first two weeks.
+---
+"""

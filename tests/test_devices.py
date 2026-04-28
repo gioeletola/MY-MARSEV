@@ -95,7 +95,7 @@ class TestSensorManager:
         sm = SensorManager()
         async def cb(sid, val): pass
         sm.subscribe(cb)
-        assert cb in sm._callbacks
+        assert cb in sm._global_callbacks
 
 
 # ---------------------------------------------------------------------------

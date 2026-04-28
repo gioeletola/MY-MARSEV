@@ -1,0 +1,112 @@
+[skill]
+id = "budget-analyzer"
+name = "Budget Analyzer"
+description = "Analyze monthly income and expenses, identify savings opportunities, and create an optimized budget plan."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["finance", "analysis"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "income"
+type = "string"
+description = "Monthly net income (after tax) and any other income sources"
+required = true
+
+[[inputs]]
+name = "expenses"
+type = "string"
+description = "Monthly expenses — list categories and amounts (e.g. rent: 1500, food: 400, subscriptions: 80)"
+required = true
+
+[[inputs]]
+name = "financial_goals"
+type = "string"
+description = "Financial goals (e.g. save for house deposit, build 6-month emergency fund, pay off debt)"
+required = false
+default = "build savings and reduce waste"
+
+[[inputs]]
+name = "debts"
+type = "string"
+description = "Existing debts with balances and interest rates (e.g. credit card: 3000 at 19%, student loan: 15000 at 4%)"
+required = false
+default = ""
+
+[[inputs]]
+name = "currency"
+type = "string"
+description = "Currency symbol (e.g. USD, EUR, GBP)"
+required = false
+default = "USD"
+
+[[outputs]]
+name = "budget_analysis"
+type = "string"
+description = "Full budget analysis with insights and optimized plan"
+
+[[outputs]]
+name = "action_plan"
+type = "string"
+description = "Prioritized action items to improve financial health"
+
+[prompt]
+template = """You are a certified financial planner (CFP) conducting a thorough personal budget analysis.
+
+MONTHLY NET INCOME: {{income}} {{currency}}
+CURRENT EXPENSES:
+{{expenses}}
+
+FINANCIAL GOALS: {{financial_goals}}
+DEBTS: {{debts}}
+CURRENCY: {{currency}}
+
+## 1. Budget Overview
+Calculate and present:
+| Category | Monthly Amount | % of Income | Benchmark % |
+|----------|---------------|-------------|-------------|
+Show all expense categories. Include benchmarks (e.g. housing: 30%, food: 15%, savings: 20%).
+
+**Total Income:** {{currency}} X
+**Total Expenses:** {{currency}} X
+**Net Monthly Surplus / Deficit:** {{currency}} X
+
+## 2. Budget Health Scorecard
+Rate each category: ✓ On Track | ⚠ Watch | ✗ Over Budget
+- Housing: [rating + comment]
+- Food & Groceries: [rating + comment]
+- Transport: [rating + comment]
+- Entertainment & Subscriptions: [rating + comment]
+- Savings Rate: [rating + comment]
+- Debt Payments: [rating + comment]
+
+Overall financial health rating: EXCELLENT / GOOD / NEEDS WORK / CRITICAL
+
+## 3. Savings Opportunity Analysis
+Identify specific, realistic savings opportunities:
+| Category | Current Spend | Suggested Reduction | Monthly Saving | Annual Saving |
+|----------|--------------|--------------------|--------------:|-------------:|
+List at least 5 actionable cuts.
+
+**Total Potential Monthly Savings: {{currency}} X**
+
+## 4. Debt Payoff Strategy (if applicable)
+- Recommended method: Avalanche (highest interest first) vs Snowball (smallest balance first)
+- Month-by-month payoff timeline
+- Interest saved by accelerating payments
+
+## 5. Goal-Based Budget Plan
+Redesigned budget aligned to {{financial_goals}}:
+| Category | Current | Recommended | Change |
+|----------|---------|-------------|--------|
+
+## 6. 90-Day Action Plan
+Prioritized steps to take this month, next month, and month 3.
+
+## 7. Key Metrics to Track Monthly
+3-5 specific numbers to review each month to stay on track.
+"""

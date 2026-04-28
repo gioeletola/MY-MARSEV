@@ -1,0 +1,130 @@
+[skill]
+id = "interview-prep"
+name = "Interview Prep"
+description = "Prepare for a job interview with role-specific Q&A, STAR stories, company research, and confidence-building strategies."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["personal", "career"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "role"
+type = "string"
+description = "Job title and company you're interviewing for"
+required = true
+
+[[inputs]]
+name = "your_background"
+type = "string"
+description = "Brief summary of your experience, skills, and key achievements"
+required = true
+
+[[inputs]]
+name = "job_description"
+type = "string"
+description = "Key requirements from the job description (paste or summarize)"
+required = false
+default = ""
+
+[[inputs]]
+name = "interview_type"
+type = "string"
+description = "Interview type: behavioral | technical | case | panel | all rounds"
+required = false
+default = "behavioral"
+
+[[inputs]]
+name = "weaknesses"
+type = "string"
+description = "Areas you're less confident about (skills gaps, career gaps, etc.)"
+required = false
+default = ""
+
+[[outputs]]
+name = "prep_guide"
+type = "string"
+description = "Complete interview preparation guide"
+
+[[outputs]]
+name = "star_stories"
+type = "string"
+description = "Prepared STAR method stories for behavioral questions"
+
+[prompt]
+template = """You are a career coach and former hiring manager. Prepare a comprehensive interview readiness package.
+
+ROLE: {{role}}
+YOUR BACKGROUND: {{your_background}}
+JOB DESCRIPTION REQUIREMENTS: {{job_description}}
+INTERVIEW TYPE: {{interview_type}}
+AREAS OF CONCERN: {{weaknesses}}
+
+Create a complete interview preparation package:
+
+## Role Fit Analysis
+- How your background maps to the key requirements
+- Your top 3 strongest selling points for this specific role
+- Potential gaps and how to address them proactively
+
+## Company & Role Research Checklist
+- [ ] Company's mission, values, and recent news (last 6 months)
+- [ ] Team structure and who you'd work with
+- [ ] Key challenges the role is meant to solve
+- [ ] Interviewer LinkedIn profiles (if known)
+- [ ] Company's products/services you should demo or use before the interview
+
+## The 60-Second Elevator Pitch
+Your "Tell me about yourself" answer — structured, compelling, and tailored to {{role}}:
+[Write a ready-to-deliver 60-second script]
+
+## Behavioral Questions & STAR Stories ({{interview_type}})
+
+For each question, provide a STAR framework answer tailored to your background:
+
+### Q1: "Tell me about a time you led a challenging project."
+**Situation:** [Context]
+**Task:** [Your responsibility]
+**Action:** [Specific steps you took]
+**Result:** [Quantified outcome]
+
+[Repeat for 8-10 most likely behavioral questions for this role, including:]
+- Leadership and influence
+- Conflict resolution
+- Failure and learning
+- Innovation and problem-solving
+- Working under pressure
+- Cross-functional collaboration
+- Data-driven decision making
+- Ambiguity and change management
+
+## Technical / Role-Specific Questions (if applicable)
+List 5-8 technical questions likely to be asked for {{role}} with model answers.
+
+## Questions You Should Ask the Interviewer
+Five thoughtful, strategic questions that demonstrate preparation and curiosity.
+Avoid: salary (save for offer stage), basic facts findable on the website.
+
+## Handling Difficult Questions
+
+**"What's your biggest weakness?"**
+[Script that shows self-awareness + active improvement]
+
+**Addressing {{weaknesses}}:**
+[Specific framing for each gap — honest but forward-looking]
+
+**"Why are you leaving your current role?"**
+[Professional, positive framing]
+
+**Salary negotiation (if asked):**
+[How to defer or anchor effectively]
+
+## Day-of Checklist
+Mental, logistical, and physical preparation for interview day.
+
+## Post-Interview Follow-Up
+Template thank-you email to send within 2 hours of the interview.
+"""

@@ -254,3 +254,116 @@ class BuilderStudio:
             )
         except Exception as exc:
             logger.error("BuilderStudio: persist workflows failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Project scaffolding
+# ---------------------------------------------------------------------------
+
+from enum import Enum  # noqa: E402
+
+
+class ProjectType(str, Enum):
+    API        = "api"
+    CLI        = "cli"
+    WEBAPP     = "webapp"
+    LIBRARY    = "library"
+    AGENT      = "agent"
+    WORKFLOW   = "workflow"
+    SCRIPT     = "script"
+    BOT        = "bot"
+    PIPELINE   = "pipeline"
+    ML         = "ml"
+
+
+@dataclass
+class BuildProject:
+    project_id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
+    name: str = "my-project"
+    project_type: ProjectType = ProjectType.API
+    stack: str = "python"
+    files: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    build_config: dict[str, Any] = field(default_factory=dict)
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+@dataclass
+class BuildResult:
+    success: bool
+    output: str = ""
+    errors: list[str] = field(default_factory=list)
+    duration_ms: float = 0.0
+    artifacts: list[str] = field(default_factory=list)
+
+
+_TEMPLATES: dict[ProjectType, list[str]] = {
+    ProjectType.API:      ["main.py", "api/routes.py", "api/models.py", "api/deps.py", "tests/test_api.py", "pyproject.toml", "Dockerfile", ".env.example"],
+    ProjectType.CLI:      ["cli.py", "commands/__init__.py", "commands/main.py", "tests/test_cli.py", "pyproject.toml"],
+    ProjectType.WEBAPP:   ["app.py", "templates/index.html", "static/main.js", "static/style.css", "tests/test_app.py"],
+    ProjectType.LIBRARY:  ["src/__init__.py", "src/core.py", "tests/test_core.py", "pyproject.toml", "README.md"],
+    ProjectType.AGENT:    ["agent.py", "agent/tools.py", "agent/prompts.py", "tests/test_agent.py", "pyproject.toml"],
+    ProjectType.WORKFLOW: ["workflow.py", "steps/__init__.py", "steps/main.py", "config.yaml"],
+    ProjectType.SCRIPT:   ["main.py", "utils.py", "requirements.txt"],
+    ProjectType.BOT:      ["bot.py", "handlers/__init__.py", "handlers/commands.py", "handlers/messages.py", "pyproject.toml"],
+    ProjectType.PIPELINE: ["pipeline.py", "stages/__init__.py", "stages/extract.py", "stages/transform.py", "stages/load.py"],
+    ProjectType.ML:       ["train.py", "model.py", "data/dataset.py", "evaluate.py", "requirements.txt"],
+}
+
+
+class ProjectScaffolder:
+    """Scaffold new software projects from templates."""
+
+    def create(self, name: str, project_type: ProjectType, stack: str = "python") -> BuildProject:
+        p = BuildProject(name=name, project_type=project_type, stack=stack)
+        p.files = _TEMPLATES.get(project_type, ["main.py"])
+        return p
+
+    def scaffold(self, project: BuildProject, output_dir: pathlib.Path | None = None) -> list[str]:
+        """Generate skeleton files. Returns list of created paths."""
+        base = (output_dir or pathlib.Path("build") / project.name)
+        created: list[str] = []
+        for rel_path in project.files:
+            path = base / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if not path.exists():
+                path.write_text(f"# {rel_path}\n", encoding="utf-8")
+            created.append(str(path))
+        logger.info("ProjectScaffolder: scaffolded %d files for %s", len(created), project.name)
+        return created
+
+    def add_dependency(self, project: BuildProject, package: str, version: str = "") -> None:
+        dep = f"{package}=={version}" if version else package
+        if dep not in project.dependencies:
+            project.dependencies.append(dep)
+
+    def estimate_complexity(self, project: BuildProject) -> dict[str, Any]:
+        n_files = len(project.files)
+        n_deps = len(project.dependencies)
+        score = min((n_files * 0.04 + n_deps * 0.02), 1.0)
+        return {
+            "complexity_score": round(score, 2),
+            "files": n_files,
+            "dependencies": n_deps,
+            "level": "low" if score < 0.3 else ("medium" if score < 0.7 else "high"),
+        }
+
+    def build(self, project: BuildProject, output_dir: pathlib.Path | None = None) -> BuildResult:
+        """Run scaffold + validate structure."""
+        import time
+        t0 = time.monotonic()
+        try:
+            artifacts = self.scaffold(project, output_dir)
+            return BuildResult(
+                success=True,
+                output=f"Created {len(artifacts)} files",
+                artifacts=artifacts,
+                duration_ms=(time.monotonic() - t0) * 1000,
+            )
+        except Exception as exc:
+            return BuildResult(
+                success=False,
+                errors=[str(exc)],
+                duration_ms=(time.monotonic() - t0) * 1000,
+            )
+

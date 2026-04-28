@@ -44,13 +44,15 @@ class TelemetryStore:
         max_events: int = _DEFAULT_MAX_EVENTS,
         retention_hours: int = _DEFAULT_RETENTION_HOURS,
         persist: bool = True,
+        # Alias kept for backward compat
+        ring_size: int | None = None,
     ) -> None:
         self._path = path
-        self._max_events = max_events
+        self._max_events = ring_size if ring_size is not None else max_events
         self._retention_hours = retention_hours
         self._persist = persist
         self._lock = threading.RLock()
-        self._ring: deque[TelemetryEvent] = deque(maxlen=max_events)
+        self._ring: deque[TelemetryEvent] = deque(maxlen=self._max_events)
         if persist:
             self._path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -158,10 +160,23 @@ class TelemetryStore:
         return results
 
     def recent(self, n: int = 50) -> list[dict]:
-        """Return the n most-recent raw dicts (legacy compat)."""
+        """Return the n most-recent raw dicts (legacy compat).
+
+        Data fields are merged into the top-level dict so callers can access
+        session-level keys (e.g. ``session_id``) directly.
+        """
         with self._lock:
             snapshot = list(self._ring)
-        return [ev.to_dict() for ev in snapshot[-n:]]
+        out = []
+        for ev in snapshot[-n:]:
+            d = ev.to_dict()
+            inner = d.pop("data", {}) or {}
+            if isinstance(inner, dict):
+                d.update(inner)
+            else:
+                d["data"] = inner
+            out.append(d)
+        return out
 
     # ------------------------------------------------------------------
     # Aggregation
@@ -308,7 +323,13 @@ class TelemetryStore:
                 if not line:
                     continue
                 try:
-                    yield json.loads(line)
+                    d = json.loads(line)
+                    inner = d.pop("data", {}) or {}
+                    if isinstance(inner, dict):
+                        d.update(inner)
+                    else:
+                        d["data"] = inner
+                    yield d
                 except json.JSONDecodeError:
                     continue
 

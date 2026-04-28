@@ -1,0 +1,59 @@
+[skill]
+id = "content-calendar"
+name = "Content Calendar Builder"
+description = "Build a monthly content calendar with platform-specific posts, themes, and publishing schedule."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["content", "planning", "marketing"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "brand_name"
+type = "string"
+description = "Brand or product name"
+required = true
+
+[[inputs]]
+name = "platforms"
+type = "string"
+description = "Comma-separated platforms: LinkedIn, Instagram, X, TikTok, Newsletter"
+required = false
+default = "LinkedIn, Instagram, X"
+
+[[inputs]]
+name = "month"
+type = "string"
+description = "Target month (e.g. May 2026)"
+required = false
+default = "next month"
+
+[[inputs]]
+name = "content_pillars"
+type = "string"
+description = "Core content themes (e.g. education, inspiration, product, culture)"
+required = false
+default = "education, inspiration, product"
+
+[[outputs]]
+name = "calendar"
+type = "string"
+description = "Monthly content calendar"
+
+[prompt]
+template = """Build a full content calendar for {{brand_name}} for {{month}}.
+
+Platforms: {{platforms}}
+Content Pillars: {{content_pillars}}
+
+Produce:
+1. Monthly Theme & Goals
+2. Week-by-Week Schedule — for each week: 3-5 posts per platform, post type (carousel / reel / text / story / newsletter), topic, hook line, call-to-action, best posting time
+3. Platform-Specific Strategy (tone, hashtag strategy, engagement tactics per platform)
+4. Repurposing Matrix (how one piece of content adapts across platforms)
+5. KPIs to Track (reach, engagement rate, follower growth, click-through)
+
+Format as a clear, actionable calendar. Include specific post ideas with compelling hooks."""

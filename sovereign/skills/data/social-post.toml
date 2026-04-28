@@ -1,0 +1,91 @@
+[skill]
+id = "social-post"
+name = "Social Post"
+description = "Craft platform-optimized social media posts for LinkedIn, X (Twitter), or Instagram from a topic or content brief."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["communication", "writing", "social"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "topic"
+type = "string"
+description = "What do you want to post about? (key message, story, announcement, or insight)"
+required = true
+
+[[inputs]]
+name = "platform"
+type = "string"
+description = "Target platform: linkedin | twitter | instagram | all"
+required = false
+default = "linkedin"
+
+[[inputs]]
+name = "tone"
+type = "string"
+description = "Tone: professional | conversational | bold | inspirational | humorous"
+required = false
+default = "professional"
+
+[[inputs]]
+name = "goal"
+type = "string"
+description = "Post goal: engagement | brand awareness | lead generation | thought leadership"
+required = false
+default = "engagement"
+
+[[inputs]]
+name = "author_context"
+type = "string"
+description = "Brief context about the author (role, company, audience) to personalize the voice"
+required = false
+default = ""
+
+[[outputs]]
+name = "post"
+type = "string"
+description = "Ready-to-publish social media post(s)"
+
+[[outputs]]
+name = "hashtags"
+type = "string"
+description = "Recommended hashtags for discoverability"
+
+[prompt]
+template = """You are an expert social media strategist and copywriter. Create high-performing {{platform}} post(s) for the following brief.
+
+TOPIC / MESSAGE: {{topic}}
+PLATFORM: {{platform}}
+TONE: {{tone}}
+GOAL: {{goal}}
+AUTHOR CONTEXT: {{author_context}}
+
+Apply platform-specific best practices:
+
+**LinkedIn:** Professional narrative with a strong hook in the first 2 lines (before "see more"). Use white space generously. Tell a story or share a specific insight. End with a question or CTA. 150–300 words ideal.
+
+**X (Twitter):** Punchy and direct. Hook in the first sentence. Use threads for complex ideas (number each tweet). Under 280 characters per tweet. Add 1–2 hashtags max.
+
+**Instagram:** Visual-first thinking — describe what the image/video should show, then write caption. Strong opening line. Storytelling body. CTA at the end. Hashtag block (15–25 relevant tags) separated by line breaks.
+
+Output format:
+
+## {{platform}} Post
+[The complete post text, ready to copy-paste]
+
+## Hook Alternatives (3 options)
+Provide 3 alternative opening lines to A/B test.
+
+## Hashtags
+[Recommended hashtags sorted by relevance]
+
+## Best Time to Post
+Recommend the optimal day and time to publish for maximum reach on {{platform}}.
+
+## Engagement Tip
+One tactic to boost engagement after publishing (e.g. reply to comments in first hour, tag collaborators, pin the post).
+"""

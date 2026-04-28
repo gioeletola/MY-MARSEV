@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import patch
 
 import pytest
 
@@ -39,7 +38,6 @@ class TestCreateToken:
         assert "jti" in payload
 
     def test_default_expiry_is_8h(self):
-        before = int(time.time())
         token = create_token({"sub": "x"})
         payload = verify_token(token)
         assert payload["exp"] - payload["iat"] == pytest.approx(28_800, abs=2)

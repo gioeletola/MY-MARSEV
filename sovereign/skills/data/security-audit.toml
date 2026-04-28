@@ -1,0 +1,55 @@
+[skill]
+id = "security-audit"
+name = "Security Audit"
+description = "Conduct a structured security posture audit with findings, risk ratings, and remediation steps."
+version = "1.0.0"
+status = "active"
+permissions = ["read"]
+tools = ["memory_tool"]
+tags = ["security", "audit", "compliance"]
+author = "system"
+requires_approval = true
+enabled = true
+
+[[inputs]]
+name = "system_description"
+type = "string"
+description = "What system, application, or environment is being audited"
+required = true
+
+[[inputs]]
+name = "scope"
+type = "string"
+description = "Audit scope: authentication, APIs, data storage, infrastructure, code, all"
+required = false
+default = "all"
+
+[[inputs]]
+name = "compliance_framework"
+type = "string"
+description = "Target compliance: SOC2, ISO27001, GDPR, HIPAA, PCI-DSS, or none"
+required = false
+default = "none"
+
+[[outputs]]
+name = "audit_report"
+type = "string"
+description = "Security audit report with findings and recommendations"
+
+[prompt]
+template = """Conduct a structured security audit for the following system.
+
+System: {{system_description}}
+Scope: {{scope}}
+Compliance Framework: {{compliance_framework}}
+
+Produce a security audit report with:
+1. Executive Summary (overall risk posture: Critical / High / Medium / Low)
+2. Audit Scope & Methodology
+3. Findings Table — each finding: ID, category, severity (Critical/High/Medium/Low/Info), description, evidence/example, CVSS-like score
+4. Detailed Findings — for each: technical description, business impact, root cause, remediation steps (immediate + long-term), effort estimate
+5. Compliance Gap Analysis (against {{compliance_framework}} if specified)
+6. Prioritised Remediation Roadmap (30/60/90 day plan)
+7. Security Metrics to Establish
+
+Be specific and actionable. Prioritise ruthlessly."""

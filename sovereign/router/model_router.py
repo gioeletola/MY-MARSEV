@@ -241,6 +241,7 @@ class ModelRouter:
 
     def __init__(self) -> None:
         self.health = ProviderHealthTracker()
+        self._model_scores: dict[str, float] = {}
 
     # ------------------------------------------------------------------
     # Primary API
@@ -404,3 +405,102 @@ class ModelRouter:
 
     def provider_health_report(self) -> dict[str, Any]:
         return self.health.report()
+
+    # ------------------------------------------------------------------
+    # Complexity estimation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def estimate_complexity(text: str) -> float:
+        """Heuristic 0.0–1.0 complexity score for a text prompt."""
+        import re as _re
+        score = 0.0
+        length = len(text)
+        # Length signal
+        score += min(length / 4000, 0.3)
+        # Code blocks
+        if _re.search(r"```|def |class |import |SELECT |CREATE ", text):
+            score += 0.15
+        # Math / reasoning
+        if _re.search(r"\b(prove|derive|calculate|optimize|theorem|algorithm)\b", text, _re.I):
+            score += 0.15
+        # Multi-step questions
+        if len(_re.findall(r"\?", text)) >= 3:
+            score += 0.1
+        # Nested structure
+        if _re.search(r"\b(first|second|third|then|finally|however|therefore)\b", text, _re.I):
+            score += 0.1
+        # Technical terms
+        technical = _re.findall(r"\b(API|database|architecture|infrastructure|security|compliance)\b", text, _re.I)
+        score += min(len(technical) * 0.03, 0.12)
+        return min(round(score, 3), 1.0)
+
+    # ------------------------------------------------------------------
+    # Batch routing
+    # ------------------------------------------------------------------
+
+    def route_parallel(self, tasks: list[str], base_criteria: RoutingCriteria | None = None) -> list[str]:
+        """Return the optimal model ID for each task in a batch."""
+        base = base_criteria or RoutingCriteria()
+        result = []
+        for task in tasks:
+            c = RoutingCriteria(
+                task_complexity=self.estimate_complexity(task),
+                is_sensitive=base.is_sensitive,
+                latency_budget_ms=base.latency_budget_ms,
+                contains_pii=base.contains_pii,
+                preferred_provider=base.preferred_provider,
+                budget_limit_usd=base.budget_limit_usd,
+            )
+            result.append(self.route(c))
+        return result
+
+    # ------------------------------------------------------------------
+    # Online learning — EMA score updates
+    # ------------------------------------------------------------------
+
+    def learning_rate_adjust(
+        self,
+        model_id: str,
+        success: bool,
+        latency_ms: float = 0.0,
+        alpha: float = 0.15,
+    ) -> float:
+        """Update the model's performance score via exponential moving average."""
+        current = self._model_scores.get(model_id, 0.8)
+        # Combine success signal and latency penalty
+        latency_penalty = min(latency_ms / 30_000, 0.3) if latency_ms > 0 else 0.0
+        observed = (1.0 if success else 0.0) - latency_penalty
+        updated = round(current * (1 - alpha) + observed * alpha, 4)
+        self._model_scores[model_id] = updated
+        return updated
+
+    def model_score(self, model_id: str) -> float:
+        return self._model_scores.get(model_id, 0.8)
+
+
+@dataclass
+class ModelRoutingDecision:
+    """Full record of a routing decision for observability and audit."""
+    model_id: str
+    provider: str
+    tier: str
+    reason: str
+    estimated_cost_usd: float = 0.0
+    privacy_safe: bool = False
+    fallback_chain: list[tuple[str, str]] = field(default_factory=list)
+    complexity_score: float = 0.0
+    latency_budget_ms: int = 0
+    created_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "provider": self.provider,
+            "tier": self.tier,
+            "reason": self.reason,
+            "estimated_cost_usd": self.estimated_cost_usd,
+            "privacy_safe": self.privacy_safe,
+            "complexity_score": self.complexity_score,
+        }
+

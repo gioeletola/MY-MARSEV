@@ -1,0 +1,112 @@
+[skill]
+id = "okr-builder"
+name = "OKR Builder"
+description = "Create well-structured OKRs (Objectives and Key Results) for a team or individual, aligned to company strategy."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["business", "planning"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "entity"
+type = "string"
+description = "Who are the OKRs for? (company name, team name, or individual role)"
+required = true
+
+[[inputs]]
+name = "period"
+type = "string"
+description = "OKR period (e.g. Q1 2026, H1 2026, Annual 2026)"
+required = false
+default = "Q1"
+
+[[inputs]]
+name = "strategic_priorities"
+type = "string"
+description = "Top strategic priorities or company goals this quarter (1-3 sentences)"
+required = false
+default = ""
+
+[[inputs]]
+name = "context"
+type = "string"
+description = "Team size, current state, key challenges, or other relevant context"
+required = false
+default = ""
+
+[[inputs]]
+name = "num_objectives"
+type = "string"
+description = "Number of objectives to create (recommended: 3-5)"
+required = false
+default = "3"
+
+[[outputs]]
+name = "okrs"
+type = "string"
+description = "Complete OKR set with objectives and key results"
+
+[[outputs]]
+name = "scoring_guide"
+type = "string"
+description = "How to score and review these OKRs at the end of the period"
+
+[prompt]
+template = """You are an expert OKR coach with experience helping companies from startups to Fortune 500 implement OKRs.
+
+ENTITY: {{entity}}
+OKR PERIOD: {{period}}
+STRATEGIC PRIORITIES: {{strategic_priorities}}
+CONTEXT: {{context}}
+NUMBER OF OBJECTIVES: {{num_objectives}}
+
+Create {{num_objectives}} well-crafted Objectives, each with 3-4 Key Results, following these principles:
+
+**Objectives must be:**
+- Inspirational and qualitative (NOT a number)
+- Ambitious but achievable (70% attainment = success)
+- Time-bound to {{period}}
+- Clear enough that anyone in the org understands it
+
+**Key Results must be:**
+- Measurable and binary or numeric
+- Outcome-focused, not activity-focused
+- Have a clear baseline and target
+- Attributable to actions the team controls
+
+## OKRs for {{entity}} — {{period}}
+
+For each objective:
+
+### Objective X: [Bold, inspiring objective statement]
+*Why this matters:* One sentence explaining strategic importance.
+
+| # | Key Result | Baseline | Target | Confidence |
+|---|-----------|----------|--------|------------|
+| KR1 | [Measurable outcome] | [Current] | [Goal] | [%] |
+| KR2 | [Measurable outcome] | [Current] | [Goal] | [%] |
+| KR3 | [Measurable outcome] | [Current] | [Goal] | [%] |
+
+*Owner:* [Suggested team or role]
+*Key initiatives:* 2-3 specific projects or actions that will drive these KRs
+
+---
+
+## OKR Health Check
+- Do these OKRs cover all key priorities? Any blind spots?
+- Are there dependencies between objectives that need coordination?
+- Which KRs are at greatest risk of being gaming-prone?
+
+## Scoring Guide
+How to score at the end of {{period}}:
+- 0.7–1.0: Exceptional (re-examine if targets were ambitious enough)
+- 0.4–0.6: Good progress (expected range for ambitious OKRs)
+- 0.0–0.3: Needs attention (understand root causes)
+
+## Recommended Review Cadence
+Weekly check-in format, monthly review agenda, and {{period}} retrospective structure.
+"""

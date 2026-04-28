@@ -1,0 +1,140 @@
+[skill]
+id = "performance-review"
+name = "Performance Review"
+description = "Draft a balanced, constructive employee performance review with ratings, examples, and development recommendations."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = []
+tags = ["hr", "writing"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "employee_name"
+type = "string"
+description = "Employee's name and role/title"
+required = true
+
+[[inputs]]
+name = "review_period"
+type = "string"
+description = "Review period (e.g. H1 2026, Annual 2025, Q3 2025)"
+required = false
+default = "Annual"
+
+[[inputs]]
+name = "achievements"
+type = "string"
+description = "Key accomplishments and contributions during the review period"
+required = true
+
+[[inputs]]
+name = "areas_for_improvement"
+type = "string"
+description = "Observed gaps, missed targets, or development opportunities"
+required = false
+default = ""
+
+[[inputs]]
+name = "goals_set"
+type = "string"
+description = "Goals or OKRs that were set at the start of the period"
+required = false
+default = ""
+
+[[inputs]]
+name = "reviewer_name"
+type = "string"
+description = "Reviewer's name and role"
+required = false
+default = "Manager"
+
+[[outputs]]
+name = "review_document"
+type = "string"
+description = "Complete performance review document"
+
+[[outputs]]
+name = "development_plan"
+type = "string"
+description = "Forward-looking development and growth plan"
+
+[prompt]
+template = """You are an experienced HR director and people manager. Write a professional, fair, and constructive performance review.
+
+EMPLOYEE: {{employee_name}}
+REVIEWER: {{reviewer_name}}
+REVIEW PERIOD: {{review_period}}
+
+ACHIEVEMENTS & CONTRIBUTIONS:
+{{achievements}}
+
+AREAS FOR IMPROVEMENT:
+{{areas_for_improvement}}
+
+GOALS SET FOR THIS PERIOD:
+{{goals_set}}
+
+Write a balanced, specific, and actionable performance review document:
+
+---
+# PERFORMANCE REVIEW
+**Employee:** {{employee_name}}
+**Reviewer:** {{reviewer_name}}
+**Period:** {{review_period}}
+**Date:** [Today's Date]
+
+---
+
+## Overall Performance Summary
+A 2-3 paragraph balanced narrative that:
+- Acknowledges the employee's most significant contributions
+- Provides honest but constructive feedback on areas for growth
+- Sets an encouraging and forward-looking tone
+
+## Goal Achievement Review
+| Goal | Target | Result | Achievement % | Rating |
+|------|--------|--------|--------------|--------|
+Rating scale: Exceeds (5) | Meets (4) | Partially Meets (3) | Does Not Meet (2) | N/A (1)
+
+## Competency Ratings
+Rate on a 5-point scale with specific behavioral examples:
+
+| Competency | Rating (1-5) | Evidence & Examples |
+|-----------|:------------:|---------------------|
+| Quality of Work | | |
+| Productivity & Output | | |
+| Communication | | |
+| Teamwork & Collaboration | | |
+| Problem Solving | | |
+| Initiative & Innovation | | |
+| Leadership (if applicable) | | |
+| Technical Skills | | |
+
+**Overall Rating: X / 5** — [Label: Exceptional / Exceeds Expectations / Meets Expectations / Needs Improvement / Unsatisfactory]
+
+## Strengths — What's Working Well
+Three specific strengths with concrete examples and business impact.
+
+## Areas for Development
+For each development area, use the SBI model (Situation-Behavior-Impact):
+- **Situation:** When X happens
+- **Behavior:** The employee does Y
+- **Impact:** Which results in Z
+- **Recommendation:** Specific, actionable improvement step
+
+## Development Plan for Next Period
+| Development Goal | Actions | Support Needed | Timeline | Success Measure |
+|-----------------|---------|---------------|----------|----------------|
+
+## Goals for Next Review Period
+3-5 SMART goals for {{employee_name}} in the next period.
+
+## Manager's Closing Comments
+Encouraging, honest closing statement that reinforces the employee's value and commitment to their success.
+
+---
+*Signatures: Employee _________ Manager _________ HR _________ Date _________*
+"""

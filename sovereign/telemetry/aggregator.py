@@ -22,7 +22,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sovereign.telemetry.store import TelemetryStore, _parse_iso, get_telemetry_store
+from sovereign.telemetry.store import TelemetryStore, get_telemetry_store
 from sovereign.telemetry.types import AggregatedStats
 
 

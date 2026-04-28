@@ -17,22 +17,34 @@ _IMPACT_VALUES = {"low": 0.2, "medium": 0.5, "high": 0.8, "critical": 1.0}
 
 @dataclass
 class Scenario:
-    name: str
-    probability: float          # 0.0 – 1.0
-    description: str
-    impact_level: str = "medium"        # low / medium / high / critical
+    # Positional order: scenario_id, name, description, probability, impact
+    scenario_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
+    name: str = "Unnamed"
+    description: str = ""
+    probability: float = 0.5         # 0.0 – 1.0
+    impact: str = "medium"           # low / medium / high / critical (alias: impact_level)
     timeline_days: int = 90
     assumptions: list[str] = field(default_factory=list)
     mitigations: list[str] = field(default_factory=list)
-    # Internal fields
-    scenario_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     outcomes: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     tags: list[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        # Accept impact_level as a synonym via direct attribute set (legacy callers)
+        pass
+
+    @property
+    def impact_level(self) -> str:
+        return self.impact
+
+    @impact_level.setter
+    def impact_level(self, value: str) -> None:
+        self.impact = value
+
     @property
     def impact_value(self) -> float:
-        return _IMPACT_VALUES.get(self.impact_level, 0.5)
+        return _IMPACT_VALUES.get(self.impact, 0.5)
 
     @property
     def expected_value(self) -> float:

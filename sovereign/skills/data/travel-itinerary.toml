@@ -1,0 +1,60 @@
+[skill]
+id = "travel-itinerary"
+name = "Travel Itinerary Planner"
+description = "Generate a detailed day-by-day travel plan with logistics, budget, and local tips."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write", "network"]
+tools = ["web_search", "memory_tool"]
+tags = ["travel", "planning", "personal"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "destination"
+type = "string"
+description = "Travel destination (city/country)"
+required = true
+
+[[inputs]]
+name = "duration_days"
+type = "integer"
+description = "Number of days"
+required = true
+
+[[inputs]]
+name = "budget_usd"
+type = "integer"
+description = "Total budget in USD"
+required = false
+default = 2000
+
+[[inputs]]
+name = "travel_style"
+type = "string"
+description = "Style: luxury | budget | backpacker | business | family"
+required = false
+default = "balanced"
+
+[[outputs]]
+name = "itinerary"
+type = "string"
+description = "Day-by-day travel itinerary"
+
+[prompt]
+template = """Create a detailed {{duration_days}}-day travel itinerary for {{destination}}.
+
+Budget: ${{budget_usd}} USD total
+Travel Style: {{travel_style}}
+
+Structure the plan as:
+1. Pre-Trip Checklist (visa, vaccinations, insurance, packing essentials)
+2. Day-by-Day Itinerary — for each day: morning/afternoon/evening activities, meal recommendations, transport options, estimated costs
+3. Accommodation Recommendations (with price range per night)
+4. Getting Around (local transport, apps, tips)
+5. Budget Breakdown (accommodation / food / transport / activities / buffer)
+6. Local Tips & Culture Notes
+7. Emergency Contacts & Safety
+
+Be practical and specific. Include realistic cost estimates."""

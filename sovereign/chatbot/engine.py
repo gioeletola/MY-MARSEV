@@ -6,7 +6,7 @@ import os
 import time
 from typing import Any, AsyncIterator
 
-from .types import ChatMessage, ChatResponse, ChatSession, MessageRole
+from .types import ChatResponse, ChatSession, MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,6 @@ class ConversationEngine:
             return
 
         try:
-            import anthropic  # type: ignore
             client = self._client._client if hasattr(self._client, "_client") else self._client
             async with client.messages.stream(
                 model=self._model,

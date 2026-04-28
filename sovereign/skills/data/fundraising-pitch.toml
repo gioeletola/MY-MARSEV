@@ -1,0 +1,63 @@
+[skill]
+id = "fundraising-pitch"
+name = "Fundraising Pitch"
+description = "Write a compelling VC fundraising narrative for seed, Series A, or growth rounds."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["finance", "writing", "business", "fundraising"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "company_name"
+type = "string"
+description = "Company name"
+required = true
+
+[[inputs]]
+name = "problem_solution"
+type = "string"
+description = "Core problem you solve and your solution"
+required = true
+
+[[inputs]]
+name = "raise_amount"
+type = "string"
+description = "Amount raising and round type (e.g. $2M Seed)"
+required = true
+
+[[inputs]]
+name = "traction"
+type = "string"
+description = "Key traction metrics (ARR, users, growth rate, retention)"
+required = false
+default = ""
+
+[[outputs]]
+name = "pitch_narrative"
+type = "string"
+description = "VC fundraising narrative"
+
+[prompt]
+template = """Write a compelling VC fundraising narrative for {{company_name}}.
+
+Round: {{raise_amount}}
+Problem & Solution: {{problem_solution}}
+Traction: {{traction}}
+
+Structure the pitch narrative as:
+1. The Hook (opening line that captures the opportunity in one sentence)
+2. The Problem (pain point, market gap, who suffers and how much)
+3. The Solution (what you built, why it works, why now)
+4. Market Opportunity (TAM/SAM/SOM with sources, market timing thesis)
+5. Traction & Proof Points (metrics, growth rate, customer quotes, retention)
+6. Business Model (how you make money, unit economics, LTV/CAC)
+7. Go-To-Market Strategy (acquisition channels, expansion playbook)
+8. Team (founder backgrounds, why you're uniquely positioned to win)
+9. The Ask (raise amount, use of funds breakdown, 18-month milestones)
+10. The Vision (where this goes in 5-10 years)
+
+Write with conviction and specificity. Investors fund stories, not spreadsheets."""

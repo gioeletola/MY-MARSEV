@@ -245,3 +245,71 @@ async def run_weekly_report(data_dir: str = "data") -> str:
     report = build_weekly_report(data_dir)
     await send_telegram_report(report)
     return report
+
+
+def render_html(markdown_report: str) -> str:
+    """Convert a Markdown weekly report to a self-contained HTML email."""
+    import re
+    body = markdown_report
+    body = re.sub(r"^# (.+)$", r"<h1>\1</h1>", body, flags=re.M)
+    body = re.sub(r"^## (.+)$", r"<h2>\1</h2>", body, flags=re.M)
+    body = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", body)
+    body = re.sub(r"^- (.+)$", r"<li>\1</li>", body, flags=re.M)
+    body = re.sub(r"^  • (.+)$", r"<li style='margin-left:1em'>• \1</li>", body, flags=re.M)
+    body = body.replace("\n\n", "</p><p>")
+    css = (
+        "body{font-family:Inter,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#1a1a2e}"
+        "h1{color:#06b6d4;border-bottom:2px solid #06b6d4;padding-bottom:8px}"
+        "h2{color:#7c3aed;margin-top:24px}"
+        "li{margin:4px 0}"
+        "strong{color:#1a1a2e}"
+        "hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}"
+    )
+    return f"<!DOCTYPE html><html><head><meta charset='utf-8'><style>{css}</style></head><body><p>{body}</p></body></html>"
+
+
+def render_json(data_dir: str = "data") -> dict:
+    """Return report data as a machine-readable dict."""
+    import pathlib
+    base = pathlib.Path(data_dir)
+    result: dict = {"generated_at": _now().isoformat(), "sections": {}}
+    try:
+        from sovereign.memory.domains.financial import FinancialMemoryStore
+        fin = FinancialMemoryStore(base / "memory" / "financial.json")
+        result["sections"]["finance"] = fin.snapshot()
+    except Exception:
+        pass
+    try:
+        from sovereign.memory.domains.next_action import NextActionStore
+        na = NextActionStore(base / "memory" / "next_action.json")
+        result["sections"]["next_actions"] = {
+            "pending": len(na.pending()), "urgent": len(na.urgent()), "overdue": len(na.overdue())
+        }
+    except Exception:
+        pass
+    return result
+
+
+def compare_to_previous(current: str, previous: str) -> dict:
+    """Produce a delta summary comparing two Markdown weekly reports."""
+    import re
+    def _extract_metric(text: str, label: str) -> float | None:
+        m = re.search(rf"{re.escape(label)}[:\s*€$]*([0-9,\.]+)", text)
+        if m:
+            try:
+                return float(m.group(1).replace(",", ""))
+            except ValueError:
+                return None
+        return None
+
+    metrics = ["Net worth", "Cash", "Income", "Expenses", "Mood avg", "Active projects"]
+    delta: dict = {}
+    for m in metrics:
+        cur_val = _extract_metric(current, m)
+        prev_val = _extract_metric(previous, m)
+        if cur_val is not None and prev_val is not None:
+            change = cur_val - prev_val
+            pct = round(change / prev_val * 100, 1) if prev_val else 0.0
+            delta[m] = {"current": cur_val, "previous": prev_val, "change": round(change, 2), "pct": pct}
+    return {"deltas": delta, "metrics_compared": len(delta)}
+

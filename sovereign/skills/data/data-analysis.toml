@@ -1,0 +1,55 @@
+[skill]
+id = "data-analysis"
+name = "Data Analysis"
+description = "Perform structured analysis on tabular or descriptive data, surface insights, and recommend actions."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "code"]
+tools = ["code_exec"]
+tags = ["data", "analysis", "intelligence"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "data_description"
+type = "string"
+description = "Describe the dataset (columns, row count, data types, source)"
+required = true
+
+[[inputs]]
+name = "analysis_goal"
+type = "string"
+description = "What question or business problem should this analysis answer"
+required = true
+
+[[inputs]]
+name = "sample_data"
+type = "string"
+description = "Optional: paste a sample of the data (CSV or JSON)"
+required = false
+default = ""
+
+[[outputs]]
+name = "analysis"
+type = "string"
+description = "Structured data analysis with insights and recommendations"
+
+[prompt]
+template = """Perform a structured data analysis.
+
+Dataset: {{data_description}}
+Analysis Goal: {{analysis_goal}}
+Sample Data: {{sample_data}}
+
+Produce:
+1. Data Overview (schema, quality assessment, missing values, outliers)
+2. Descriptive Statistics (key metrics: mean/median/std for numeric, distribution for categorical)
+3. Key Findings (3-7 most important patterns, correlations, or anomalies)
+4. Visualisation Recommendations (chart types + what each would show)
+5. Statistical Insights (trends, seasonality, clusters if applicable)
+6. Business Interpretation (what this means for the business goal)
+7. Recommended Actions (prioritised by impact)
+8. Suggested Next Analysis Steps
+
+Be precise. Include specific numbers. Flag data quality issues."""

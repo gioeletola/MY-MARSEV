@@ -1,0 +1,61 @@
+[skill]
+id = "sprint-plan"
+name = "Sprint Planner"
+description = "Create an agile sprint plan with story breakdown, capacity allocation, and definition of done."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["project", "engineering", "agile"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "sprint_goal"
+type = "string"
+description = "What this sprint aims to deliver"
+required = true
+
+[[inputs]]
+name = "backlog_items"
+type = "string"
+description = "Comma-separated list of backlog items or feature descriptions"
+required = true
+
+[[inputs]]
+name = "team_size"
+type = "integer"
+description = "Number of engineers on the team"
+required = false
+default = 3
+
+[[inputs]]
+name = "sprint_days"
+type = "integer"
+description = "Sprint duration in working days"
+required = false
+default = 10
+
+[[outputs]]
+name = "sprint_plan"
+type = "string"
+description = "Full sprint plan document"
+
+[prompt]
+template = """Create a detailed agile sprint plan.
+
+Sprint Goal: {{sprint_goal}}
+Backlog Items: {{backlog_items}}
+Team Size: {{team_size}} engineers
+Sprint Duration: {{sprint_days}} working days
+
+Produce a complete sprint plan with:
+1. Sprint Summary (goal, capacity in story points)
+2. Story Breakdown — each item with: title, story points (1/2/3/5/8), acceptance criteria, assignee suggestion
+3. Day-by-Day Schedule (key milestones per day)
+4. Dependencies & Risks
+5. Definition of Done checklist
+6. Velocity Target and success metrics
+
+Be specific. Use engineering language. Format with clear sections and tables."""

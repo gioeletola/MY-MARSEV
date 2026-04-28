@@ -1,0 +1,98 @@
+[skill]
+id = "sql-query-builder"
+name = "SQL Query Builder"
+description = "Convert a natural language request into an optimized, production-ready SQL query with explanation."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "code"]
+tools = []
+tags = ["code", "data"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "request"
+type = "string"
+description = "What data do you want? Describe in plain English."
+required = true
+
+[[inputs]]
+name = "schema"
+type = "string"
+description = "Database schema description (table names, columns, types, relationships)"
+required = false
+default = "schema not provided — make reasonable assumptions"
+
+[[inputs]]
+name = "dialect"
+type = "string"
+description = "SQL dialect: PostgreSQL | MySQL | SQLite | BigQuery | Snowflake | MSSQL"
+required = false
+default = "PostgreSQL"
+
+[[inputs]]
+name = "optimize_for"
+type = "string"
+description = "Optimization goal: readability | performance | both"
+required = false
+default = "both"
+
+[[outputs]]
+name = "query"
+type = "string"
+description = "The final SQL query"
+
+[[outputs]]
+name = "explanation"
+type = "string"
+description = "Step-by-step explanation of the query logic"
+
+[[outputs]]
+name = "indexes"
+type = "string"
+description = "Recommended indexes to support the query"
+
+[prompt]
+template = """You are an expert database engineer. Convert the following natural language request into a well-written {{dialect}} SQL query.
+
+REQUEST: {{request}}
+
+DATABASE SCHEMA:
+{{schema}}
+
+OPTIMIZE FOR: {{optimize_for}}
+
+Produce the following sections:
+
+## SQL Query
+```sql
+-- [Brief comment describing what the query does]
+[The complete, runnable {{dialect}} SQL query]
+```
+
+## How It Works
+Walk through the query step by step:
+1. Explain the FROM / JOIN structure and why each join is needed
+2. Explain all WHERE conditions and filters
+3. Explain GROUP BY, aggregations, and HAVING clauses if used
+4. Explain ORDER BY and LIMIT logic
+5. Explain any CTEs, subqueries, or window functions used
+
+## Potential Edge Cases
+List any edge cases the query handles (NULLs, duplicates, empty sets) and any it does NOT handle.
+
+## Performance Notes
+- Which columns should be indexed for this query
+- Estimated query complexity
+- Any dialect-specific optimizations applied
+
+## Recommended Indexes
+```sql
+-- Create these indexes to maximize query performance
+[CREATE INDEX statements if applicable]
+```
+
+## Alternative Approach
+If there is a meaningfully different way to write this query (e.g. using a CTE vs subquery, or a window function vs GROUP BY), show the alternative and explain the trade-offs.
+"""

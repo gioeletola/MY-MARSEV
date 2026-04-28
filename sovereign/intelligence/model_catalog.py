@@ -296,3 +296,95 @@ def get_model_catalog() -> ModelCatalog:
     if _catalog is None:
         _catalog = ModelCatalog()
     return _catalog
+
+
+# ---------------------------------------------------------------------------
+# ModelSelector — smart model selection from the catalog
+# ---------------------------------------------------------------------------
+
+_TASK_WEIGHTS: dict[str, dict[str, float]] = {
+    "coding":     {"coding_strength": 0.6, "reasoning_strength": 0.3, "instruction_following": 0.1},
+    "reasoning":  {"reasoning_strength": 0.7, "coding_strength": 0.1, "instruction_following": 0.2},
+    "creative":   {"creativity": 0.6, "instruction_following": 0.3, "reasoning_strength": 0.1},
+    "general":    {"reasoning_strength": 0.35, "instruction_following": 0.35, "coding_strength": 0.15, "creativity": 0.15},
+    "fast":       {"instruction_following": 0.5, "reasoning_strength": 0.5},
+    "multimodal": {"multimodal": 1.0},
+}
+
+
+class ModelSelector:
+    """
+    Smart model selection from the ModelCatalog.
+
+    Usage::
+        selector = ModelSelector()
+        best = selector.best_for("coding")
+        cheap = selector.cheapest_for("general", min_reasoning=0.7)
+        private = selector.most_private()
+    """
+
+    def __init__(self, catalog: ModelCatalog | None = None) -> None:
+        self._catalog = catalog or get_model_catalog()
+
+    def _score(self, entry: "ModelEntry", task_type: str) -> float:  # type: ignore[name-defined]
+        weights = _TASK_WEIGHTS.get(task_type, _TASK_WEIGHTS["general"])
+        score = 0.0
+        for attr, w in weights.items():
+            if attr == "multimodal":
+                score += w if entry.multimodal else 0.0
+            else:
+                score += getattr(entry, attr, 0.5) * w
+        return round(score, 4)
+
+    def best_for(self, task_type: str) -> "ModelEntry":  # type: ignore[name-defined]
+        """Return the highest-scoring cloud model for *task_type*."""
+        entries = [e for e in self._catalog.all() if e.provider_type.value != "local"]
+        if not entries:
+            return self._catalog.all()[0]
+        return max(entries, key=lambda e: self._score(e, task_type))
+
+    def cheapest_for(self, task_type: str, min_reasoning: float = 0.7) -> "ModelEntry":  # type: ignore[name-defined]
+        """Cheapest model with reasoning_strength >= min_reasoning."""
+        candidates = [
+            e for e in self._catalog.all()
+            if e.reasoning_strength >= min_reasoning
+        ]
+        if not candidates:
+            candidates = self._catalog.all()
+        return min(candidates, key=lambda e: e.cost_per_1k_input_usd + e.cost_per_1k_output_usd)
+
+    def most_private(self) -> "list[ModelEntry]":  # type: ignore[name-defined]
+        """Return all privacy-safe (local) models."""
+        return [e for e in self._catalog.all() if e.privacy_safe or e.offline_capable]
+
+    def compare(self, model_a_id: str, model_b_id: str, task_type: str = "general") -> dict:
+        """Side-by-side capability comparison of two models."""
+        a = self._catalog.get(model_a_id)
+        b = self._catalog.get(model_b_id)
+        if not a or not b:
+            return {"error": "One or both models not found"}
+        attrs = ["reasoning_strength", "coding_strength", "creativity",
+                 "instruction_following", "cost_per_1k_input_usd", "avg_latency_ms"]
+        return {
+            "model_a": model_a_id,
+            "model_b": model_b_id,
+            "task_type": task_type,
+            "score_a": self._score(a, task_type),
+            "score_b": self._score(b, task_type),
+            "winner": model_a_id if self._score(a, task_type) >= self._score(b, task_type) else model_b_id,
+            "attributes": {
+                attr: {"a": getattr(a, attr, None), "b": getattr(b, attr, None)}
+                for attr in attrs
+            },
+        }
+
+    def benchmark_score(self, model_id: str, task_type: str = "general") -> float:
+        entry = self._catalog.get(model_id)
+        if not entry:
+            return 0.0
+        return self._score(entry, task_type)
+
+    def top_n(self, task_type: str, n: int = 5) -> "list[ModelEntry]":  # type: ignore[name-defined]
+        entries = self._catalog.all()
+        return sorted(entries, key=lambda e: self._score(e, task_type), reverse=True)[:n]
+

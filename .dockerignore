@@ -1,15 +1,64 @@
+# Git & CI
 .git
+.github
+.gitignore
+
+# Python artefacts
 __pycache__
+*.py[cod]
+*.pyo
+*.pyd
 *.pyc
+.Python
+*.egg-info/
+dist/
+build/
+*.whl
+*.tar.gz
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+
+# Secrets & credentials (NEVER bake into image)
 .env
 .env.*
+.env.local
 .secrets
+*.key
+*.pem
+*.p12
+secrets/
+
+# Data & ledger (runtime volumes, not image content)
 data/
+
+# Test & dev tooling (not needed in production image)
 tests/
-.github/
-*.egg-info
-dist/
-backups/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docs
 docs/
-.mypy_cache
-.ruff_cache
+*.md
+!README.md
+
+# Backups & temporaries
+backups/
+tmp/
+*.tmp
+*.bak

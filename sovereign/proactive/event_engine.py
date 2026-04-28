@@ -1,93 +1,158 @@
-"""Event engine — schedules and fires time/condition-based proactive events."""
+"""EventEngine — publish/subscribe internal event bus with replay and stats."""
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
-from dataclasses import dataclass
-from typing import Awaitable, Callable
+import uuid
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Callable, Coroutine
 
 logger = logging.getLogger(__name__)
 
-AsyncCallback = Callable[[], Awaitable[None]]
+_MAX_HISTORY = 10_000
 
 
 @dataclass
-class ProactiveEvent:
-    event_id: str
-    name: str
-    trigger_at: float
-    callback_name: str
-    recurring_s: float = 0.0
-    enabled: bool = True
-    last_fired_at: float = 0.0
-    fire_count: int = 0
+class Event:
+    event_type: str
+    source: str
+    data: dict[str, Any] = field(default_factory=dict)
+    priority: float = 0.5        # 0.0 (low) – 1.0 (critical)
+    event_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
+    timestamp: float = field(default_factory=time.time)
+
+    @property
+    def iso_timestamp(self) -> str:
+        return datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat()
+
+
+AsyncCallback = Callable[[Event], Coroutine[Any, Any, None]]
 
 
 class EventEngine:
     """
-    Fires registered async callbacks at scheduled times.
-    Supports one-shot and recurring events.
+    Lightweight async event bus for the SOVEREIGN OS.
+
+    Features:
+    - subscribe(event_type, async_callback) — register listener
+    - publish(event_type, source, data, priority) — dispatch to subscribers
+    - replay(since_iso) — fetch historical events
+    - stats() — event rate + breakdown by type
     """
 
-    def __init__(self) -> None:
-        self._events: dict[str, ProactiveEvent] = {}
-        self._callbacks: dict[str, AsyncCallback] = {}
-        self._running = False
+    def __init__(self, max_history: int = _MAX_HISTORY) -> None:
+        self._subscribers: dict[str, list[AsyncCallback]] = defaultdict(list)
+        self._wildcard: list[AsyncCallback] = []
+        self._history: deque[Event] = deque(maxlen=max_history)
+        self._counts: dict[str, int] = defaultdict(int)
+        self._start_time = time.time()
 
-    def schedule(
+    # ------------------------------------------------------------------
+    # Subscribe
+    # ------------------------------------------------------------------
+
+    def subscribe(self, event_type: str | None, callback: AsyncCallback) -> None:
+        """Register *callback* for *event_type* (None = all events)."""
+        if event_type is None:
+            self._wildcard.append(callback)
+        else:
+            self._subscribers[event_type].append(callback)
+
+    def unsubscribe(self, event_type: str | None, callback: AsyncCallback) -> bool:
+        try:
+            if event_type is None:
+                self._wildcard.remove(callback)
+            else:
+                self._subscribers[event_type].remove(callback)
+            return True
+        except ValueError:
+            return False
+
+    # ------------------------------------------------------------------
+    # Publish
+    # ------------------------------------------------------------------
+
+    async def publish(
         self,
-        event_id: str,
-        name: str,
-        callback: AsyncCallback,
-        delay_s: float = 0.0,
-        recurring_s: float = 0.0,
-    ) -> ProactiveEvent:
-        event = ProactiveEvent(
-            event_id=event_id,
-            name=name,
-            trigger_at=time.time() + delay_s,
-            callback_name=event_id,
-            recurring_s=recurring_s,
-        )
-        self._events[event_id] = event
-        self._callbacks[event_id] = callback
+        event_type: str,
+        source: str,
+        data: dict[str, Any] | None = None,
+        priority: float = 0.5,
+    ) -> Event:
+        event = Event(event_type=event_type, source=source, data=data or {}, priority=priority)
+        self._history.append(event)
+        self._counts[event_type] += 1
+
+        targets = self._subscribers.get(event_type, []) + self._wildcard
+        if targets:
+            results = await asyncio.gather(
+                *(cb(event) for cb in targets),
+                return_exceptions=True,
+            )
+            for r in results:
+                if isinstance(r, Exception):
+                    logger.warning("EventEngine: subscriber error: %s", r)
+
         return event
 
-    def cancel(self, event_id: str) -> bool:
-        if event_id in self._events:
-            del self._events[event_id]
-            self._callbacks.pop(event_id, None)
-            return True
-        return False
+    def publish_sync(
+        self,
+        event_type: str,
+        source: str,
+        data: dict[str, Any] | None = None,
+        priority: float = 0.5,
+    ) -> Event:
+        """Fire-and-forget publish for sync contexts (no await on callbacks)."""
+        event = Event(event_type=event_type, source=source, data=data or {}, priority=priority)
+        self._history.append(event)
+        self._counts[event_type] += 1
+        return event
 
-    async def run_loop(self, stop_event: asyncio.Event | None = None) -> None:
-        self._running = True
-        logger.info("EventEngine started")
-        while self._running:
-            if stop_event and stop_event.is_set():
-                break
-            now = time.time()
-            for event in list(self._events.values()):
-                if not event.enabled:
-                    continue
-                if now >= event.trigger_at:
-                    cb = self._callbacks.get(event.event_id)
-                    if cb:
-                        try:
-                            await cb()
-                        except Exception as exc:
-                            logger.error("EventEngine: %s callback failed: %s", event.event_id, exc)
-                    event.last_fired_at = now
-                    event.fire_count += 1
-                    if event.recurring_s > 0:
-                        event.trigger_at = now + event.recurring_s
-                    else:
-                        del self._events[event.event_id]
-            await asyncio.sleep(1.0)
+    # ------------------------------------------------------------------
+    # Replay
+    # ------------------------------------------------------------------
 
-    def stop(self) -> None:
-        self._running = False
+    def replay(self, since_iso: str | None = None) -> list[Event]:
+        """Return all stored events, optionally filtered to since_iso."""
+        if since_iso is None:
+            return list(self._history)
+        since_ts = datetime.fromisoformat(since_iso).timestamp()
+        return [e for e in self._history if e.timestamp >= since_ts]
 
-    def list_events(self) -> list[dict]:
-        return [e.__dict__ for e in self._events.values()]
+    def recent(self, n: int = 50) -> list[Event]:
+        events = list(self._history)
+        return events[-n:]
+
+    # ------------------------------------------------------------------
+    # Stats
+    # ------------------------------------------------------------------
+
+    def stats(self) -> dict[str, Any]:
+        elapsed = max(time.time() - self._start_time, 1)
+        total = sum(self._counts.values())
+        return {
+            "total_events": total,
+            "events_per_minute": round(total / elapsed * 60, 2),
+            "by_type": dict(self._counts),
+            "subscribers": {k: len(v) for k, v in self._subscribers.items()},
+            "history_size": len(self._history),
+        }
+
+    def reset(self) -> None:
+        self._history.clear()
+        self._counts.clear()
+        self._start_time = time.time()
+
+
+# Module-level singleton
+_engine: EventEngine | None = None
+
+
+def get_event_engine() -> EventEngine:
+    global _engine
+    if _engine is None:
+        _engine = EventEngine()
+    return _engine

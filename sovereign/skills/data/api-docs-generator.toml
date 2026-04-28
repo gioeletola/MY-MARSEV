@@ -1,0 +1,153 @@
+[skill]
+id = "api-docs-generator"
+name = "API Docs Generator"
+description = "Generate professional API documentation from a code description, endpoint list, or function signatures."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "code"]
+tools = []
+tags = ["code", "documentation"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "api_description"
+type = "string"
+description = "Description of the API, its purpose, and target audience"
+required = true
+
+[[inputs]]
+name = "endpoints_or_code"
+type = "string"
+description = "List of endpoints, function signatures, or code snippets to document"
+required = true
+
+[[inputs]]
+name = "format"
+type = "string"
+description = "Output format: openapi | markdown | readme | docstring"
+required = false
+default = "markdown"
+
+[[inputs]]
+name = "language"
+type = "string"
+description = "Programming language (for code examples)"
+required = false
+default = "Python"
+
+[[inputs]]
+name = "auth_method"
+type = "string"
+description = "Authentication method used: none | api_key | bearer_token | oauth2 | basic"
+required = false
+default = "bearer_token"
+
+[[outputs]]
+name = "documentation"
+type = "string"
+description = "Complete API documentation"
+
+[[outputs]]
+name = "quickstart"
+type = "string"
+description = "Getting started guide with code examples"
+
+[prompt]
+template = """You are a technical writer specializing in developer-facing API documentation. Create clear, accurate, and developer-friendly documentation.
+
+API DESCRIPTION: {{api_description}}
+FORMAT: {{format}}
+LANGUAGE FOR EXAMPLES: {{language}}
+AUTHENTICATION: {{auth_method}}
+
+ENDPOINTS / CODE TO DOCUMENT:
+{{endpoints_or_code}}
+
+Generate complete, production-quality API documentation:
+
+## API Reference: {{api_description}}
+
+### Overview
+- What this API does and who it's for
+- Base URL and versioning strategy
+- Rate limits and quotas
+
+### Authentication
+Document the {{auth_method}} authentication method:
+- How to obtain credentials
+- How to include auth in requests
+- Error codes for auth failures
+```{{language}}
+# Authentication example
+```
+
+### Endpoints / Functions
+For each endpoint or function provided, document:
+
+**[METHOD] /path/to/endpoint**
+*or* **function_name(params)**
+
+> Short description of what it does.
+
+**Parameters / Arguments:**
+| Name | Type | Required | Description | Example |
+|------|------|----------|-------------|---------|
+
+**Request Body (if applicable):**
+```json
+{
+  "field": "value"
+}
+```
+
+**Response:**
+```json
+{
+  "field": "value"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+
+**Status Codes:**
+| Code | Meaning |
+|------|---------|
+
+**Example Request:**
+```{{language}}
+# Full working code example
+```
+
+**Example Response:**
+```json
+// Sample response
+```
+
+---
+
+### Error Reference
+| Error Code | HTTP Status | Message | Resolution |
+|-----------|------------|---------|------------|
+
+### SDKs & Libraries
+List recommended client libraries for common languages.
+
+### Changelog
+Version history format recommendation.
+
+---
+
+## Quick Start Guide
+Step-by-step guide to make the first successful API call in under 5 minutes:
+
+1. [First step]
+2. [Second step]
+...
+
+```{{language}}
+# Complete working quickstart example
+```
+"""

@@ -1,0 +1,74 @@
+[skill]
+id = "crisis-comms"
+name = "Crisis Communications"
+description = "Draft a crisis communication response plan with stakeholder messaging and media statements."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["communication", "risk", "pr"]
+author = "system"
+requires_approval = true
+enabled = true
+
+[[inputs]]
+name = "crisis_description"
+type = "string"
+description = "What happened? Describe the incident or crisis clearly"
+required = true
+
+[[inputs]]
+name = "company_name"
+type = "string"
+description = "Company or organisation name"
+required = true
+
+[[inputs]]
+name = "affected_stakeholders"
+type = "string"
+description = "Who is affected: customers, employees, investors, press, regulators"
+required = false
+default = "customers, employees, public"
+
+[[inputs]]
+name = "severity"
+type = "string"
+description = "Severity: minor | moderate | major | critical"
+required = false
+default = "major"
+
+[[outputs]]
+name = "crisis_plan"
+type = "string"
+description = "Crisis communication plan with all message variants"
+
+[prompt]
+template = """Prepare a crisis communication response plan for {{company_name}}.
+
+Crisis: {{crisis_description}}
+Severity: {{severity}}
+Affected Stakeholders: {{affected_stakeholders}}
+
+Produce a complete crisis communications package:
+
+1. IMMEDIATE ACTIONS (first 2 hours)
+   - Internal notification chain
+   - Hold statement (for press enquiries before full response is ready)
+   - Social media holding post
+
+2. STAKEHOLDER MESSAGES (tailored per audience)
+   - Customer email/notification
+   - Employee internal memo
+   - Investor/board communication
+   - Press statement / media release
+   - Regulator notification (if applicable)
+
+3. FAQ DOCUMENT (anticipate top 10 questions with approved answers)
+
+4. SOCIAL MEDIA MONITORING PLAN (keywords to watch, escalation triggers)
+
+5. RESOLUTION TIMELINE (what actions are being taken and when stakeholders can expect updates)
+
+6. POST-CRISIS REVIEW CHECKLIST
+
+Write in a calm, transparent, accountable tone. Acknowledge impact without over-admitting liability."""

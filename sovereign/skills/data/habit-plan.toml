@@ -1,0 +1,124 @@
+[skill]
+id = "habit-plan"
+name = "Habit Plan"
+description = "Design a science-backed personal habit building plan with implementation intentions, tracking system, and accountability structure."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["personal", "health"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "habit_goal"
+type = "string"
+description = "What habit(s) do you want to build or break?"
+required = true
+
+[[inputs]]
+name = "why"
+type = "string"
+description = "Why is this habit important to you? What outcome do you want?"
+required = false
+default = ""
+
+[[inputs]]
+name = "current_routine"
+type = "string"
+description = "Describe your current daily routine (wake time, work schedule, evening habits)"
+required = false
+default = ""
+
+[[inputs]]
+name = "past_attempts"
+type = "string"
+description = "What have you tried before and why did it fail?"
+required = false
+default = ""
+
+[[inputs]]
+name = "duration"
+type = "string"
+description = "How many weeks to build this habit? (recommend 8-12)"
+required = false
+default = "12 weeks"
+
+[[outputs]]
+name = "habit_plan"
+type = "string"
+description = "Complete personalized habit building plan"
+
+[[outputs]]
+name = "tracker_template"
+type = "string"
+description = "Daily/weekly habit tracking template"
+
+[prompt]
+template = """You are a behavioral science expert and executive coach specializing in habit formation. Apply principles from Atomic Habits, BJ Fogg's Tiny Habits, and implementation intention research.
+
+HABIT GOAL: {{habit_goal}}
+MOTIVATION / WHY: {{why}}
+CURRENT ROUTINE: {{current_routine}}
+PAST ATTEMPTS & FAILURES: {{past_attempts}}
+PLAN DURATION: {{duration}}
+
+Design a comprehensive, science-backed habit plan:
+
+## Habit Analysis
+- Break down the desired habit into its core behavioral components
+- Identify the habit loop: Cue → Craving → Response → Reward
+- Diagnose why past attempts failed (if applicable)
+- Classify as a starting habit, stopping habit, or continuation habit
+
+## The Tiny Habit Foundation
+Start with a version of the habit so small it's impossible to fail:
+- **Anchor habit** (existing behavior to attach to): [specific existing routine]
+- **Tiny version** (Week 1-2): [the smallest possible version]
+- **Target habit** (Week 6+): [the full desired behavior]
+- **Reward** (immediate, emotional): [how you'll celebrate immediately after]
+
+## Implementation Intentions
+Write the specific "When-Then" plan:
+- "When [specific cue/situation], I will [specific behavior] at [location]."
+- Include backup plans: "If [obstacle], then I will [alternative]."
+
+## {{duration}} Phased Rollout
+Divide the plan into phases with clear milestones:
+
+**Phase 1 (Weeks 1-2): Foundation**
+- Daily target behavior and duration/intensity
+- Environment design changes to make the habit easier
+- Friction removal: what to eliminate or automate
+
+**Phase 2 (Weeks 3-6): Building**
+- Gradual progression plan
+- Adding accountability layer
+- Handling the "dip" (days 14-21 when motivation drops)
+
+**Phase 3 (Weeks 7-12): Consolidation**
+- Making the habit identity-based ("I am someone who...")
+- Habit stacking opportunities
+- Recovery protocol for missed days (never miss twice rule)
+
+## Environment Design
+5 specific changes to your physical or digital environment to make the habit automatic.
+
+## Obstacle-Response Plan
+| Likely Obstacle | Specific Response |
+|----------------|-------------------|
+List 5 common obstacles with pre-decided responses.
+
+## Tracking System
+Simple daily tracker — copy and adapt:
+```
+Week X Habit Tracker — {{habit_goal}}
+Mon [ ] Tue [ ] Wed [ ] Thu [ ] Fri [ ] Sat [ ] Sun [ ]
+Notes:
+Weekly reflection: What worked? What made it hard?
+```
+
+## Success Metrics
+How you'll know the habit is truly established after {{duration}}.
+"""

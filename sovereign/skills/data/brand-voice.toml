@@ -1,0 +1,153 @@
+[skill]
+id = "brand-voice"
+name = "Brand Voice"
+description = "Define a company's brand voice, tone, and messaging guidelines — the complete style guide for consistent communication."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["brand", "writing"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "company"
+type = "string"
+description = "Company name and what it does"
+required = true
+
+[[inputs]]
+name = "audience"
+type = "string"
+description = "Primary target audience description (demographics, psychographics, pain points)"
+required = true
+
+[[inputs]]
+name = "brand_personality"
+type = "string"
+description = "3-5 adjectives describing the desired brand personality (e.g. bold, empathetic, witty, authoritative)"
+required = false
+default = ""
+
+[[inputs]]
+name = "competitors"
+type = "string"
+description = "2-3 competitors to differentiate from in voice and tone"
+required = false
+default = ""
+
+[[inputs]]
+name = "existing_content"
+type = "string"
+description = "Examples of existing brand copy (taglines, website copy, social posts) to build on or replace"
+required = false
+default = ""
+
+[[outputs]]
+name = "brand_voice_guide"
+type = "string"
+description = "Complete brand voice and tone guide"
+
+[[outputs]]
+name = "copy_examples"
+type = "string"
+description = "Before/after copy examples demonstrating the brand voice"
+
+[prompt]
+template = """You are a senior brand strategist and copywriter. Create a comprehensive brand voice guide that will align all communications for {{company}}.
+
+COMPANY: {{company}}
+TARGET AUDIENCE: {{audience}}
+DESIRED PERSONALITY: {{brand_personality}}
+COMPETITORS TO DIFFERENTIATE FROM: {{competitors}}
+EXISTING CONTENT SAMPLES: {{existing_content}}
+
+Create a complete, actionable brand voice guide:
+
+## Brand Voice Foundation
+
+### Brand Personality
+Define the brand as if it were a person:
+- **If {{company}} were a person, they would be:** [vivid human archetype description]
+- **Their age, background, and values:** [narrative description]
+- **How they walk into a room:** [energy and presence]
+
+### Core Brand Values
+3 non-negotiable values that drive every communication decision, with implications:
+| Value | What It Means in Practice | What It Means We Never Do |
+|-------|--------------------------|--------------------------|
+
+### Brand Voice Pillars
+4 primary voice characteristics:
+
+**Pillar 1: [Characteristic Name]**
+- Definition: What this means for {{company}}
+- In practice: [3 specific behaviors]
+- Not: [What this does NOT mean — the common misinterpretation]
+
+[Repeat for pillars 2-4]
+
+## Tone Adaptation Guide
+The brand voice is consistent; tone adapts to context:
+
+| Situation | Tone Adjustment | Example Opening Line |
+|-----------|----------------|---------------------|
+| Marketing copy | [tone description] | |
+| Customer support | [tone description] | |
+| Social media | [tone description] | |
+| Error messages | [tone description] | |
+| Crisis communication | [tone description] | |
+| Technical documentation | [tone description] | |
+
+## Language & Style Rules
+
+### Words We Love
+[20 words/phrases that embody the brand voice]
+
+### Words We Avoid
+[20 words/phrases that clash with the brand or feel off-brand]
+
+### Grammar & Punctuation
+- Sentence length preference: [short/long/varied]
+- Contractions: [use freely / use sparingly / never]
+- Exclamation points: [how often and when]
+- Oxford comma: [yes/no]
+- Em dashes, ellipses: [guidance]
+- Technical jargon: [when to use, when to simplify]
+
+## Audience Communication Map
+How to speak to {{audience}} specifically:
+- Pain points to acknowledge
+- Aspirations to speak to
+- Words and phrases that resonate
+- Things that will immediately alienate them
+
+## Differentiation vs Competitors
+| {{company}} IS | {{company}} IS NOT (unlike [Competitor]) |
+|----------------|------------------------------------------|
+
+## Copy Examples — Before & After
+
+### Website Hero Headline
+**Before (generic):** "Transform your business with our platform."
+**After (on-brand):** [Brand-specific, audience-resonant headline]
+
+### Social Media Post
+**Before:** [Generic version]
+**After:** [On-brand version]
+
+### Customer Support Response
+**Before:** [Generic/robotic version]
+**After:** [On-brand version]
+
+### Error Message
+**Before:** "An error occurred. Please try again."
+**After:** [On-brand version]
+
+## The Brand Voice Test
+Three questions to ask before publishing any piece of content:
+1. [Test question]
+2. [Test question]
+3. [Test question]
+"""

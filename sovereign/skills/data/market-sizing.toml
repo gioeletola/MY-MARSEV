@@ -1,0 +1,145 @@
+[skill]
+id = "market-sizing"
+name = "Market Sizing"
+description = "Perform a rigorous TAM/SAM/SOM market size analysis using top-down and bottom-up methodologies."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "network"]
+tools = ["web_search", "memory_tool"]
+tags = ["research", "business", "finance"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "market"
+type = "string"
+description = "Market or industry to size (e.g. global B2B SaaS project management, US electric vehicle charging)"
+required = true
+
+[[inputs]]
+name = "company_context"
+type = "string"
+description = "Brief description of the company or product, its target customer, and geography"
+required = false
+default = ""
+
+[[inputs]]
+name = "geography"
+type = "string"
+description = "Geographic scope: global | US | Europe | APAC | specific country"
+required = false
+default = "global"
+
+[[inputs]]
+name = "year"
+type = "string"
+description = "Target year for the analysis (current or forecast year)"
+required = false
+default = "2026"
+
+[[inputs]]
+name = "known_data"
+type = "string"
+description = "Any market data, reports, or statistics you already have"
+required = false
+default = ""
+
+[[outputs]]
+name = "market_analysis"
+type = "string"
+description = "Complete TAM/SAM/SOM analysis with methodology"
+
+[[outputs]]
+name = "growth_forecast"
+type = "string"
+description = "Market growth projections and key drivers"
+
+[prompt]
+template = """You are a market research analyst and strategy consultant. Perform a rigorous market sizing analysis.
+
+MARKET: {{market}}
+COMPANY CONTEXT: {{company_context}}
+GEOGRAPHY: {{geography}}
+TARGET YEAR: {{year}}
+EXISTING DATA: {{known_data}}
+
+Conduct a thorough TAM/SAM/SOM market sizing analysis using both methodologies:
+
+## Market Definition
+- Precise definition of the market being sized
+- Key inclusion/exclusion criteria
+- Adjacent markets and why they're excluded
+
+## Top-Down Analysis
+
+### TAM (Total Addressable Market)
+Start with the broadest relevant market:
+- Industry revenue data and sources
+- Market segmentation by geography, customer type, product category
+- **TAM Estimate: $X billion ({{year}})**
+- Key data sources and methodology
+
+### SAM (Serviceable Addressable Market)
+Filter to the segment your company can realistically serve:
+- Geographic filter: {{geography}}
+- Customer segment filter: [based on company context]
+- Product/service fit filter
+- **SAM Estimate: $X billion ({{year}})** = X% of TAM
+- Rationale for each filter applied
+
+### SOM (Serviceable Obtainable Market)
+Realistic market share in 3-5 years:
+- Competitive intensity and current market share distribution
+- Go-to-market capacity assumptions
+- **SOM Estimate: $X million (Year 1-3)** = X% of SAM
+- Path to capturing this share
+
+## Bottom-Up Analysis
+Build the market size from first principles:
+
+**Step 1:** Identify the number of potential customers
+- Customer universe: [how many companies/people fit your ICP]
+- Data source: [how you estimated this number]
+
+**Step 2:** Average revenue per customer
+- Unit economics: average contract value or spend per customer per year
+- Source / benchmark
+
+**Step 3:** Calculate
+- TAM = Customers × ACV = $X
+- SAM = Addressable customers × ACV = $X
+- SOM = Reachable customers in 3Y × Win rate × ACV = $X
+
+## Market Growth Analysis
+- Historical CAGR (last 3-5 years)
+- Projected CAGR (next 3-5 years)
+- **{{year}} Market Size Estimate: $X**
+- **{{year}}+5 Forecast: $X**
+
+### Key Growth Drivers
+1. [Driver with quantified impact]
+2. [Driver with quantified impact]
+3. [Driver with quantified impact]
+
+### Key Risks to Growth
+1. [Risk with potential impact]
+2. [Risk with potential impact]
+
+## Competitive Landscape Context
+- Top 5 players and estimated market shares
+- Market concentration (fragmented vs consolidated)
+- White space segments
+
+## Key Assumptions & Sensitivity
+| Assumption | Base Case | Bull Case | Bear Case |
+|-----------|-----------|-----------|-----------|
+Show how TAM/SAM/SOM changes under different assumptions.
+
+## Summary
+| Metric | Estimate | Methodology | Confidence |
+|--------|----------|-------------|-----------|
+| TAM | $X | | Medium/High |
+| SAM | $X | | Medium/High |
+| SOM (3Y) | $X | | Medium |
+"""

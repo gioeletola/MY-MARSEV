@@ -1,0 +1,154 @@
+[skill]
+id = "financial-forecast"
+name = "Financial Forecast"
+description = "Build a 12-month revenue and expense forecast with scenario modeling and key financial metrics."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["finance", "forecasting"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "business"
+type = "string"
+description = "Business name and type (e.g. SaaS startup, e-commerce brand, service agency)"
+required = true
+
+[[inputs]]
+name = "revenue_model"
+type = "string"
+description = "How the business makes money (subscription, transactional, services, ad-based, mixed)"
+required = true
+
+[[inputs]]
+name = "current_metrics"
+type = "string"
+description = "Current key metrics (MRR, customers, growth rate, average order value, burn rate, etc.)"
+required = false
+default = "pre-revenue"
+
+[[inputs]]
+name = "cost_structure"
+type = "string"
+description = "Major cost categories and current monthly spend (e.g. salaries: 30k, infrastructure: 5k, marketing: 10k)"
+required = false
+default = ""
+
+[[inputs]]
+name = "growth_assumptions"
+type = "string"
+description = "Key growth assumptions and planned initiatives for the next 12 months"
+required = false
+default = ""
+
+[[inputs]]
+name = "currency"
+type = "string"
+description = "Currency (e.g. USD, EUR, GBP)"
+required = false
+default = "USD"
+
+[[outputs]]
+name = "forecast"
+type = "string"
+description = "Complete 12-month financial forecast"
+
+[[outputs]]
+name = "scenario_analysis"
+type = "string"
+description = "Bear / Base / Bull scenario comparison"
+
+[prompt]
+template = """You are a CFO-level financial analyst. Build a rigorous 12-month financial forecast.
+
+BUSINESS: {{business}}
+REVENUE MODEL: {{revenue_model}}
+CURRENT METRICS: {{current_metrics}}
+COST STRUCTURE: {{cost_structure}}
+GROWTH ASSUMPTIONS: {{growth_assumptions}}
+CURRENCY: {{currency}}
+
+Build a comprehensive 12-month financial model:
+
+## Business Context & Key Assumptions
+List all major assumptions underpinning this forecast:
+| Assumption | Value | Basis / Rationale |
+|-----------|-------|-------------------|
+- Revenue growth rate month-over-month
+- Customer acquisition rate
+- Churn rate (if subscription)
+- Average transaction value
+- COGS as % of revenue
+- Fixed cost growth rate
+- Hiring plan impact
+
+## Revenue Forecast
+
+### {{revenue_model}} Revenue Model
+Explain the revenue drivers and how they compound.
+
+| Month | Customers/Orders | MRR/ARR or Revenue | MoM Growth | YTD Revenue |
+|-------|-----------------|-------------------|------------|-------------|
+| Month 1 | | | | |
+| Month 2 | | | | |
+| Month 3 | | | | |
+| Month 4-6 (Q2) | | | | |
+| Month 7-9 (Q3) | | | | |
+| Month 10-12 (Q4) | | | | |
+| **Full Year** | | | **X%** | |
+
+## Expense Forecast
+
+| Cost Category | Monthly (M1) | Monthly (M6) | Monthly (M12) | Annual Total |
+|--------------|:------------:|:------------:|:-------------:|:------------:|
+| Cost of Goods Sold (COGS) | | | | |
+| Salaries & Benefits | | | | |
+| Marketing & Sales | | | | |
+| Technology & Infrastructure | | | | |
+| Office & Operations | | | | |
+| Legal & Professional | | | | |
+| Other | | | | |
+| **Total Expenses** | | | | |
+
+## P&L Summary (Monthly)
+
+| Month | Revenue | COGS | Gross Profit | OpEx | EBITDA | Net Margin% |
+|-------|---------|------|-------------|------|--------|------------|
+[12 rows + Annual Total]
+
+## Cash Flow Forecast
+
+| Month | Opening Cash | Revenue In | Expenses Out | Net Burn/Surplus | Closing Cash |
+|-------|-------------|-----------|--------------|-----------------|-------------|
+[Show monthly runway, flag when cash runs below 3 months of runway]
+
+**Runway:** X months at current burn rate
+
+## Scenario Analysis
+
+| Metric | Bear (-30%) | Base | Bull (+30%) |
+|--------|-------------|------|-------------|
+| Full Year Revenue | | | |
+| Year-End MRR/ARR | | | |
+| Cash Position (Dec) | | | |
+| Break-even Month | | | |
+
+## Key Financial Metrics
+| KPI | Current | M6 Target | M12 Target |
+|-----|---------|-----------|------------|
+| Gross Margin | | | |
+| CAC (if applicable) | | | |
+| LTV (if applicable) | | | |
+| LTV:CAC Ratio | | | |
+| Monthly Burn | | | |
+| Runway | | | |
+
+## Key Risks to This Forecast
+Top 3 risks that could cause significant deviation, with quantified impact.
+
+## Recommended Actions
+3 specific financial decisions to make in the next 30 days based on this forecast.
+"""

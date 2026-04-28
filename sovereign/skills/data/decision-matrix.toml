@@ -1,0 +1,130 @@
+[skill]
+id = "decision-matrix"
+name = "Decision Matrix"
+description = "Build a weighted decision matrix to objectively compare options across multiple criteria and reach a defensible conclusion."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = []
+tags = ["planning", "analysis"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "decision"
+type = "string"
+description = "What decision are you making? Describe the situation clearly."
+required = true
+
+[[inputs]]
+name = "options"
+type = "string"
+description = "The options you're choosing between (comma-separated or list)"
+required = true
+
+[[inputs]]
+name = "criteria"
+type = "string"
+description = "What matters in this decision? List criteria (e.g. cost, time, risk, quality, strategic fit)"
+required = false
+default = "auto-generate relevant criteria"
+
+[[inputs]]
+name = "context"
+type = "string"
+description = "Additional context: constraints, priorities, stakeholder requirements, or non-negotiables"
+required = false
+default = ""
+
+[[inputs]]
+name = "decider"
+type = "string"
+description = "Who is making this decision and what is their primary priority?"
+required = false
+default = "the team"
+
+[[outputs]]
+name = "decision_matrix"
+type = "string"
+description = "Complete weighted decision matrix with analysis"
+
+[[outputs]]
+name = "recommendation"
+type = "string"
+description = "Final recommendation with rationale"
+
+[prompt]
+template = """You are a strategic decision analyst. Build a rigorous, objective decision matrix to help {{decider}} choose among the given options.
+
+DECISION: {{decision}}
+OPTIONS: {{options}}
+CRITERIA TO EVALUATE: {{criteria}}
+CONTEXT & CONSTRAINTS: {{context}}
+
+Produce a complete decision analysis:
+
+## Decision Framing
+- Restate the core decision in one clear sentence
+- The decision deadline or urgency
+- Who is affected by this decision and how
+- What "success" looks like 6 months after making this choice
+
+## Criteria Definition
+Identify the most important evaluation criteria (use provided criteria or generate them). For each:
+| Criterion | Why It Matters | Weight (1-5) | How It Will Be Scored |
+|-----------|---------------|:------------:|----------------------|
+
+**Weighting rationale:** Explain why higher-weighted criteria are prioritized.
+
+## Weighted Decision Matrix
+
+Score each option on each criterion (1=Poor, 2=Below Average, 3=Average, 4=Good, 5=Excellent):
+
+| Criterion | Weight | Option A | W×Score | Option B | W×Score | Option C | W×Score |
+|-----------|:------:|:--------:|:-------:|:--------:|:-------:|:--------:|:-------:|
+| [Criterion 1] | | | | | | | |
+| [Criterion 2] | | | | | | | |
+| ... | | | | | | | |
+| **TOTAL** | | | **X** | | **X** | | **X** |
+
+## Option Analysis
+
+For each option, provide:
+
+### Option [Name]
+- **Score: X / [max]**
+- **Key strengths:** What it does best
+- **Key weaknesses:** Where it falls short
+- **Hidden risks:** Non-obvious downsides
+- **Best case scenario if chosen**
+- **Worst case scenario if chosen**
+
+## Sensitivity Analysis
+What if the weights change? Show how the ranking changes if:
+- The most important criterion is weighted 2x more
+- The most important criterion is removed entirely
+- The decision-maker's priorities shift
+
+## Non-Quantifiable Factors
+Factors that can't be scored but matter:
+- Gut feel / intuition signals
+- Cultural or values alignment
+- Reversibility — can you undo this choice?
+- Opportunity cost of each option
+
+## RECOMMENDATION
+**CHOOSE: [Option Name]**
+
+Reasoning:
+1. [Primary reason — ties to highest-weighted criteria]
+2. [Secondary reason]
+3. [Risk mitigation argument]
+
+**Conditions on this recommendation:** [If X changes, reconsider Y option]
+
+**Next steps if this recommendation is accepted:**
+1. [Immediate action]
+2. [Short-term milestone]
+3. [Decision review checkpoint]
+"""

@@ -1,0 +1,109 @@
+[skill]
+id = "pitch-deck-outline"
+name = "Pitch Deck Outline"
+description = "Generate a compelling startup pitch deck outline with slide-by-slide guidance, key messages, and data points to include."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["business", "writing"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "startup_name"
+type = "string"
+description = "Startup or company name"
+required = true
+
+[[inputs]]
+name = "one_liner"
+type = "string"
+description = "One-sentence description of what the company does"
+required = true
+
+[[inputs]]
+name = "stage"
+type = "string"
+description = "Company stage: idea | pre-seed | seed | Series A | growth"
+required = false
+default = "seed"
+
+[[inputs]]
+name = "industry"
+type = "string"
+description = "Industry or market vertical"
+required = false
+default = ""
+
+[[inputs]]
+name = "traction"
+type = "string"
+description = "Key traction metrics (revenue, users, growth rate, partnerships)"
+required = false
+default = "pre-revenue"
+
+[[inputs]]
+name = "ask"
+type = "string"
+description = "Funding ask amount and intended use"
+required = false
+default = "unspecified"
+
+[[outputs]]
+name = "deck_outline"
+type = "string"
+description = "Complete slide-by-slide pitch deck outline"
+
+[[outputs]]
+name = "narrative_arc"
+type = "string"
+description = "The overarching story and emotional arc of the deck"
+
+[prompt]
+template = """You are a world-class startup pitch coach and investor relations advisor. Create a complete pitch deck outline for the following company.
+
+COMPANY: {{startup_name}}
+ONE-LINER: {{one_liner}}
+STAGE: {{stage}}
+INDUSTRY: {{industry}}
+TRACTION: {{traction}}
+FUNDING ASK: {{ask}}
+
+Build a 12-15 slide pitch deck outline following investor best practices (Y Combinator, Sequoia, a16z frameworks):
+
+## Narrative Arc
+In 3-4 sentences, describe the emotional and logical story this deck tells from slide 1 to the final ask. Every great pitch deck is a story.
+
+## Slide-by-Slide Outline
+
+For each slide, provide:
+- **Slide X: [Title]**
+  - **Purpose:** Why this slide exists in the deck
+  - **Key message:** The one thing investors must remember
+  - **Content to include:** Specific bullets, data points, visuals
+  - **Pitfall to avoid:** Common mistake founders make on this slide
+
+Cover these slides:
+1. Cover / Title
+2. Problem
+3. Solution
+4. Why Now (market timing)
+5. Market Size (TAM/SAM/SOM)
+6. Product (demo or screenshots)
+7. Business Model
+8. Traction & Validation
+9. Go-to-Market Strategy
+10. Competition & Moat
+11. Team
+12. Financials (projections)
+13. The Ask & Use of Funds
+14. Vision / Closing
+
+## Top 5 Investor Questions to Prepare For
+List the hardest questions investors will ask about {{startup_name}} and suggested answers.
+
+## Common Mistakes to Avoid
+Three critical pitch deck errors specific to {{stage}}-stage companies in {{industry}}.
+"""

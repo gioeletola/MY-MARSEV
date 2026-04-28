@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -21,7 +22,12 @@ class SensorReading:
     value: Any
     unit: str = ""
     timestamp: float = field(default_factory=time.time)
-    quality: float = 1.0
+    quality_score: float = 1.0
+    # Legacy alias
+    quality: float = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.quality = self.quality_score
 
 
 @dataclass
@@ -36,16 +42,22 @@ class SensorSpec:
 class SensorManager:
     """
     Polls registered sensors and notifies subscribers on new readings.
-    Includes built-in readers: CPU usage, memory usage, disk usage,
-    battery level, and network byte counters (all via psutil with graceful
-    fallback if psutil is not installed).
+    Includes built-in readers: CPU, memory, disk, battery, network (via psutil).
+
+    New features:
+    - ``read_all()`` — read every registered sensor at once.
+    - Per-sensor subscriptions via ``subscribe(sensor_id, callback)``.
+    - ``aggregate(sensor_id, window_seconds)`` — min/max/mean/std over a time window.
     """
 
     def __init__(self) -> None:
         self._sensors: dict[str, SensorSpec] = {}
         self._last_readings: dict[str, SensorReading] = {}
         self._history: dict[str, deque] = {}
-        self._callbacks: list[SensorCallback] = []
+        # Global callbacks (notified on every reading)
+        self._global_callbacks: list[SensorCallback] = []
+        # Per-sensor callbacks
+        self._sensor_callbacks: dict[str, list[SensorCallback]] = {}
         self._running = False
         self._register_builtins()
 
@@ -55,20 +67,13 @@ class SensorManager:
             SensorSpec("memory_percent", "Memory Usage", "%", 10.0, self._read_mem),
             SensorSpec("disk_percent", "Disk Usage", "%", 30.0, self._read_disk),
             SensorSpec("battery_percent", "Battery Level", "%", 60.0, self._read_battery),
-            SensorSpec(
-                "network_bytes_sent", "Network Bytes Sent", "bytes", 10.0,
-                self._read_net_sent,
-            ),
-            SensorSpec(
-                "network_bytes_recv", "Network Bytes Recv", "bytes", 10.0,
-                self._read_net_recv,
-            ),
+            SensorSpec("network_bytes_sent", "Network Bytes Sent", "bytes", 10.0, self._read_net_sent),
+            SensorSpec("network_bytes_recv", "Network Bytes Recv", "bytes", 10.0, self._read_net_recv),
         ]
         for spec in builtins:
             self._sensors[spec.sensor_id] = spec
             self._history[spec.sensor_id] = deque(maxlen=_HISTORY_MAXLEN)
-
-        # Legacy alias kept for backwards compatibility
+        # Legacy alias
         self._sensors["mem_percent"] = self._sensors["memory_percent"]
 
     def register(self, spec: SensorSpec) -> None:
@@ -76,8 +81,29 @@ class SensorManager:
         if spec.sensor_id not in self._history:
             self._history[spec.sensor_id] = deque(maxlen=_HISTORY_MAXLEN)
 
-    def subscribe(self, callback: SensorCallback) -> None:
-        self._callbacks.append(callback)
+    # ── Subscription ──────────────────────────────────────────────────────
+
+    def subscribe(
+        self,
+        sensor_id_or_callback: Any,
+        callback: SensorCallback | None = None,
+    ) -> None:
+        """Subscribe to sensor updates.
+
+        Two calling conventions:
+          subscribe(callback)                    → global (all sensors)
+          subscribe(sensor_id: str, callback)    → per-sensor
+        """
+        if callable(sensor_id_or_callback) and callback is None:
+            # Global subscription
+            self._global_callbacks.append(sensor_id_or_callback)
+        elif isinstance(sensor_id_or_callback, str) and callable(callback):
+            sensor_id = sensor_id_or_callback
+            self._sensor_callbacks.setdefault(sensor_id, []).append(callback)
+        else:
+            raise TypeError("subscribe(callback) or subscribe(sensor_id, callback)")
+
+    # ── Reading ───────────────────────────────────────────────────────────
 
     async def read(self, sensor_id: str) -> SensorReading | None:
         spec = self._sensors.get(sensor_id)
@@ -94,6 +120,51 @@ class SensorManager:
             logger.warning("Sensor %s read error: %s", sensor_id, exc)
             return None
 
+    async def read_all(self) -> list[SensorReading]:
+        """Read every registered sensor and return all readings."""
+        results: list[SensorReading] = []
+        for sensor_id in list(self._sensors.keys()):
+            reading = await self.read(sensor_id)
+            if reading is not None:
+                results.append(reading)
+        return results
+
+    # ── Aggregation ───────────────────────────────────────────────────────
+
+    def aggregate(self, sensor_id: str, window_seconds: float) -> dict:
+        """Compute min/max/mean/std for numeric readings within the last *window_seconds*."""
+        hist = self._history.get(sensor_id)
+        if not hist:
+            return {"sensor_id": sensor_id, "count": 0, "min": None, "max": None, "mean": None, "std": None}
+
+        cutoff = time.time() - window_seconds
+        values: list[float] = []
+        for r in hist:
+            if r.timestamp >= cutoff:
+                try:
+                    values.append(float(r.value))
+                except (TypeError, ValueError):
+                    pass
+
+        if not values:
+            return {"sensor_id": sensor_id, "count": 0, "min": None, "max": None, "mean": None, "std": None}
+
+        mean = sum(values) / len(values)
+        variance = sum((v - mean) ** 2 for v in values) / len(values)
+        std = math.sqrt(variance)
+
+        return {
+            "sensor_id": sensor_id,
+            "window_seconds": window_seconds,
+            "count": len(values),
+            "min": round(min(values), 4),
+            "max": round(max(values), 4),
+            "mean": round(mean, 4),
+            "std": round(std, 4),
+        }
+
+    # ── Main loop ─────────────────────────────────────────────────────────
+
     async def run_loop(self, stop_event: asyncio.Event | None = None) -> None:
         self._running = True
         logger.info("SensorManager started")
@@ -107,22 +178,27 @@ class SensorManager:
                     reading = await self.read(sid)
                     if reading:
                         last_poll[sid] = now
-                        for cb in self._callbacks:
+                        # Global callbacks
+                        for cb in self._global_callbacks:
                             try:
                                 await cb(sid, reading.value)
                             except Exception as exc:
-                                logger.warning("Sensor callback error: %s", exc)
+                                logger.warning("Sensor global callback error: %s", exc)
+                        # Per-sensor callbacks
+                        for cb in self._sensor_callbacks.get(sid, []):
+                            try:
+                                await cb(sid, reading.value)
+                            except Exception as exc:
+                                logger.warning("Sensor [%s] callback error: %s", sid, exc)
             await asyncio.sleep(1.0)
 
     def stop(self) -> None:
         self._running = False
 
     def get_latest(self, sensor_id: str) -> SensorReading | None:
-        """Return the most recent SensorReading for *sensor_id*, or None."""
         return self._last_readings.get(sensor_id)
 
     def get_history(self, sensor_id: str, n: int = 10) -> list[SensorReading]:
-        """Return the last *n* readings for *sensor_id* (oldest first)."""
         hist = self._history.get(sensor_id)
         if not hist:
             return []
@@ -130,7 +206,6 @@ class SensorManager:
         return items[-n:] if n < len(items) else items
 
     def snapshot(self) -> dict[str, Any]:
-        """Return a dict of all latest sensor values keyed by sensor_id."""
         return {sid: r.value for sid, r in self._last_readings.items()}
 
     # ── Built-in readers ───────────────────────────────────────────────────
