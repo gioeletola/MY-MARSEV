@@ -1,6 +1,7 @@
 """Telemetry data types shared across the telemetry suite."""
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -13,6 +14,56 @@ class PhaseStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+class TelemetryEventType(str, Enum):
+    REQUEST = "request"
+    RESPONSE = "response"
+    ERROR = "error"
+    CACHE_HIT = "cache_hit"
+    CACHE_MISS = "cache_miss"
+    AGENT_CALL = "agent_call"
+    TOOL_CALL = "tool_call"
+    TOKEN_USAGE = "token_usage"
+    LATENCY = "latency"
+    SESSION_START = "session_start"
+    SESSION_END = "session_end"
+    APPROVAL = "approval"
+    CUSTOM = "custom"
+
+
+@dataclass
+class TelemetryEvent:
+    """A single discrete telemetry event recorded by the system."""
+    event_type: str
+    source: str
+    data: dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "event_id": self.event_id,
+            "event_type": self.event_type,
+            "source": self.source,
+            "timestamp": self.timestamp,
+            "tags": self.tags,
+            "data": self.data,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "TelemetryEvent":
+        return cls(
+            event_id=d.get("event_id", str(uuid.uuid4())),
+            event_type=d.get("event_type", "custom"),
+            source=d.get("source", "unknown"),
+            timestamp=d.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            tags=d.get("tags", []),
+            data=d.get("data", {}),
+        )
 
 
 @dataclass

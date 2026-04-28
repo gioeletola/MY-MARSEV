@@ -1,0 +1,109 @@
+[skill]
+id = "code-review"
+name = "Code Review"
+description = "Perform a thorough code review covering correctness, security vulnerabilities, performance, maintainability, and best practices."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "code"]
+tools = ["code_exec", "memory_tool"]
+tags = ["code", "engineering"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "code"
+type = "string"
+description = "The code to review (paste the full snippet or file)"
+required = true
+
+[[inputs]]
+name = "language"
+type = "string"
+description = "Programming language (e.g. Python, TypeScript, Go, Rust)"
+required = false
+default = "auto-detect"
+
+[[inputs]]
+name = "context"
+type = "string"
+description = "What does this code do? What is the review focus (security, performance, style)?"
+required = false
+default = "general review"
+
+[[inputs]]
+name = "severity_threshold"
+type = "string"
+description = "Minimum severity to report: low | medium | high | critical"
+required = false
+default = "low"
+
+[[outputs]]
+name = "summary"
+type = "string"
+description = "Overall review verdict and code quality score"
+
+[[outputs]]
+name = "issues"
+type = "string"
+description = "Numbered list of issues with severity, location, and fix suggestion"
+
+[[outputs]]
+name = "security_findings"
+type = "string"
+description = "Security-specific vulnerabilities and remediation steps"
+
+[[outputs]]
+name = "improved_code"
+type = "string"
+description = "Refactored version of the code with issues addressed"
+
+[prompt]
+template = """You are a senior software engineer and security expert performing a code review.
+
+LANGUAGE: {{language}}
+CONTEXT: {{context}}
+SEVERITY THRESHOLD: {{severity_threshold}}
+
+CODE TO REVIEW:
+```
+{{code}}
+```
+
+Provide a comprehensive code review structured as follows:
+
+## Overall Assessment
+- Code quality score: X/10
+- One-paragraph verdict on the code's overall quality and readiness
+
+## Issues Found
+List every issue at or above the severity threshold. For each issue:
+- **[SEVERITY]** Issue title
+  - Location: line number or function name
+  - Problem: clear description of what is wrong
+  - Fix: concrete code suggestion or approach
+
+Severity levels: CRITICAL (security breach / data loss) | HIGH (bug / major vulnerability) | MEDIUM (logic error / poor practice) | LOW (style / minor improvement)
+
+## Security Analysis
+Deep-dive on security concerns:
+- Input validation and sanitization
+- Authentication and authorization checks
+- SQL injection, XSS, SSRF, path traversal risks
+- Secret/credential exposure
+- Dependency vulnerabilities
+
+## Performance Review
+- Time/space complexity issues
+- Unnecessary DB queries or API calls
+- Memory leaks or resource management problems
+- Caching opportunities
+
+## Maintainability & Style
+- Code structure and readability
+- Missing tests or test coverage gaps
+- Documentation gaps
+- Naming conventions
+
+## Improved Code
+Provide a corrected and improved version of the code that addresses all CRITICAL and HIGH issues."""

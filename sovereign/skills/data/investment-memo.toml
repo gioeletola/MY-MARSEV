@@ -1,0 +1,105 @@
+[skill]
+id = "investment-memo"
+name = "Investment Memo"
+description = "Generate a professional investment thesis memo for a company, asset, or opportunity."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "write"]
+tools = ["memory_tool"]
+tags = ["finance", "writing"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "company_or_asset"
+type = "string"
+description = "Name of the company, asset, or investment opportunity"
+required = true
+
+[[inputs]]
+name = "investment_type"
+type = "string"
+description = "Type: equity, debt, real estate, crypto, fund, other"
+required = false
+default = "equity"
+
+[[inputs]]
+name = "amount"
+type = "string"
+description = "Proposed investment amount or range"
+required = false
+default = "unspecified"
+
+[[inputs]]
+name = "context"
+type = "string"
+description = "Background information, financials, market data, or key facts about the opportunity"
+required = false
+default = ""
+
+[[inputs]]
+name = "investment_horizon"
+type = "string"
+description = "Intended holding period (e.g. 6 months, 3 years, long-term)"
+required = false
+default = "medium-term"
+
+[[outputs]]
+name = "memo"
+type = "string"
+description = "Complete investment memo document"
+
+[[outputs]]
+name = "verdict"
+type = "string"
+description = "Invest / Pass / Further Diligence recommendation with rationale"
+
+[prompt]
+template = """You are a professional investment analyst writing a formal investment memo.
+
+OPPORTUNITY: {{company_or_asset}}
+INVESTMENT TYPE: {{investment_type}}
+PROPOSED AMOUNT: {{amount}}
+INVESTMENT HORIZON: {{investment_horizon}}
+BACKGROUND / DATA PROVIDED:
+{{context}}
+
+Write a comprehensive investment memo with the following sections:
+
+## Investment Memo: {{company_or_asset}}
+**Date:** [Today's date]
+**Type:** {{investment_type}} | **Amount:** {{amount}} | **Horizon:** {{investment_horizon}}
+
+### Executive Summary
+Two-paragraph summary of the opportunity, thesis, and recommendation.
+
+### Company / Asset Overview
+- Description, business model, stage, and key metrics
+- Founding team or asset characteristics
+- Current financials or valuation benchmarks
+
+### Investment Thesis
+Three to five core reasons this investment is compelling. Each point should be specific and evidence-backed.
+
+### Market Opportunity
+- Total addressable market size and growth rate
+- Competitive landscape and positioning
+- Tailwinds and macro factors
+
+### Risk Analysis
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+List at least five specific risks with honest severity ratings.
+
+### Financial Analysis
+- Key financial metrics and projections
+- Valuation methodology and comparable transactions
+- Return scenario modeling (bear / base / bull)
+
+### Due Diligence Checklist
+List remaining items to verify before committing capital.
+
+### Recommendation
+**VERDICT: [INVEST / PASS / FURTHER DILIGENCE]**
+Final paragraph justifying the recommendation with key decision factors."""

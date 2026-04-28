@@ -1,0 +1,104 @@
+[skill]
+id = "competitor-analysis"
+name = "Competitor Analysis"
+description = "Perform a comprehensive competitive landscape analysis for a product or business, mapping rivals, positioning, and strategic gaps."
+version = "1.0.0"
+status = "active"
+permissions = ["read", "network"]
+tools = ["web_search", "memory_tool"]
+tags = ["research", "business"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "company"
+type = "string"
+description = "Your company or product name"
+required = true
+
+[[inputs]]
+name = "industry"
+type = "string"
+description = "Industry or market segment (e.g. SaaS CRM, electric vehicles, online grocery)"
+required = true
+
+[[inputs]]
+name = "competitors"
+type = "string"
+description = "Known competitors to include (comma-separated); leave blank for AI to identify them"
+required = false
+default = ""
+
+[[inputs]]
+name = "focus"
+type = "string"
+description = "Analysis focus: pricing | product | marketing | all"
+required = false
+default = "all"
+
+[[outputs]]
+name = "landscape_map"
+type = "string"
+description = "Competitive landscape overview with key players and market dynamics"
+
+[[outputs]]
+name = "competitor_profiles"
+type = "string"
+description = "Detailed profile for each major competitor"
+
+[[outputs]]
+name = "positioning_matrix"
+type = "string"
+description = "Side-by-side feature and positioning comparison"
+
+[[outputs]]
+name = "strategic_gaps"
+type = "string"
+description = "Identified whitespace and differentiation opportunities"
+
+[prompt]
+template = """You are a senior strategy consultant performing a competitive intelligence analysis.
+
+COMPANY / PRODUCT: {{company}}
+INDUSTRY: {{industry}}
+KNOWN COMPETITORS: {{competitors}}
+FOCUS AREA: {{focus}}
+
+Produce a rigorous competitive landscape analysis structured as follows:
+
+## 1. Market Overview
+- Market size, growth rate, and key dynamics
+- Major trends reshaping the competitive landscape
+- Key buyer segments and their priorities
+
+## 2. Competitive Landscape Map
+Identify and categorize all significant competitors:
+- **Direct competitors** (same product, same customer)
+- **Indirect competitors** (different product, same customer need)
+- **Potential entrants** (adjacent players that could compete)
+
+## 3. Competitor Profiles
+For each major competitor, provide:
+- **Company name** | Founded | HQ | Funding/Revenue
+- Core product and value proposition
+- Target customer segment
+- Pricing model and price points
+- Key strengths and weaknesses
+- Recent strategic moves (last 12 months)
+
+## 4. Positioning Matrix
+Create a comparison table covering:
+| Dimension | {{company}} | Competitor A | Competitor B | Competitor C |
+|-----------|------------|--------------|--------------|--------------|
+Include: pricing, features, UX quality, integrations, support, brand strength
+
+## 5. Strategic Gaps & Opportunities
+- Underserved customer segments
+- Feature whitespace competitors have missed
+- Pricing or go-to-market angles not yet exploited
+- Partnerships or channels competitors have overlooked
+
+## 6. Recommended Competitive Strategy
+Three prioritized strategic recommendations for {{company}} to strengthen its competitive position.
+"""

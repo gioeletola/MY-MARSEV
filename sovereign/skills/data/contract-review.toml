@@ -1,0 +1,91 @@
+[skill]
+id = "contract-review"
+name = "Contract Review"
+description = "Analyze a legal contract for key clauses, risks, obligations, and red flags. Produces a structured review summary."
+version = "1.0.0"
+status = "active"
+permissions = ["read"]
+tools = ["memory_tool"]
+tags = ["legal", "review"]
+author = "system"
+requires_approval = false
+enabled = true
+
+[[inputs]]
+name = "contract_text"
+type = "string"
+description = "Full text or key excerpts of the contract to review"
+required = true
+
+[[inputs]]
+name = "party_role"
+type = "string"
+description = "Your role in this contract (e.g. buyer, vendor, licensee, employer)"
+required = false
+default = "reviewing party"
+
+[[inputs]]
+name = "focus_areas"
+type = "string"
+description = "Specific areas of concern (e.g. termination clauses, liability caps, IP ownership)"
+required = false
+default = "all standard areas"
+
+[[outputs]]
+name = "summary"
+type = "string"
+description = "Executive summary of the contract and its purpose"
+
+[[outputs]]
+name = "key_clauses"
+type = "string"
+description = "List of important clauses with plain-English explanations"
+
+[[outputs]]
+name = "risks"
+type = "string"
+description = "Identified risks and red flags for the reviewing party"
+
+[[outputs]]
+name = "recommendations"
+type = "string"
+description = "Suggested changes or negotiation points"
+
+[prompt]
+template = """You are an expert legal analyst reviewing a contract on behalf of the {{party_role}}.
+
+CONTRACT TEXT:
+{{contract_text}}
+
+FOCUS AREAS: {{focus_areas}}
+
+Perform a thorough contract review covering the following sections:
+
+## 1. Executive Summary
+Briefly describe what this contract is about, who the parties are, and its primary purpose.
+
+## 2. Key Clauses Analysis
+Identify and explain in plain English all significant clauses including:
+- Payment terms and conditions
+- Term, renewal, and termination provisions
+- Liability limitations and indemnification
+- Intellectual property ownership and licensing
+- Confidentiality and non-disclosure obligations
+- Dispute resolution mechanisms
+- Governing law and jurisdiction
+
+## 3. Risks & Red Flags
+List specific risks for the {{party_role}}, flagging:
+- Unfavorable or one-sided terms
+- Ambiguous language that could be exploited
+- Missing protective clauses
+- Unlimited liability exposures
+- Auto-renewal traps or punitive termination fees
+
+## 4. Negotiation Recommendations
+Provide concrete, prioritized recommendations for terms to negotiate or add.
+
+## 5. Overall Risk Rating
+Rate overall contract risk as LOW / MEDIUM / HIGH with a one-sentence justification.
+
+Be specific, cite clause language where relevant, and use plain English throughout."""
