@@ -5,6 +5,7 @@ Stores data in data/memory/projects.json.
 from __future__ import annotations
 
 import json
+from sovereign.memory._atomic_io import _save_json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -41,10 +42,7 @@ class ProjectMemoryStore:
             pass
 
     def _save(self) -> None:
-        self._path.write_text(
-            json.dumps(list(self._projects.values()), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        _save_json(self._path, list(self._projects.values()), ensure_ascii=False)
 
     # ── project CRUD ─────────────────────────────────────────────────────
 

@@ -29,7 +29,10 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from sovereign import __version__
-from sovereign.api.auth import check_rate_limit, create_token, require_auth, reset_rate_limit
+from sovereign.api.auth import (
+    check_rate_limit, create_token, require_auth, reset_rate_limit,
+    revoke_token, verify_token,
+)
 from sovereign.api.ws_handler import WebSocketSessionManager
 
 logger = logging.getLogger(__name__)
@@ -48,6 +51,8 @@ _manager: WebSocketSessionManager | None = None
 async def lifespan(app: FastAPI):
     """Startup: create orchestrator and WS session manager. Shutdown: log."""
     global _orchestrator, _manager
+    from sovereign.api.auth import assert_production_ready
+    assert_production_ready()
     config_path = os.environ.get("SOVEREIGN_CONFIG", "config/sovereign.yaml")
     try:
         from sovereign.bootstrap import create_orchestrator
@@ -141,7 +146,29 @@ async def login(request: Request) -> JSONResponse:
         return JSONResponse({"error": "Invalid password"}, status_code=401)
     reset_rate_limit(client_ip)
     token = create_token({"sub": "admin", "role": "admin"})
-    return JSONResponse({"token": token})
+    return JSONResponse({"token": token, "expires_in": 28_800})
+
+
+@app.post("/api/auth/refresh")
+async def refresh_token(user: dict = Depends(require_auth)) -> JSONResponse:
+    """Exchange a valid (non-expired) token for a fresh 8-hour token."""
+    new_token = create_token({"sub": user.get("sub", "admin"), "role": user.get("role", "user")})
+    return JSONResponse({"token": new_token, "expires_in": 28_800})
+
+
+@app.post("/api/auth/logout")
+async def logout(
+    request: Request, user: dict = Depends(require_auth)
+) -> JSONResponse:
+    """Revoke the current token immediately (server-side blacklist)."""
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip()
+    try:
+        payload = verify_token(token)
+        revoke_token(payload.get("jti", ""), float(payload.get("exp", 0)))
+    except Exception:
+        pass
+    return JSONResponse({"logged_out": True})
 
 
 @app.get("/api/status")

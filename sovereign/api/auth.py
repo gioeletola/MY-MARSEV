@@ -56,6 +56,41 @@ def reset_rate_limit(ip: str) -> None:
     with _rate_lock:
         _attempts.pop(ip, None)
 
+
+# ---------------------------------------------------------------------------
+# Token revocation blacklist (in-memory, cleared on restart)
+# ---------------------------------------------------------------------------
+
+_revoked_lock = threading.Lock()
+_revoked_jtis: dict[str, float] = {}   # jti → expiry epoch; pruned on access
+
+
+def _prune_revoked() -> None:
+    """Remove expired entries from the blacklist (called under lock)."""
+    now = time.time()
+    expired = [jti for jti, exp in _revoked_jtis.items() if exp < now]
+    for jti in expired:
+        del _revoked_jtis[jti]
+
+
+def revoke_token(jti: str, exp: float) -> None:
+    """Add a token's jti to the revocation blacklist until it expires."""
+    with _revoked_lock:
+        _prune_revoked()
+        _revoked_jtis[jti] = exp
+
+
+def is_revoked(jti: str) -> bool:
+    """Return True if the token has been explicitly revoked."""
+    with _revoked_lock:
+        _prune_revoked()
+        return jti in _revoked_jtis
+
+
+# ---------------------------------------------------------------------------
+# Secret key — fail hard in production if not configured
+# ---------------------------------------------------------------------------
+
 _DEFAULT_SECRET = "sovereign-change-me-in-production"
 _WARNED_DEFAULT = False
 
@@ -65,6 +100,11 @@ def _secret() -> str:
     val = os.environ.get("AUTH_SECRET_KEY")
     if val:
         return val
+    if os.environ.get("SOVEREIGN_ENV", "").lower() == "production":
+        raise RuntimeError(
+            "AUTH_SECRET_KEY must be set in production (SOVEREIGN_ENV=production). "
+            "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
     if not _WARNED_DEFAULT:
         _WARNED_DEFAULT = True
         logger.warning(
@@ -72,6 +112,22 @@ def _secret() -> str:
             "Set AUTH_SECRET_KEY in your .env before exposing this service."
         )
     return _DEFAULT_SECRET
+
+
+# ---------------------------------------------------------------------------
+# Production-safe startup check
+# ---------------------------------------------------------------------------
+
+def assert_production_ready() -> None:
+    """Call during server startup; raises RuntimeError if config is insecure in production."""
+    if os.environ.get("SOVEREIGN_ENV", "").lower() != "production":
+        return
+    if not os.environ.get("AUTH_SECRET_KEY"):
+        raise RuntimeError(
+            "Refusing to start in production without AUTH_SECRET_KEY. "
+            "Set AUTH_SECRET_KEY to a random 64-char hex string."
+        )
+    logger.info("Production auth configuration verified.")
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -83,10 +139,12 @@ def _b64url_decode(s: str) -> bytes:
     return base64.urlsafe_b64decode(s + pad)
 
 
-def create_token(payload: dict, exp_seconds: int = 86_400) -> str:
-    """Create a signed JWT string."""
+def create_token(payload: dict, exp_seconds: int = 28_800) -> str:
+    """Create a signed JWT string. Default expiry: 8 hours."""
+    import uuid
     header = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
-    body_data = dict(payload, iat=int(time.time()), exp=int(time.time()) + exp_seconds)
+    now = int(time.time())
+    body_data = dict(payload, iat=now, exp=now + exp_seconds, jti=str(uuid.uuid4()))
     body = _b64url_encode(json.dumps(body_data).encode())
     sig_input = f"{header}.{body}".encode()
     sig = _b64url_encode(
@@ -114,6 +172,8 @@ def verify_token(token: str) -> dict:
         payload = json.loads(_b64url_decode(body))
         if payload.get("exp", 0) < time.time():
             raise ValueError("Token expired")
+        if is_revoked(payload.get("jti", "")):
+            raise ValueError("Token has been revoked")
         return payload
     except ValueError:
         raise

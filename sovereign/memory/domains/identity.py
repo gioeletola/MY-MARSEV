@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from sovereign.memory._atomic_io import _save_json
 import logging
 import pathlib
 from dataclasses import asdict, dataclass, field
@@ -55,7 +56,7 @@ class IdentityMemoryStore:
         return {"identity": {}, "preferences": {}}
 
     def _save(self) -> None:
-        self._path.write_text(json.dumps(self._data, indent=2, default=str))
+        _save_json(self._path, self._data)
 
     def get_identity(self) -> IdentityRecord:
         return IdentityRecord(**{

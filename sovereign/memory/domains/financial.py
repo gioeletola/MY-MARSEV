@@ -7,6 +7,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from sovereign.memory._atomic_io import _save_json
 import logging
 import uuid
 from collections import defaultdict
@@ -44,7 +45,7 @@ class FinancialMemoryStore:
             return {"snapshot": {}, "holdings": [], "transactions": []}
 
     def _save(self) -> None:
-        self._path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
+        _save_json(self._path, self._data, ensure_ascii=False)
 
     # ── snapshot (KPIs) ─────────────────────────────────────────────────
 

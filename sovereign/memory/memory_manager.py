@@ -357,11 +357,8 @@ class MemoryManager:
         self._loaded.add(domain)
 
     async def _persist(self, domain: str) -> None:
-        """Persist domain cache to disk."""
-        import json
+        """Persist domain cache to disk atomically."""
+        from sovereign.memory._atomic_io import _save_json
         path = self._root / f"{domain}.json"
-        path.write_text(
-            json.dumps(self._caches[domain], indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        _save_json(path, self._caches[domain], ensure_ascii=False)
 

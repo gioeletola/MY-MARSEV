@@ -363,3 +363,83 @@ class TestMemoryDomainStubs:
         r = ResearchProject(project_id="res-001", title="AI Survey")
         assert r.project_id == "res-001"
         assert DOMAIN_NAME == "research"
+
+
+# ===========================================================================
+# compare() and leaderboard() — new methods
+# ===========================================================================
+
+class TestCompareAndLeaderboard:
+    @pytest.fixture
+    def fw(self, tmp_path):
+        from sovereign.labs.labs_framework import LabsFramework, Hypothesis
+        fw = LabsFramework(data_path=tmp_path / "exp.json")
+        hyp = Hypothesis(
+            statement="Better model is faster",
+            metric="score",
+            success_threshold=0.5,   # low threshold so all seeded experiments complete
+            baseline=0.3,
+        )
+        return fw, hyp
+
+    def _seed(self, fw, hyp, name, value):
+        exp = fw.create_experiment(name, "desc", hyp)
+        fw.start(exp.experiment_id)
+        fw.record_result(exp.experiment_id, "score", value)
+        fw.complete(exp.experiment_id)
+        return exp
+
+    # --- compare ---
+
+    def test_compare_returns_winner(self, fw):
+        fw, hyp = fw
+        e1 = self._seed(fw, hyp, "Lower", 0.6)
+        e2 = self._seed(fw, hyp, "Higher", 0.9)
+        result = fw.compare(e1.experiment_id, e2.experiment_id)
+        assert "winner" in result
+        assert result["winner"] == e2.experiment_id
+
+    def test_compare_returns_delta(self, fw):
+        fw, hyp = fw
+        e1 = self._seed(fw, hyp, "A", 0.8)
+        e2 = self._seed(fw, hyp, "B", 0.9)
+        result = fw.compare(e1.experiment_id, e2.experiment_id)
+        assert "delta" in result
+        assert result["delta"] == pytest.approx(0.1, abs=0.01)
+
+    def test_compare_invalid_id_raises_key_error(self, fw):
+        fw, hyp = fw
+        e1 = self._seed(fw, hyp, "Only", 0.7)
+        with pytest.raises(KeyError):
+            fw.compare(e1.experiment_id, "does-not-exist")
+
+    # --- leaderboard ---
+
+    def test_leaderboard_empty_when_no_experiments(self, fw):
+        fw, _ = fw
+        assert fw.leaderboard() == []
+
+    def test_leaderboard_sorted_best_first(self, fw):
+        fw, hyp = fw
+        self._seed(fw, hyp, "Mid", 0.7)
+        self._seed(fw, hyp, "Best", 0.95)
+        self._seed(fw, hyp, "Worst", 0.5)
+        board = fw.leaderboard()
+        assert len(board) >= 3
+        scores = [e.get("score", e.get("value", 0)) for e in board]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_leaderboard_only_includes_completed_or_graduated(self, fw):
+        fw, hyp = fw
+        self._seed(fw, hyp, "Done", 0.8)           # COMPLETED
+        fw.create_experiment("Draft", "desc", hyp)  # DRAFT — excluded
+        board = fw.leaderboard()
+        names = [e.get("name", "") for e in board]
+        assert "Draft" not in names
+
+    def test_leaderboard_accepts_metric_kwarg(self, fw):
+        fw, hyp = fw
+        self._seed(fw, hyp, "X", 0.8)
+        board = fw.leaderboard(metric="score")
+        assert isinstance(board, list)
+        assert len(board) == 1

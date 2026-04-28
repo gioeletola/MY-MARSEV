@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from sovereign.memory._atomic_io import _save_json
 import pathlib
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -62,7 +63,7 @@ class LearningMemoryStore:
         return {"items": {}, "skills": {}}
 
     def _save(self) -> None:
-        self._path.write_text(json.dumps(self._data, indent=2, default=str))
+        _save_json(self._path, self._data)
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()

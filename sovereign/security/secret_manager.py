@@ -28,6 +28,17 @@ _STORE_PATH = Path("data/memory/secrets.json")
 _SALT = b"SOVEREIGN-AI-OS-SALT-v1"   # static salt; rotate with key rotation
 _ITERATIONS = 100_000
 
+# Probe cryptography once at import time.
+# pyo3_runtime.PanicException is a BaseException (not Exception) so we must
+# use `except BaseException` here to catch broken Rust-backed installs.
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM  # noqa: F401
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC as _PBKDF2HMAC  # noqa: F401
+    from cryptography.hazmat.primitives import hashes as _hashes  # noqa: F401
+    _CRYPTOGRAPHY_AVAILABLE = True
+except BaseException:
+    _CRYPTOGRAPHY_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
 # Key derivation
@@ -53,47 +64,57 @@ def _derive_key_aes() -> bytes:
 # ---------------------------------------------------------------------------
 
 def _encrypt(plaintext: str) -> str:
-    """
-    Encrypt *plaintext* with AES-256-GCM.
+    """Encrypt *plaintext* with AES-256-GCM.
+
     Returns base64(nonce[12] + tag[16] + ciphertext).
-    Falls back to XOR if `cryptography` not installed.
+    Falls back to XOR obfuscation only in non-production environments when
+    the ``cryptography`` library is unavailable (e.g. minimal CI environments).
+    In production (``SOVEREIGN_ENV=production``) the XOR fallback is disabled
+    and a RuntimeError is raised instead.
     """
-    try:
-        import os as _os
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        key = _derive_key_aes()
-        nonce = _os.urandom(12)
-        aesgcm = AESGCM(key)
-        ct = aesgcm.encrypt(nonce, plaintext.encode(), None)
-        # ct already includes the 16-byte tag appended by the library
-        return base64.b64encode(nonce + ct).decode()
-    except BaseException:
+    if not _CRYPTOGRAPHY_AVAILABLE:
+        if os.environ.get("SOVEREIGN_ENV", "").lower() == "production":
+            raise RuntimeError(
+                "cryptography library is required in production. "
+                "Run: pip install cryptography>=42.0.0"
+            )
         logger.warning(
-            "cryptography unavailable — falling back to XOR obfuscation. "
-            "Run: pip install cryptography"
+            "cryptography unavailable — falling back to XOR obfuscation (dev only). "
+            "Run: pip install cryptography>=42.0.0"
         )
         return _xor_encrypt(plaintext)
 
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    key = _derive_key_aes()
+    nonce = os.urandom(12)
+    ct = AESGCM(key).encrypt(nonce, plaintext.encode(), None)
+    return base64.b64encode(nonce + ct).decode()
+
 
 def _decrypt(ciphertext: str) -> str:
+    """Decrypt AES-256-GCM ciphertext.
+
+    Falls back to XOR for legacy values or when ``cryptography`` is missing
+    (non-production only).
     """
-    Decrypt AES-256-GCM ciphertext (or XOR fallback).
-    Detects format by checking blob length (AES blobs are always > 28 bytes decoded).
-    """
+    if not _CRYPTOGRAPHY_AVAILABLE:
+        if os.environ.get("SOVEREIGN_ENV", "").lower() == "production":
+            raise RuntimeError(
+                "cryptography library is required in production. "
+                "Run: pip install cryptography>=42.0.0"
+            )
+        return _xor_decrypt(ciphertext)
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     try:
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         raw = base64.b64decode(ciphertext.encode())
         if len(raw) < 28:
-            raise ValueError("Too short for AES-GCM blob")
-        nonce = raw[:12]
-        ct = raw[12:]
+            raise ValueError("Blob too short for AES-GCM — trying XOR fallback")
+        nonce, ct = raw[:12], raw[12:]
         key = _derive_key_aes()
-        aesgcm = AESGCM(key)
-        return aesgcm.decrypt(nonce, ct, None).decode()
-    except BaseException:
-        return _xor_decrypt(ciphertext)
+        return AESGCM(key).decrypt(nonce, ct, None).decode()
     except Exception:
-        # Could be an old XOR-encrypted value — try XOR fallback
+        # Could be a legacy XOR-encrypted value stored before AES migration
         try:
             return _xor_decrypt(ciphertext)
         except Exception:
