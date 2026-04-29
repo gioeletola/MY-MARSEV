@@ -17,7 +17,7 @@ from sovereign.integrations.connectors.telegram_connector import TelegramConnect
 # ---------------------------------------------------------------------------
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 # ---------------------------------------------------------------------------

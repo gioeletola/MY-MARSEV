@@ -213,7 +213,7 @@ class TestNotificationService:
     def test_send_and_unread(self):
         from sovereign.infra.notification_service import NotificationService, NotificationLevel
         svc = NotificationService()
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             svc.send(title="Test", body="Hello", level=NotificationLevel.INFO, source_agent="test")
         )
         unread = svc.unread()
@@ -223,7 +223,7 @@ class TestNotificationService:
     def test_mark_read(self):
         from sovereign.infra.notification_service import NotificationService, NotificationLevel
         svc = NotificationService()
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             svc.send(title="Alert", body="body", level=NotificationLevel.WARNING, source_agent="a")
         )
         unread_before = len(svc.unread())
@@ -235,7 +235,7 @@ class TestNotificationService:
     def test_critical_count(self):
         from sovereign.infra.notification_service import NotificationService, NotificationLevel
         svc = NotificationService()
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             svc.send(title="Critical", body="CRITICAL", level=NotificationLevel.CRITICAL, source_agent="a")
         )
         assert svc.critical_count() >= 1
@@ -244,7 +244,7 @@ class TestNotificationService:
         from sovereign.infra.notification_service import NotificationService, NotificationLevel
         svc = NotificationService()
         for i in range(3):
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 svc.send(title=f"N{i}", body="b", level=NotificationLevel.INFO, source_agent="a")
             )
         assert len(svc.recent(2)) <= 2

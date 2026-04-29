@@ -6,7 +6,7 @@ from sovereign.infra.watchdog import ProcessWatchdog
 
 
 def _run_for(coro, timeout: float = 0.5):
-    return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coro, timeout=timeout))
+    return asyncio.run(asyncio.wait_for(coro, timeout=timeout))
 
 
 def test_register_shows_in_status():
