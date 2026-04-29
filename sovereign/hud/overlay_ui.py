@@ -310,3 +310,34 @@ class OverlayUI:
         """Shorthand: push a transient notification message and return its ID."""
         msg = OverlayMessage(text=text, color=color, duration_ms=duration_ms)
         return self.push_message(msg)
+
+    # ── Convenience aliases ───────────────────────────────────────────────
+
+    def add_message(
+        self,
+        text: str,
+        color: str = "#06b6d4",
+        duration_ms: int = 3000,
+        position: str = "bottom-center",
+    ) -> str:
+        """Queue a display message and return its message_id.
+
+        This is an alias for :meth:`push_message` with keyword-arg style
+        parameters, making the API easier to use from test code and the CLI.
+        """
+        msg = OverlayMessage(text=text, color=color, duration_ms=duration_ms, position=position)
+        return self.push_message(msg)
+
+    def clear(self) -> int:
+        """Remove all queued messages (expired or not). Returns the count cleared."""
+        count = len(self._message_queue)
+        self._message_queue.clear()
+        return count
+
+    def get_pending(self) -> list[OverlayMessage]:
+        """Return all queued messages that have not yet expired or been dismissed.
+
+        Equivalent to :meth:`active_messages` — provided as an alternative name
+        to match the interface contract expected by the test suite.
+        """
+        return self.active_messages()

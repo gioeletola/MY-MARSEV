@@ -125,6 +125,50 @@ class EscalationThresholds:
         return base
 
     # -------------------------------------------------------------------------
+    # Persistence
+    # -------------------------------------------------------------------------
+
+    def reset_to_defaults(self) -> None:
+        """Reset all dynamic overrides and scalar thresholds to factory defaults."""
+        self._dynamic_overrides.clear()
+        self.auto_approve_below_risk = 0.2
+        self.escalate_above_risk = 0.7
+        self.max_autonomous_action_class = "SUGGEST"
+        self.require_human_for_financial = True
+        self.require_human_for_external_api = False
+        self.require_human_for_file_delete = True
+        self.require_human_for_irreversible = True
+
+    def to_dict(self) -> dict:
+        """Serialise to a plain dict for JSON persistence."""
+        return {
+            "auto_approve_below_risk": self.auto_approve_below_risk,
+            "escalate_above_risk": self.escalate_above_risk,
+            "max_autonomous_action_class": self.max_autonomous_action_class,
+            "require_human_for_financial": self.require_human_for_financial,
+            "require_human_for_external_api": self.require_human_for_external_api,
+            "require_human_for_file_delete": self.require_human_for_file_delete,
+            "require_human_for_irreversible": self.require_human_for_irreversible,
+            "_dynamic_overrides": dict(self._dynamic_overrides),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "EscalationThresholds":
+        """Restore from a dict produced by ``to_dict()``."""
+        overrides = data.pop("_dynamic_overrides", {})
+        obj = cls(
+            auto_approve_below_risk=data.get("auto_approve_below_risk", 0.2),
+            escalate_above_risk=data.get("escalate_above_risk", 0.7),
+            max_autonomous_action_class=data.get("max_autonomous_action_class", "SUGGEST"),
+            require_human_for_financial=data.get("require_human_for_financial", True),
+            require_human_for_external_api=data.get("require_human_for_external_api", False),
+            require_human_for_file_delete=data.get("require_human_for_file_delete", True),
+            require_human_for_irreversible=data.get("require_human_for_irreversible", True),
+        )
+        obj._dynamic_overrides = overrides
+        return obj
+
+    # -------------------------------------------------------------------------
     # Factory
     # -------------------------------------------------------------------------
 

@@ -1,0 +1,490 @@
+{% extends "_base.html" %}
+{% block html_attrs %}x-data="marsev()" x-init="init()"{% endblock %}
+{% block page_title %}MARSEV — Private Portal{% endblock %}
+{% block page_subtitle %}MARSEV · Private{% endblock %}
+
+{% block extra_styles %}
+.marsev-glow { box-shadow: 0 0 40px rgba(124,58,237,0.2), 0 0 80px rgba(6,182,212,0.08); }
+.section-title { font-size:10px; letter-spacing:.18em; text-transform:uppercase; font-weight:600; }
+.stat-val { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:600; line-height:1; }
+.timeline-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.progress-bar { height:3px; border-radius:2px; background:rgba(6,182,212,.12); }
+.progress-fill { height:3px; border-radius:2px; transition:width .6s ease; }
+@keyframes aurora {
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+.aurora-bg {
+  background: linear-gradient(135deg,#0a0a0f 0%,#0d0d1a 40%,#0a0f0a 100%);
+  background-size:200% 200%;
+  animation: aurora 12s ease infinite;
+}
+.marsev-border {
+  border-image: linear-gradient(135deg, rgba(6,182,212,0.3), rgba(124,58,237,0.3), rgba(6,182,212,0.1)) 1;
+}
+{% endblock %}
+
+{% block content %}
+<div class="aurora-bg min-h-screen">
+  <main class="max-w-7xl mx-auto px-4 py-6 pb-28 md:pb-8">
+
+    <!-- Hero Banner -->
+    <div class="marsev-glow rounded-2xl border border-violet-500/20 bg-gradient-to-br from-[#0d0d1a] to-[#0a0a10] p-6 mb-6 fade-in">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="font-mono text-2xl font-bold tracking-[.15em]"
+                  style="background:linear-gradient(90deg,#06b6d4,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent">MARSEV</span>
+            <span class="badge badge-violet text-[10px]" x-text="systemStatus"></span>
+          </div>
+          <p class="text-gray-400 text-sm">Multi-Agent Recursive Sovereign Executive Vehicle</p>
+          <p class="text-gray-600 text-xs mt-1 font-mono" x-text="'Session: ' + sessionId"></p>
+        </div>
+        <div class="flex flex-col gap-2 items-end">
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-emerald-400 dot-pulse"></div>
+            <span class="text-xs text-emerald-400 font-mono">ONLINE</span>
+          </div>
+          <span class="text-[10px] text-gray-600 font-mono" x-text="currentTime"></span>
+        </div>
+      </div>
+
+      <!-- Top metrics strip -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5 pt-4 border-t border-white/5">
+        <template x-for="m in topMetrics" :key="m.label">
+          <div class="text-center">
+            <p class="stat-val" :class="m.color" x-text="m.value"></p>
+            <p class="text-[10px] text-gray-600 mt-1 section-title" x-text="m.label"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 3-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+      <!-- LEFT: Identity + Goals + Principles -->
+      <div class="space-y-4">
+
+        <!-- Identity Card -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <h2 class="section-title text-violet-400 mb-3">Identity</h2>
+          <div class="space-y-2">
+            <template x-for="f in identityFields" :key="f.label">
+              <div class="flex justify-between items-start gap-2">
+                <span class="text-[10px] text-gray-600 uppercase tracking-wide flex-shrink-0" x-text="f.label"></span>
+                <span class="text-xs text-gray-200 text-right font-mono truncate max-w-[160px]" x-text="f.value"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Sovereign Goals -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="section-title text-cyan">Goals</h2>
+            <span class="text-[10px] text-gray-600 font-mono" x-text="goals.length + ' active'"></span>
+          </div>
+          <div class="space-y-3 max-h-64 overflow-y-auto pr-1">
+            <template x-for="g in goals" :key="g.id">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-xs text-gray-300 truncate max-w-[160px]" x-text="g.title"></span>
+                  <span class="text-[10px] font-mono" :class="g.pct >= 80 ? 'text-emerald-400' : g.pct >= 40 ? 'text-cyan' : 'text-amber-400'" x-text="g.pct + '%'"></span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" :class="g.pct >= 80 ? 'bg-emerald-400' : g.pct >= 40 ? 'bg-cyan' : 'bg-amber-400'" :style="`width:${g.pct}%`"></div>
+                </div>
+                <p class="text-[10px] text-gray-600 mt-0.5" x-text="g.horizon"></p>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Personal Constitution -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <h2 class="section-title text-amber-400 mb-3">Constitution</h2>
+          <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <template x-for="p in constitution" :key="p.id">
+              <div class="flex items-start gap-2 p-2 rounded-lg bg-black/20">
+                <span class="text-amber-400/60 text-xs flex-shrink-0" x-text="p.num + '.'"></span>
+                <span class="text-[11px] text-gray-300 leading-relaxed" x-text="p.text"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CENTER: AI Chat + Activity Feed -->
+      <div class="space-y-4">
+
+        <!-- Marsev AI Chat -->
+        <div class="card rounded-xl p-4 flex flex-col" style="height:420px">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="section-title text-cyan">MARSEV AI</h2>
+            <div class="flex items-center gap-1.5">
+              <div class="w-1.5 h-1.5 rounded-full dot-pulse" :class="aiThinking ? 'bg-amber-400' : 'bg-emerald-400'"></div>
+              <span class="text-[10px] text-gray-500 font-mono" x-text="aiThinking ? 'thinking...' : 'ready'"></span>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div class="flex-1 overflow-y-auto space-y-3 pr-1" x-ref="chatbox">
+            <template x-for="msg in messages" :key="msg.id">
+              <div class="fade-in" :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                <div class="max-w-[85%] rounded-xl px-3 py-2"
+                     :class="msg.role === 'user'
+                       ? 'bg-cyan/15 border border-cyan/20 text-gray-100'
+                       : 'bg-violet-900/20 border border-violet-500/20 text-gray-200'">
+                  <p class="text-xs leading-relaxed" x-text="msg.text"></p>
+                  <p class="text-[9px] text-gray-600 mt-1 font-mono" x-text="msg.ts"></p>
+                </div>
+              </div>
+            </template>
+            <div x-show="aiThinking" class="flex justify-start">
+              <div class="bg-violet-900/20 border border-violet-500/20 rounded-xl px-3 py-2">
+                <div class="flex gap-1">
+                  <div class="w-1.5 h-1.5 rounded-full bg-violet-400 dot-pulse" style="animation-delay:0s"></div>
+                  <div class="w-1.5 h-1.5 rounded-full bg-violet-400 dot-pulse" style="animation-delay:.2s"></div>
+                  <div class="w-1.5 h-1.5 rounded-full bg-violet-400 dot-pulse" style="animation-delay:.4s"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="mt-3 flex gap-2">
+            <input x-model="chatInput"
+                   @keydown.enter.prevent="sendChat()"
+                   type="text"
+                   placeholder="Ask MARSEV anything..."
+                   class="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:border-cyan/50 transition-colors font-mono"/>
+            <button @click="sendChat()"
+                    :disabled="aiThinking || !chatInput.trim()"
+                    class="px-4 py-2 rounded-lg text-xs font-mono transition-all"
+                    :class="aiThinking || !chatInput.trim() ? 'bg-gray-800 text-gray-600' : 'bg-cyan/15 border border-cyan/30 text-cyan hover:bg-cyan/25'">
+              Send
+            </button>
+          </div>
+        </div>
+
+        <!-- Activity Timeline -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="section-title text-cyan">Activity</h2>
+            <button @click="loadActivity()" class="text-[10px] text-gray-600 hover:text-cyan transition-colors">↻ refresh</button>
+          </div>
+          <div class="space-y-3 max-h-56 overflow-y-auto pr-1">
+            <template x-for="ev in activity" :key="ev.id">
+              <div class="flex gap-3 fade-in">
+                <div class="timeline-dot" :class="ev.color"></div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs text-gray-200 truncate" x-text="ev.title"></p>
+                  <p class="text-[10px] text-gray-600 font-mono" x-text="ev.ts"></p>
+                </div>
+                <span class="badge text-[9px] flex-shrink-0" :class="ev.badgeClass" x-text="ev.category"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: Systems + Connectors + Decisions -->
+      <div class="space-y-4">
+
+        <!-- System Health -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <h2 class="section-title text-cyan mb-3">System Health</h2>
+          <div class="space-y-2">
+            <template x-for="sys in systemHealth" :key="sys.name">
+              <div class="flex items-center gap-3">
+                <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="sys.ok ? 'bg-emerald-400' : 'bg-rose-400'"></div>
+                <span class="text-xs text-gray-400 flex-1 truncate" x-text="sys.name"></span>
+                <span class="text-[10px] font-mono" :class="sys.ok ? 'text-emerald-400' : 'text-rose-400'" x-text="sys.status"></span>
+              </div>
+            </template>
+          </div>
+          <div class="mt-3 pt-3 border-t border-white/5">
+            <div class="flex justify-between text-[10px]">
+              <span class="text-gray-600">Uptime</span>
+              <span class="text-emerald-400 font-mono" x-text="uptime"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Connectors -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="section-title text-violet-400">Connectors</h2>
+            <span class="text-[10px] text-gray-600 font-mono" x-text="connectors.filter(c=>c.ok).length + '/' + connectors.length + ' live'"></span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 max-h-52 overflow-y-auto">
+            <template x-for="c in connectors" :key="c.id">
+              <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20">
+                <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="c.ok ? 'bg-emerald-400 dot-pulse' : 'bg-gray-700'"></div>
+                <span class="text-[10px] text-gray-400 truncate" x-text="c.name"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Recent Decisions -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <h2 class="section-title text-amber-400 mb-3">Decisions</h2>
+          <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <template x-for="d in decisions" :key="d.id">
+              <div class="p-2 rounded-lg bg-black/20 border border-white/5">
+                <div class="flex items-start justify-between gap-2">
+                  <p class="text-[11px] text-gray-300 flex-1 leading-snug" x-text="d.summary"></p>
+                  <span class="badge text-[9px] flex-shrink-0" :class="d.badgeClass" x-text="d.action_class"></span>
+                </div>
+                <p class="text-[9px] text-gray-600 font-mono mt-1" x-text="d.ts"></p>
+              </div>
+            </template>
+            <p x-show="decisions.length === 0" class="text-gray-700 text-xs text-center py-4">No decisions logged yet</p>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card card-hover rounded-xl p-4 slide-in">
+          <h2 class="section-title text-cyan mb-3">Quick Actions</h2>
+          <div class="grid grid-cols-2 gap-2">
+            <template x-for="a in quickActions" :key="a.label">
+              <button @click="a.fn()"
+                      class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-black/30 border border-white/5 hover:border-cyan/30 hover:bg-cyan/5 transition-all text-center group">
+                <span class="text-lg group-hover:scale-110 transition-transform" x-text="a.icon"></span>
+                <span class="text-[10px] text-gray-400 group-hover:text-cyan transition-colors" x-text="a.label"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function marsev() {
+  return {
+    sessionId: 'MARSEV-' + Math.random().toString(36).substr(2,6).toUpperCase(),
+    systemStatus: 'SOVEREIGN',
+    currentTime: '',
+    uptime: '0d 0h',
+    aiThinking: false,
+    chatInput: '',
+    messages: [
+      {id:1, role:'assistant', text:'MARSEV online. How can I assist you today?', ts: new Date().toLocaleTimeString()}
+    ],
+    topMetrics: [
+      {label:'Agents', value:'280+', color:'text-cyan'},
+      {label:'Mode', value:'CMD', color:'text-violet-400'},
+      {label:'Domains', value:'14', color:'text-amber-400'},
+      {label:'Connectors', value:'41', color:'text-emerald-400'},
+    ],
+    identityFields: [],
+    goals: [],
+    constitution: [],
+    systemHealth: [],
+    connectors: [],
+    decisions: [],
+    activity: [],
+    quickActions: [],
+
+    async init() {
+      this.tick();
+      setInterval(() => this.tick(), 1000);
+      await Promise.all([
+        this.loadHealth(),
+        this.loadConnectors(),
+        this.loadDecisions(),
+        this.loadActivity(),
+        this.loadIdentity(),
+      ]);
+      this.buildQuickActions();
+    },
+
+    tick() {
+      this.currentTime = new Date().toLocaleString('en-GB', {
+        weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit'
+      });
+    },
+
+    async apiGet(url) {
+      const token = localStorage.getItem('sovereign_token') || '';
+      try {
+        const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + token);
+        if (!r.ok) return null;
+        return await r.json();
+      } catch { return null; }
+    },
+
+    async loadHealth() {
+      const data = await this.apiGet('/health');
+      if (!data) return;
+      const checks = data.checks || {};
+      this.systemHealth = Object.entries(checks).map(([name, val]) => ({
+        name: name.replace(/_/g,' '),
+        ok: val === true || val === 'ok' || val === 'healthy',
+        status: val === true ? 'ok' : (typeof val === 'string' ? val : (val ? 'ok' : 'fail')),
+      }));
+      if (data.uptime_seconds) {
+        const s = data.uptime_seconds;
+        const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60);
+        this.uptime = `${d}d ${h}h ${m}m`;
+      }
+    },
+
+    async loadConnectors() {
+      const data = await this.apiGet('/api/connectors');
+      if (!data) return;
+      this.connectors = (data.connectors || []).slice(0, 20).map(c => ({
+        id: c.connector_id || c.id || Math.random(),
+        name: c.name || c.connector_id,
+        ok: c.status === 'connected' || c.connected === true,
+      }));
+    },
+
+    async loadDecisions() {
+      const data = await this.apiGet('/api/decisions');
+      if (!data) return;
+      const colours = {READ:'badge-cyan', SUGGEST:'badge-violet', DRAFT:'badge-amber', EXECUTE:'badge-red'};
+      this.decisions = (data.decisions || []).slice(0, 8).map((d, i) => ({
+        id: d.decision_id || i,
+        summary: d.summary || d.user_input || 'Decision',
+        action_class: d.action_class || 'READ',
+        ts: d.timestamp ? new Date(d.timestamp).toLocaleString('en-GB') : '',
+        badgeClass: colours[d.action_class] || 'badge-gray',
+      }));
+    },
+
+    async loadActivity() {
+      const data = await this.apiGet('/api/metrics');
+      const cats = ['agent','memory','tool','decision','mode','connector'];
+      const cols = ['bg-cyan','bg-violet-400','bg-amber-400','bg-emerald-400','bg-rose-400','bg-sky-400'];
+      const bads = ['badge-cyan','badge-violet','badge-amber','badge-green','badge-red','badge-gray'];
+      if (data && data.events) {
+        this.activity = data.events.slice(0,12).map((e,i) => ({
+          id: i,
+          title: e.message || e.type || 'Event',
+          ts: e.timestamp ? new Date(e.timestamp).toLocaleTimeString('en-GB') : '',
+          color: cols[i % cols.length],
+          category: cats[i % cats.length],
+          badgeClass: bads[i % bads.length],
+        }));
+      } else {
+        // Synthetic feed when no real events
+        const now = Date.now();
+        this.activity = [
+          {id:1, title:'System bootstrap complete', ts: new Date(now-120000).toLocaleTimeString('en-GB'), color:'bg-emerald-400', category:'agent', badgeClass:'badge-green'},
+          {id:2, title:'Memory domains loaded (14)', ts: new Date(now-90000).toLocaleTimeString('en-GB'), color:'bg-cyan', category:'memory', badgeClass:'badge-cyan'},
+          {id:3, title:'Connectors synced', ts: new Date(now-60000).toLocaleTimeString('en-GB'), color:'bg-violet-400', category:'connector', badgeClass:'badge-violet'},
+          {id:4, title:'Mode: COMMAND active', ts: new Date(now-30000).toLocaleTimeString('en-GB'), color:'bg-amber-400', category:'mode', badgeClass:'badge-amber'},
+          {id:5, title:'Session opened', ts: new Date(now).toLocaleTimeString('en-GB'), color:'bg-sky-400', category:'agent', badgeClass:'badge-cyan'},
+        ];
+      }
+    },
+
+    async loadIdentity() {
+      const data = await this.apiGet('/api/memory/identity');
+      if (data && data.data) {
+        const d = data.data;
+        this.identityFields = [
+          {label:'Name', value: d.name || '—'},
+          {label:'Version', value: d.version || '1.0'},
+          {label:'Location', value: d.location || '—'},
+          {label:'Focus', value: d.current_focus || '—'},
+          {label:'Mode', value: d.operating_mode || 'command'},
+        ];
+      } else {
+        this.identityFields = [
+          {label:'OS', value:'SOVEREIGN AI OS'},
+          {label:'Build', value:'0.3.0'},
+          {label:'Agents', value:'280+'},
+          {label:'Memory', value:'14 domains'},
+          {label:'Mode', value:'command'},
+        ];
+      }
+
+      // Goals: try memory, fall back to defaults
+      const gData = await this.apiGet('/api/goals');
+      if (gData && gData.goals && gData.goals.length) {
+        this.goals = gData.goals.slice(0, 6).map(g => ({
+          id: g.goal_id || g.id,
+          title: g.title,
+          pct: Math.round(g.progress_pct || g.progress || 0),
+          horizon: g.horizon || g.category || '',
+        }));
+      } else {
+        this.goals = [
+          {id:1, title:'Financial independence', pct:42, horizon:'long-term'},
+          {id:2, title:'Business revenue target', pct:67, horizon:'annual'},
+          {id:3, title:'Health & fitness baseline', pct:78, horizon:'quarterly'},
+          {id:4, title:'Skills mastery track', pct:55, horizon:'ongoing'},
+        ];
+      }
+
+      // Constitution
+      this.constitution = [
+        {id:1, num:'I',   text:'Sovereignty first — no dependency creates vulnerability.'},
+        {id:2, num:'II',  text:'Compound daily — every action must build long-term value.'},
+        {id:3, num:'III', text:'Data before emotion — decisions follow evidence.'},
+        {id:4, num:'IV',  text:'Privacy is power — information asymmetry is an asset.'},
+        {id:5, num:'V',   text:'Execution over planning — speed is a competitive advantage.'},
+      ];
+    },
+
+    buildQuickActions() {
+      this.quickActions = [
+        {icon:'📊', label:'Dashboard', fn:() => window.location.href='/dashboard'},
+        {icon:'💰', label:'Finance', fn:() => window.location.href='/finance'},
+        {icon:'🤖', label:'AI Chat', fn:() => window.location.href='/'},
+        {icon:'🔮', label:'HUD', fn:() => window.location.href='/hud'},
+        {icon:'🔐', label:'Approvals', fn:() => window.location.href='/approvals'},
+        {icon:'⚡', label:'Expansion', fn:() => window.location.href='/expansion'},
+      ];
+    },
+
+    async sendChat() {
+      const text = this.chatInput.trim();
+      if (!text || this.aiThinking) return;
+      this.chatInput = '';
+      const ts = new Date().toLocaleTimeString('en-GB');
+      this.messages.push({id: Date.now(), role:'user', text, ts});
+      this.$nextTick(() => {
+        const box = this.$refs.chatbox;
+        if (box) box.scrollTop = box.scrollHeight;
+      });
+      this.aiThinking = true;
+      try {
+        const token = localStorage.getItem('sovereign_token') || '';
+        const r = await fetch('/api/chat?token=' + token, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({message: text, session_id: this.sessionId}),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const reply = data.reply || data.result || data.response || '(no response)';
+          this.messages.push({id: Date.now()+1, role:'assistant', text: reply, ts: new Date().toLocaleTimeString('en-GB')});
+        } else {
+          this.messages.push({id: Date.now()+1, role:'assistant', text: '⚠ Error: ' + r.status, ts: new Date().toLocaleTimeString('en-GB')});
+        }
+      } catch(e) {
+        this.messages.push({id: Date.now()+1, role:'assistant', text:'⚠ Network error — check connection.', ts: new Date().toLocaleTimeString('en-GB')});
+      }
+      this.aiThinking = false;
+      this.$nextTick(() => {
+        const box = this.$refs.chatbox;
+        if (box) box.scrollTop = box.scrollHeight;
+      });
+    },
+  };
+}
+</script>
+{% endblock %}

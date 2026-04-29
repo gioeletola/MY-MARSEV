@@ -1825,3 +1825,42 @@ async def list_business_ideas(status: str = "", _: dict = Depends(require_auth))
         })
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# MARSEV Private Portal
+# ---------------------------------------------------------------------------
+
+@app.get("/marsev", response_class=HTMLResponse)
+async def marsev_portal(request: Request) -> HTMLResponse:
+    """Serve the MARSEV private portal page."""
+    return templates.TemplateResponse(request, "marsev.html")
+
+
+@app.post("/api/chat")
+async def chat_endpoint(
+    request: Request,
+    _: dict = Depends(require_auth),
+) -> JSONResponse:
+    """Chat endpoint for the MARSEV portal AI interface."""
+    try:
+        body = await request.json()
+        message = str(body.get("message", "")).strip()
+        session_id = str(body.get("session_id", ""))
+        if not message:
+            return JSONResponse({"error": "message required"}, status_code=400)
+        if _orchestrator is None:
+            return JSONResponse(
+                {"reply": "MARSEV orchestrator not initialised — start the server with ANTHROPIC_API_KEY set."}
+            )
+        result = await _orchestrator.handle_request(message)
+        if hasattr(result, "result"):
+            reply = str(result.result or "")
+        elif isinstance(result, dict):
+            reply = str(result.get("result") or result.get("reply") or result)
+        else:
+            reply = str(result)
+        return JSONResponse({"reply": reply, "session_id": session_id})
+    except Exception as exc:
+        logger.warning("chat endpoint error: %s", exc)
+        return JSONResponse({"reply": f"Error: {exc}"}, status_code=500)

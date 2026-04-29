@@ -89,8 +89,22 @@ class HUDOrchestrator:
 
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
-    async def start_all(self) -> None:
-        """Start all subsystems and the internal event loop."""
+    @property
+    def is_running(self) -> bool:
+        """Return True if the orchestrator is currently active."""
+        return self._running
+
+    def event_queue(self) -> asyncio.Queue:
+        """Expose the internal event queue for external consumers."""
+        return self._event_queue
+
+    async def start_all(self, dry_run: bool = False) -> None:
+        """Start all subsystems and the internal event loop.
+
+        Args:
+            dry_run: When True, mark as running but skip all hardware init.
+                     Useful for testing without real devices attached.
+        """
         if self._running:
             logger.warning("HUDOrchestrator: already running")
             return
@@ -98,7 +112,11 @@ class HUDOrchestrator:
         self._running = True
         self._stop_event.clear()
         self._status.bridge_running = True
-        logger.info("HUDOrchestrator: starting all subsystems")
+        logger.info("HUDOrchestrator: starting all subsystems (dry_run=%s)", dry_run)
+
+        if dry_run:
+            # In dry-run mode we do not spawn any tasks or touch hardware.
+            return
 
         if self._camera:
             t = asyncio.create_task(

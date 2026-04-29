@@ -39,6 +39,7 @@ class ApprovalMode(str, Enum):
     CLI     = "cli"
     POLICY  = "policy"
     WEBHOOK = "webhook"
+    SILENT  = "silent"   # Always deny — for locked/test environments
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +264,8 @@ class ApprovalGate:
             decision = self._decide_auto(action_id, action, ctx, user_id)
         elif self._mode == ApprovalMode.POLICY:
             decision = self._decide_policy(action_id, action, ctx, user_id)
+        elif self._mode == ApprovalMode.SILENT:
+            decision = self._decide_silent(action_id, action, ctx, user_id)
         elif self._mode == ApprovalMode.WEBHOOK:
             decision = await self._decide_webhook(action_id, action, ctx, user_id, timeout_seconds)
         else:  # CLI
@@ -322,6 +325,21 @@ class ApprovalGate:
             approved=approved,
             reason=f"Policy default: risk_score={risk:.2f} threshold={self._thresholds.auto_approve_below_risk:.2f}",
             approver="policy-engine",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            action_id=action_id,
+            action=action,
+            user_id=user_id,
+            context=context,
+        )
+
+    def _decide_silent(
+        self, action_id: str, action: str, context: dict, user_id: str
+    ) -> ApprovalDecisionRecord:
+        """SILENT mode — always deny (locked/test environments)."""
+        return ApprovalDecisionRecord(
+            approved=False,
+            reason="SILENT mode: all actions denied",
+            approver="silent",
             timestamp=datetime.now(timezone.utc).isoformat(),
             action_id=action_id,
             action=action,
@@ -502,3 +520,47 @@ class ApprovalGate:
             "approval_rate": round(approved / total, 3) if total else 0.0,
             "mode": self._mode.value,
         }
+
+    # -------------------------------------------------------------------------
+    # Extended observability
+    # -------------------------------------------------------------------------
+
+    def approval_stats(self) -> dict:
+        """Return approved/denied/pending counts and avg decision time.
+
+        avg_decision_time_ms is always 0.0 in the current single-record model
+        (no start-time tracking per request), but the key is always present.
+        """
+        total = len(self._audit)
+        approved_count = sum(1 for d in self._audit if d.approved)
+        denied_count = total - approved_count
+        return {
+            "approved": approved_count,
+            "denied": denied_count,
+            "pending": 0,
+            "total": total,
+            "avg_decision_time_ms": 0.0,
+            "mode": self._mode.value,
+        }
+
+    def clear_audit_trail(self) -> None:
+        """Wipe all recorded decisions. Useful for test isolation."""
+        self._audit.clear()
+
+    # -------------------------------------------------------------------------
+    # Revocation
+    # -------------------------------------------------------------------------
+
+    def revoke(self, action_id: str) -> bool:
+        """Mark a previously-approved decision as revoked.
+
+        Updates the record in-place (approved → False, reason updated).
+        Returns True if the record was found and mutated, False otherwise.
+        """
+        for record in self._audit:
+            if record.action_id == action_id and record.approved:
+                record.approved = False
+                record.reason = f"REVOKED: {record.reason}"
+                logger.warning("ApprovalGate: revoked decision %s", action_id)
+                return True
+        return False
