@@ -15,7 +15,7 @@ class DecisionScienceLab(LabsFramework):
     benchmarks = {"decision_quality_score": 0.80, "bias_detection_rate": 0.75}
     output_standards = {"decision_report": "Structured decision brief with options, risks, and recommendation"}
     requires_human_review = False
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
     experiment_templates = [
         {
             "name": "Option Generation — AI Breadth vs Human Brainstorming",

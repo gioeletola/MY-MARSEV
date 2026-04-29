@@ -465,7 +465,7 @@ AppBuilderAgent = _make_worker(
     "app_builder", "App Builder Agent",
     "Design and build software applications: architecture, API design, database schema, "
     "core features. Produce production-grade modular code.",
-    tools=["code_exec", "file_ops", "memory_tool"], model="claude-opus-4-6",
+    tools=["code_exec", "file_ops", "memory_tool"], model="claude-opus-4-7",
 )
 
 AutomationBuilderAgent = _make_worker(

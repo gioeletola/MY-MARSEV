@@ -240,7 +240,7 @@ class SovereignOrchestrator:
         # --- Step 2: Memory snapshot ---
         self._emit("step", {"step": 2, "name": "memory_snapshot", "session_id": session_id})
         snapshot = await self._memory.get_snapshot(
-            domains=["identity", "operational", "projects", "decision",
+            domains=["identity", "operational", "project", "decision",
                      "financial", "next_action", "personal_constitution"]
         )
         # Inject recent conversation history into snapshot
@@ -254,6 +254,7 @@ class SovereignOrchestrator:
             operating_mode=mode,
             memory_snapshot=snapshot,
             constitution_hash=self._constitution.constitution_hash(),
+            memory_manager=self._memory,
         )
 
         # --- Step 3: CEO agent — interpret intent, select mode ---

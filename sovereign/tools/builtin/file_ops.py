@@ -81,7 +81,9 @@ class FileOpsTool(BaseTool):
     def _safe_path(self, relative: str) -> pathlib.Path:
         """Resolve path and enforce sandbox within data_dir."""
         resolved = (self._root / relative).resolve()
-        if not str(resolved).startswith(str(self._root)):
+        try:
+            resolved.relative_to(self._root)
+        except ValueError:
             raise PermissionError(
                 f"Path traversal blocked: '{relative}' resolves outside data_dir."
             )

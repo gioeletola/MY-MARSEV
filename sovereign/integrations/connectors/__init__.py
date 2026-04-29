@@ -48,6 +48,9 @@ from sovereign.integrations.connectors.uber_connector import UberConnector
 from sovereign.integrations.connectors.weather_connector import WeatherConnector
 from sovereign.integrations.connectors.whatsapp_connector import WhatsAppConnector
 from sovereign.integrations.connectors.x_connector import XConnector
+from sovereign.integrations.connectors.youtube_connector import YouTubeConnector
+from sovereign.integrations.connectors.reddit_connector import RedditConnector
+from sovereign.integrations.connectors.producthunt_connector import ProductHuntConnector
 
 __all__ = [
     "ConnectorBase", "ConnectorStatus", "SyncResult",
@@ -69,4 +72,6 @@ __all__ = [
     "StripeConnector", "DiscordConnector", "ShopifyConnector",
     "SpotifyConnector", "StravaConnector", "CoinGeckoConnector",
     "AirtableConnector", "TypeformConnector", "WhatsAppConnector", "CalendlyConnector",
+    # Phase-4 connectors
+    "YouTubeConnector", "RedditConnector", "ProductHuntConnector",
 ]

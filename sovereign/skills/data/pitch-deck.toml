@@ -1,0 +1,30 @@
+[skill]
+id = "pitch-deck"
+name = "Pitch Deck Outline"
+description = "Generate a structured investor pitch deck outline with key slides"
+category = "fundraising"
+version = "1.0"
+tags = ["startup", "fundraising", "pitch", "investor"]
+
+[inputs]
+company = {type = "string", required = true, description = "Company name and one-liner"}
+problem = {type = "string", required = true, description = "Problem being solved"}
+solution = {type = "string", required = false, description = "Your solution"}
+traction = {type = "string", required = false, description = "Key metrics or traction"}
+ask = {type = "string", required = false, description = "Funding ask and use of funds"}
+
+[outputs]
+slides = {type = "list"}
+hook = {type = "string"}
+key_metrics = {type = "list"}
+investor_questions = {type = "list"}
+
+[prompt]
+template = """
+Create a 12-slide pitch deck outline for: {{company}}
+Problem: {{problem}} | Solution: {{solution}}
+Traction: {{traction}} | Ask: {{ask}}
+
+Slides: Title, Problem, Solution, Market, Product, Business Model, Traction, Team, Competition, Financials, Ask, Vision.
+For each slide: title, 3-4 bullet points, key visual suggestion.
+"""

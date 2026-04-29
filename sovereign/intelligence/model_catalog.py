@@ -64,7 +64,7 @@ class ModelEntry:
 _CATALOG: list[ModelEntry] = [
     # ── Anthropic ──────────────────────────────────────────────────────────
     ModelEntry(
-        model_id="claude-opus-4-6",
+        model_id="claude-opus-4-7",
         provider="anthropic",
         display_name="Claude Opus 4.6",
         provider_type=ProviderType.CLOUD,

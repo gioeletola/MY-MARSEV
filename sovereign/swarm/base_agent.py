@@ -66,6 +66,8 @@ class AgentContext:
     memory_snapshot: dict[str, Any] = field(default_factory=dict)
     user_id: str = "default"
     constitution_hash: str = ""    # Used to verify prompt cache validity
+    memory_manager: Any = None     # Live MemoryManager for observe/save steps
+    tags: list[str] = field(default_factory=list)   # Routing/classification tags
 
 
 # ---------------------------------------------------------------------------

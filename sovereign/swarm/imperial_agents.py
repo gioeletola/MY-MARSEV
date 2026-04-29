@@ -67,7 +67,7 @@ BlindSpotAgent = _w("blind_spot", "Blind Spot Agent",
     "risks they're not seeing, assumptions they're not questioning, "
     "people they're underestimating, trends they're ignoring. "
     "The adversarial analyst within the system.",
-    model="claude-opus-4-6")
+    model="claude-opus-4-7")
 
 PowerMapAgent = _w("power_map", "Power Map Agent",
     "Map power dynamics in the user's world: "
@@ -95,7 +95,7 @@ WarRoomAgent = _w("war_room", "War Room Agent",
     "competitive threats, crises, major negotiations, pivotal decisions. "
     "Assemble relevant intelligence. Scenario plan. "
     "Define battle strategy with clear objectives.",
-    model="claude-opus-4-6", confidence=0.87)
+    model="claude-opus-4-7", confidence=0.87)
 
 DestinyTrackerAgent = _w("destiny_tracker", "Destiny Tracker",
     "Track progress toward the user's ultimate vision across all life domains. "
@@ -244,7 +244,7 @@ ConceptLabAgent = _w("concept_lab", "Concept Lab Agent",
     "business concepts, creative concepts, product concepts, life concepts. "
     "The user's internal idea generation engine. "
     "Produce concept briefs with viability assessment.",
-    model="claude-opus-4-6")
+    model="claude-opus-4-7")
 
 AestheticDirectionAgent = _w("aesthetic_direction", "Aesthetic Direction Agent",
     "Define and evolve the aesthetic direction for all creative outputs: "

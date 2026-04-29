@@ -2,7 +2,7 @@
 
 models:
   frontier:
-    id: claude-opus-4-6
+    id: claude-opus-4-7
     description: "Highest capability — strategic decisions, complex reasoning, sensitive tasks"
     max_tokens: 8192
     use_for:

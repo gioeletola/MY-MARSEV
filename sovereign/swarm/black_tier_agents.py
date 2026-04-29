@@ -426,7 +426,7 @@ LegacyArchitectChief = _make_worker(
         "Ensure current choices are consistent with intended legacy."
     ),
     tools=["memory_tool"],
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     confidence=0.85,
 )
 
@@ -470,7 +470,7 @@ SovereignAuditorAgent = _make_worker(
         "Produce monthly system audit report."
     ),
     tools=["memory_tool"],
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     confidence=0.90,
 )
 
@@ -484,7 +484,7 @@ EvolutionArchitectAgent = _make_worker(
         "Ensure the OS grows more capable and aligned with user needs over time."
     ),
     tools=["memory_tool"],
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     confidence=0.88,
 )
 
@@ -499,7 +499,7 @@ AlignmentMonitorAgent = _make_worker(
         "Maintain alignment audit log."
     ),
     tools=["memory_tool"],
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     confidence=0.92,
     requires_review=True,
 )

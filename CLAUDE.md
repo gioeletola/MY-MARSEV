@@ -2,6 +2,9 @@
 
 A multi-agent AI operating system built on the Anthropic Claude API. Orchestrates 280+ specialized agents across business, personal, finance, security, and strategy domains.
 
+> **Status:** Alpha/Advanced Prototype — architecture is solid, hardening in progress. Not recommended for autonomous execution on critical systems without human supervision.
+> **Model:** Frontier model is `claude-opus-4-7` | Standard is `claude-sonnet-4-6` | Fast/cheap is `claude-haiku-4-5-20251001`
+
 ## Architecture
 
 ```
@@ -22,6 +25,10 @@ pip install -e ".[dev]"
 
 # CLI demo (requires ANTHROPIC_API_KEY)
 python main.py demo
+
+# Build local standalone app (no Python required on target machine)
+./scripts/build_local.sh
+./dist/sovereign/sovereign serve --port 8080
 
 # Interactive REPL
 python main.py run --interactive
@@ -53,7 +60,7 @@ pytest tests/ -v
 python main.py agent list
 python main.py agent info <agent_id>
 
-# Connectors (41 total: 21 connected, 17 beta, 3 stub)
+# Connectors (44 total: 21 connected, 20 beta, 3 stub→beta upgraded)
 python main.py connector list
 python main.py connector sync <connector_id>
 python main.py connector health
@@ -94,15 +101,17 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 | `sovereign/orchestrator.py` | Master wiring — 10-step session flow |
 | `sovereign/executive/` | CEO, ChiefOfStaff, Coordinator, Guardian, ApprovalGate, TaskSetter |
 | `sovereign/swarm/` | All 280+ agent classes (factory pattern) |
-| `sovereign/memory/` | 14-domain memory system with semantic search (TF-IDF + sentence-transformers) |
-| `sovereign/tools/builtin/` | web_search, code_exec, file_ops, memory_tool, notes, calendar, bookmarks, etc. |
+| `sovereign/memory/` | 18-domain memory system with semantic search (TF-IDF + sentence-transformers) |
+| `sovereign/tools/builtin/` | web_search, code_exec, file_ops, memory_tool, notes, calendar, hash, url, date, text_analysis, base64, uuid, number, color, template_render, markdown, diff, translation, etc. |
 | `sovereign/claude/client.py` | Claude API client with prompt caching |
 | `sovereign/kernel/` | Constitution, ActionClasses, StopConditions |
 | `sovereign/authority/` | ApprovalGate, EscalationThresholds, Policy |
 | `sovereign/governance/` | RBAC, EscalationChain, SpendingLimits, RiskScoring, ChangeManagement |
 | `sovereign/security/` | SecretManager, SecurityStack (7-layer), AccessControl, SessionMonitor |
-| `sovereign/integrations/` | 41 connectors (Finance, Social, Productivity, E-Commerce, Health, Travel) |
-| `sovereign/integrations/connectors/` | BinanceConnector, StripeConnector, TelegramConnector, SlackConnector, … |
+| `sovereign/integrations/` | 44 connectors (Finance, Social, Productivity, E-Commerce, Health, Travel) |
+| `sovereign/integrations/connectors/` | BinanceConnector, StripeConnector, TelegramConnector, SlackConnector, YouTubeConnector, RedditConnector, ProductHuntConnector, … |
+| `scripts/` | `build_local.sh` — PyInstaller local app packaging |
+| `sovereign.spec` | PyInstaller spec for standalone desktop/server binary |
 | `sovereign/infra/` | TaskQueue, Scheduler, WebhookRouter, AuthManager, Watchdog |
 | `sovereign/labs/` | 23 experimental labs (framework + individual) |
 | `sovereign/centers/` | 27 operational centers |
@@ -136,13 +145,13 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 | `black_tier_agents.py` | ~10 |
 | Executive core | 8 |
 
-## Connector Registry (41)
+## Connector Registry (44)
 
 | Status | Connectors |
 |---|---|
 | **connected** (21) | Binance, CoinGecko, Discord, EdX, GitHub, HackerNews, Linear, Mailchimp, Notion (partial), RSS, Revolut, Skyscanner, Slack, Spotify, Strava, Stripe, Telegram, Typeform, Weather, WhatsApp (partial), X |
-| **beta** (17) | Airbnb, Amazon, Bambu Lab, Calendar, Contacts, Deliveroo, eToro, Facebook, Gmail, Instagram, LinkedIn, MetaTrader, NotebookLM, Shopify, Uber, WhatsApp, Calendly |
-| **stub** (3) | Farfetch, Oopbuy, Sisal |
+| **beta** (20) | Airbnb, Amazon, Bambu Lab, Calendar, Contacts, Deliveroo, eToro, Facebook, Gmail, Instagram, LinkedIn, MetaTrader, NotebookLM, Shopify, Uber, WhatsApp, Calendly, Farfetch, Oopbuy, Sisal |
+| **new** (3) | YouTube (Data API v3), Reddit (public JSON + search), ProductHunt (GraphQL) |
 
 ## Adding a New Agent
 

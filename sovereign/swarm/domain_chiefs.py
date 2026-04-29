@@ -22,7 +22,7 @@ class ResearchChief(BaseAgent):
     """
 
     agent_id = "research"
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
         try:
@@ -64,7 +64,7 @@ class FinanceChief(BaseAgent):
     """
 
     agent_id = "finance"
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
         try:
@@ -155,7 +155,7 @@ class LegalChief(BaseAgent):
     """
 
     agent_id = "legal"
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
         try:

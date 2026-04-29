@@ -1,102 +1,29 @@
 [skill]
 id = "risk-assessment"
-name = "Risk Assessment"
-description = "Generate a comprehensive risk register with likelihood/impact scoring and a prioritized mitigation plan."
-version = "1.0.0"
-status = "active"
-permissions = ["read", "write"]
-tools = ["memory_tool"]
-tags = ["business", "risk"]
-author = "system"
-requires_approval = false
-enabled = true
+name = "Risk Assessment Matrix"
+description = "Build a structured risk assessment with likelihood, impact, and mitigation"
+category = "governance"
+version = "1.0"
+tags = ["risk", "governance", "compliance", "analysis"]
 
-[[inputs]]
-name = "subject"
-type = "string"
-description = "What are you assessing risk for? (project name, business initiative, product launch, etc.)"
-required = true
+[inputs]
+project = {type = "string", required = true, description = "Project or initiative to assess"}
+domain = {type = "string", required = false, description = "Domain: technical, financial, legal, operational, reputational"}
+context = {type = "string", required = false, description = "Additional context or constraints"}
+existing_controls = {type = "string", required = false, description = "Controls already in place"}
 
-[[inputs]]
-name = "context"
-type = "string"
-description = "Background information about the initiative, scope, timeline, and stakeholders"
-required = false
-default = ""
-
-[[inputs]]
-name = "risk_categories"
-type = "string"
-description = "Risk categories to focus on (e.g. technical, financial, legal, operational, reputational)"
-required = false
-default = "all"
-
-[[inputs]]
-name = "risk_appetite"
-type = "string"
-description = "Organization's risk tolerance: low | medium | high"
-required = false
-default = "medium"
-
-[[outputs]]
-name = "risk_register"
-type = "string"
-description = "Full risk register with scoring and owners"
-
-[[outputs]]
-name = "mitigation_plan"
-type = "string"
-description = "Prioritized mitigation and contingency actions"
-
-[[outputs]]
-name = "risk_summary"
-type = "string"
-description = "Executive summary of overall risk posture"
+[outputs]
+risks = {type = "list"}
+risk_matrix = {type = "string"}
+mitigations = {type = "list"}
+residual_risk = {type = "string"}
+overall_rating = {type = "string"}
 
 [prompt]
-template = """You are a certified risk management professional (CRISC/PMP). Perform a comprehensive risk assessment for the following.
+template = """
+Perform a risk assessment for: {{project}}
+Domain: {{domain}} | Existing controls: {{existing_controls}}
+Context: {{context}}
 
-SUBJECT: {{subject}}
-CONTEXT: {{context}}
-RISK CATEGORIES: {{risk_categories}}
-RISK APPETITE: {{risk_appetite}}
-
-## Executive Risk Summary
-In 2-3 sentences: overall risk rating (LOW/MEDIUM/HIGH/CRITICAL), the top 3 risks, and the general risk posture.
-
-## Risk Register
-
-For each identified risk, complete the following table row:
-
-| ID | Risk Description | Category | Likelihood (1-5) | Impact (1-5) | Risk Score | Priority | Owner | Status |
-|----|-----------------|----------|-----------------|--------------|------------|----------|-------|--------|
-
-Scoring guide:
-- Likelihood: 1=Rare, 2=Unlikely, 3=Possible, 4=Likely, 5=Almost Certain
-- Impact: 1=Negligible, 2=Minor, 3=Moderate, 4=Major, 5=Catastrophic
-- Risk Score = Likelihood × Impact (1-25)
-- Priority: CRITICAL (20-25) | HIGH (12-19) | MEDIUM (6-11) | LOW (1-5)
-
-Identify at minimum 10-15 distinct risks across all relevant categories.
-
-## Detailed Risk Profiles (Top 5 Risks)
-For the five highest-scoring risks, provide:
-- **Risk ID & Name**
-- Root causes and trigger conditions
-- Consequences if the risk materializes
-- Early warning indicators to monitor
-- Residual risk after mitigation
-
-## Mitigation Plan
-
-| Risk ID | Mitigation Strategy | Contingency Plan | Responsible | Deadline | Cost Estimate |
-|---------|--------------------|--------------------|-------------|----------|---------------|
-
-## Risk Monitoring Framework
-- KRIs (Key Risk Indicators) to track weekly/monthly
-- Escalation thresholds and process
-- Review cadence recommendation
-
-## Recommendations for {{subject}}
-Three prioritized actions the team should take immediately given a {{risk_appetite}} risk appetite.
+Produce: 5-8 risks with likelihood (1-5), impact (1-5), score, owner, mitigation, residual risk. Include overall risk rating.
 """

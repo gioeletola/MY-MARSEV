@@ -162,6 +162,8 @@ class TestProductionStartup:
     def test_key_present_in_production_ok(self, monkeypatch):
         monkeypatch.setenv("SOVEREIGN_ENV", "production")
         monkeypatch.setenv("AUTH_SECRET_KEY", "a" * 64)
+        monkeypatch.setenv("SOVEREIGN_PASSWORD", "test-password")
+        monkeypatch.setenv("SECRET_MANAGER_KEY", "b" * 32)
         from sovereign.api.auth import assert_production_ready
         assert_production_ready()  # should not raise
 

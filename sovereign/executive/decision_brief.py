@@ -16,7 +16,7 @@ class DecisionBriefAgent(BaseAgent):
     """
 
     agent_id = "decision_brief"
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
 
     async def run(self, task: AgentTask, ctx: AgentContext) -> StructuredOutput:
         """Generate a decision brief for the situation described in task.objective."""

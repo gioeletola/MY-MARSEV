@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 _PROVIDER_PRICING: dict[str, dict[str, tuple[float, float]]] = {
     "anthropic": {
-        "claude-opus-4-6":           (15.00, 75.00),
+        "claude-opus-4-7":           (15.00, 75.00),
         "claude-sonnet-4-6":         (3.00,  15.00),
         "claude-haiku-4-5-20251001":  (0.80,   4.00),
     },
@@ -57,13 +57,13 @@ _PROVIDER_PRICING: dict[str, dict[str, tuple[float, float]]] = {
 
 
 class ModelTier(str, Enum):
-    FRONTIER = "frontier"   # claude-opus-4-6 — strategic, complex, sensitive
+    FRONTIER = "frontier"   # claude-opus-4-7 — strategic, complex, sensitive
     BALANCED = "balanced"   # claude-sonnet-4-6 — general purpose
     FAST = "fast"           # claude-haiku-4-5-20251001 — ephemeral, bulk, cheap
 
 
 MODEL_IDS: dict[ModelTier, str] = {
-    ModelTier.FRONTIER: "claude-opus-4-6",
+    ModelTier.FRONTIER: "claude-opus-4-7",
     ModelTier.BALANCED: "claude-sonnet-4-6",
     ModelTier.FAST:     "claude-haiku-4-5-20251001",
 }

@@ -293,7 +293,7 @@ class TestModelRouterFallback:
     def test_route_with_fallback_high_complexity(self, router):
         from sovereign.router.model_router import RoutingCriteria
         provider, model, _ = router.route_with_fallback(RoutingCriteria(task_complexity=0.95))
-        assert model == "claude-opus-4-6"
+        assert model == "claude-opus-4-7"
 
     def test_pii_stays_on_anthropic(self, router):
         from sovereign.router.model_router import RoutingCriteria

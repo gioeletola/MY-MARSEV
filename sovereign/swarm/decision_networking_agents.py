@@ -28,7 +28,7 @@ OptionGeneratorAgent = _make_leveled_worker(
     "null option (do nothing), combination options. "
     "Minimum 5 distinct options per decision.",
     level=AgentLevel.LEVEL_4,
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     triggers=["decision_event", "network_alert"],
     escalate_to="ceo",
     requires_approval_for=["EXECUTE"],
@@ -43,7 +43,7 @@ SecondOpinionAgent = _make_leveled_worker(
     "Ask: what could go wrong, what's being ignored, what would a skeptic say. "
     "Independent evaluation free from original framing.",
     level=AgentLevel.LEVEL_3,
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     triggers=["decision_task"],
     escalate_to="chief_of_staff",
     mission="Second Opinion Agent",
@@ -57,7 +57,7 @@ DevilsAdvocateAgent = _make_leveled_worker(
     "Steel-man the opposition. Find the real risks. "
     "Make the user defend their position against the best counter-argument.",
     level=AgentLevel.LEVEL_3,
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     triggers=["decision_task"],
     escalate_to="chief_of_staff",
     mission="Devil's Advocate Agent",
@@ -98,7 +98,7 @@ RegretMinimizerAgent = _make_leveled_worker(
     "Identify regret-weighted outcomes. "
     "Optimize for long-term regret minimization over short-term comfort.",
     level=AgentLevel.LEVEL_3,
-    model="claude-opus-4-6",
+    model="claude-opus-4-7",
     triggers=["decision_task"],
     escalate_to="chief_of_staff",
     mission="Regret Minimizer Agent",

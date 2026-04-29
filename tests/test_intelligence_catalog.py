@@ -97,7 +97,7 @@ def test_catalog_singleton():
 
 
 def test_model_entry_capability_scores(catalog):
-    opus = catalog.get("claude-opus-4-6")
+    opus = catalog.get("claude-opus-4-7")
     assert opus is not None
     assert opus.reasoning_strength >= 0.9
     assert opus.coding_strength >= 0.9

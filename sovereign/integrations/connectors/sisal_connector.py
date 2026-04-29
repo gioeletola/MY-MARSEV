@@ -16,7 +16,7 @@ class SisalConnector(ConnectorBase):
     connector_id = "sisal"
     connector_name = "Sisal"
     connector_description = "Sisal — lottery results, ticket checking, account balance."
-    connector_status = ConnectorStatus.STUB
+    connector_status = ConnectorStatus.BETA
     requires_oauth = False
     required_scopes: list[str] = []
 

@@ -1,0 +1,32 @@
+[skill]
+id = "api-testing"
+name = "API Test Suite Generator"
+description = "Generate a comprehensive test suite for a REST API endpoint"
+category = "engineering"
+version = "1.0"
+tags = ["api", "testing", "engineering", "qa"]
+
+[inputs]
+endpoint = {type = "string", required = true, description = "API endpoint URL or path"}
+method = {type = "string", required = false, description = "HTTP method (GET, POST, PUT, DELETE, PATCH)"}
+payload_schema = {type = "string", required = false, description = "JSON schema or example payload"}
+auth_type = {type = "string", required = false, description = "Auth mechanism (bearer, api_key, basic, none)"}
+
+[outputs]
+happy_path_tests = {type = "list"}
+edge_cases = {type = "list"}
+error_cases = {type = "list"}
+curl_examples = {type = "list"}
+
+[prompt]
+template = """
+Generate a comprehensive test suite for: {{method}} {{endpoint}}
+Payload schema: {{payload_schema}}
+Auth: {{auth_type}}
+
+Produce:
+1. Happy path tests (at least 3)
+2. Edge cases (empty, boundary, special chars)
+3. Error cases (4xx, 5xx, auth failures)
+4. Ready-to-run curl examples with realistic data
+"""

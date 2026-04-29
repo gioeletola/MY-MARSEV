@@ -14,7 +14,7 @@ class RedTeamLab(LabsFramework):
     benchmarks = {"vulnerability_detection_rate": 0.85, "false_positive_rate": 0.10}
     output_standards = {"red_team_report": "Findings report with severity, impact, and remediation plan"}
     requires_human_review = True
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
     experiment_templates = [
         {
             "name": "Red Team Lab — Prompt Injection Resistance",

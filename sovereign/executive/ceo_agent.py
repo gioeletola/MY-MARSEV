@@ -36,7 +36,7 @@ class CEOAgent(LeveledAgent):
     - Set the action class ceiling for the session
     - Delegate to ChiefOfStaff for task decomposition
 
-    Uses claude-opus-4-6 (frontier model) for highest reasoning quality.
+    Uses claude-opus-4-7 (frontier model) for highest reasoning quality.
 
     Workflow steps:
       OBSERVE   — retrieve memory snapshot, surface prior session context
@@ -49,7 +49,7 @@ class CEOAgent(LeveledAgent):
     """
 
     agent_id = "ceo"
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
 
     spec = AgentSpec(
         agent_id="ceo",

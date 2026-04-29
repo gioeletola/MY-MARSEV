@@ -30,7 +30,7 @@ class TestModelRouter:
             task_complexity=0.9, budget_limit_usd=1.0
         )
         assert provider == "anthropic"
-        assert model == "claude-opus-4-6"
+        assert model == "claude-opus-4-7"
 
     def test_default_routes_to_anthropic_sonnet(self):
         provider, model = self.router.route_to_provider(
@@ -69,7 +69,7 @@ class TestModelRouter:
             preferred_provider="openai",
         )
         assert provider == "anthropic"
-        assert model == "claude-opus-4-6"
+        assert model == "claude-opus-4-7"
 
     def test_estimate_cost_anthropic_sonnet(self):
         from sovereign.router.model_router import ModelRouter

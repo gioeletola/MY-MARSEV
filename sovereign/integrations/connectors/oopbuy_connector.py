@@ -25,7 +25,7 @@ class OopbuyConnector(ConnectorBase):
         "Syncs Oopbuy purchasing agent orders: item sourcing status, "
         "warehouse arrival, parcel consolidation, and shipping tracking."
     )
-    connector_status = ConnectorStatus.STUB
+    connector_status = ConnectorStatus.BETA
     requires_oauth = False
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:

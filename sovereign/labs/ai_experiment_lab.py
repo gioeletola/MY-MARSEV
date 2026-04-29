@@ -14,7 +14,7 @@ class AIExperimentLab(LabsFramework):
     benchmarks = {"eval_pass_rate": 0.80, "prompt_efficiency": 0.75, "cache_hit_rate": 0.60}
     output_standards = {"experiment_report": "Markdown with hypothesis, results, and recommendation"}
     requires_human_review = False
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
     experiment_templates = [
         {
             "name": "AI Lab — Prompt Compression A/B",

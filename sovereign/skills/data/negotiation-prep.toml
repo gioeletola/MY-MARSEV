@@ -1,132 +1,30 @@
 [skill]
 id = "negotiation-prep"
-name = "Negotiation Prep"
-description = "Prepare a comprehensive negotiation strategy with BATNA, anchoring tactics, objection responses, and walk-away positions."
-version = "1.0.0"
-status = "active"
-permissions = ["read", "write"]
-tools = ["memory_tool"]
-tags = ["business", "strategy"]
-author = "system"
-requires_approval = false
-enabled = true
+name = "Negotiation Preparation"
+description = "Prepare a comprehensive negotiation strategy with BATNA, anchors, and tactics"
+category = "business"
+version = "1.0"
+tags = ["negotiation", "business", "strategy", "deals"]
 
-[[inputs]]
-name = "negotiation_context"
-type = "string"
-description = "What are you negotiating? (e.g. salary, contract terms, acquisition price, vendor deal)"
-required = true
+[inputs]
+deal = {type = "string", required = true, description = "What is being negotiated"}
+your_position = {type = "string", required = false, description = "Your opening position or ideal outcome"}
+their_position = {type = "string", required = false, description = "Their likely position or interests"}
+context = {type = "string", required = false, description = "Relationship context, power dynamics"}
 
-[[inputs]]
-name = "your_position"
-type = "string"
-description = "Your starting position, goals, and ideal outcome"
-required = true
-
-[[inputs]]
-name = "counterparty"
-type = "string"
-description = "Who are you negotiating with? What do you know about their goals and constraints?"
-required = false
-default = ""
-
-[[inputs]]
-name = "your_leverage"
-type = "string"
-description = "Your sources of leverage (alternatives, timeline control, unique value, market position)"
-required = false
-default = ""
-
-[[inputs]]
-name = "constraints"
-type = "string"
-description = "Your constraints: deadline, budget limit, non-negotiables"
-required = false
-default = ""
-
-[[outputs]]
-name = "negotiation_playbook"
-type = "string"
-description = "Complete negotiation strategy and playbook"
-
-[[outputs]]
-name = "scripts"
-type = "string"
-description = "Word-for-word scripts for key negotiation moments"
+[outputs]
+batna = {type = "string"}
+anchor_strategy = {type = "string"}
+concessions = {type = "list"}
+red_lines = {type = "list"}
+tactics = {type = "list"}
+questions_to_ask = {type = "list"}
 
 [prompt]
-template = """You are a master negotiator trained in Harvard Negotiation Project methods (Getting to Yes, Never Split the Difference). Prepare a complete negotiation strategy.
+template = """
+Prepare negotiation strategy for: {{deal}}
+Your position: {{your_position}} | Their position: {{their_position}}
+Context: {{context}}
 
-NEGOTIATION: {{negotiation_context}}
-YOUR POSITION & GOALS: {{your_position}}
-COUNTERPARTY: {{counterparty}}
-YOUR LEVERAGE: {{your_leverage}}
-YOUR CONSTRAINTS: {{constraints}}
-
-Develop a comprehensive negotiation playbook:
-
-## Situation Analysis
-- Power dynamics: Who has more leverage and why?
-- Counterparty's likely interests vs stated positions
-- Zone of Possible Agreement (ZOPA): Where do both parties' ranges overlap?
-- Time pressure: Who needs to close faster?
-
-## BATNA Analysis
-**Your BATNA (Best Alternative to a Negotiated Agreement):**
-- What do you do if this negotiation fails?
-- How strong is your BATNA? (Weak / Moderate / Strong)
-- How to strengthen your BATNA before negotiating
-
-**Counterparty's Likely BATNA:**
-- What will they do if this deal falls through?
-- How to weaken their BATNA (ethically)
-
-## Strategy Selection
-Recommended approach: Collaborative (win-win) | Competitive | Principled | Hybrid
-Rationale: [Why this approach fits this negotiation]
-
-## Opening Position & Anchoring Strategy
-- **Your opening ask/offer:** [Specific number or terms]
-- **Anchoring rationale:** Why start here (extreme but credible)
-- **Framing script:** How to present your opening without it seeming outrageous
-
-## Concession Strategy
-Plan your concessions in advance — never improvise them:
-
-| Round | What You Might Concede | Condition | What You Get In Return |
-|-------|----------------------|-----------|----------------------|
-Plan 3-4 rounds. Each concession should get smaller to signal you're near your limit.
-
-## Target & Walk-Away Positions
-- **Target:** [Your realistic best outcome]
-- **Acceptable:** [What you'll be satisfied with]
-- **Walk-Away (Reservation Point):** [Below this, BATNA is better — do not cross]
-
-## Objection Response Playbook
-| Likely Objection | Your Response | Follow-up |
-|-----------------|---------------|-----------|
-Prepare for 5-7 specific objections you expect.
-
-## Tactical Scripts
-**Opening statement (30 seconds):**
-[Word-for-word script]
-
-**Anchoring your position:**
-[Word-for-word script]
-
-**Responding to a lowball offer:**
-[Word-for-word script]
-
-**Creating urgency without pressure:**
-[Word-for-word script]
-
-**Going to silence:**
-[When and how to use silence as a tactic]
-
-## Psychological Tactics (Ethical Use)
-- Reciprocity, scarcity, social proof elements you can use
-- How to counter common hardball tactics (good cop/bad cop, deadline pressure, take-it-or-leave-it)
-
-## Post-Negotiation Checklist
-Steps to take immediately after reaching agreement to lock it in.
+Produce: BATNA, opening anchor with rationale, ordered concessions you can make, non-negotiable red lines, 3 tactical approaches, 5 power questions to ask them.
 """

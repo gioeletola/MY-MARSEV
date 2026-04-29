@@ -122,12 +122,19 @@ def assert_production_ready() -> None:
     """Call during server startup; raises RuntimeError if config is insecure in production."""
     if os.environ.get("SOVEREIGN_ENV", "").lower() != "production":
         return
+    missing = []
     if not os.environ.get("AUTH_SECRET_KEY"):
+        missing.append("AUTH_SECRET_KEY (random 64-char hex: python -c \"import secrets; print(secrets.token_hex(32))\")")
+    if not os.environ.get("SOVEREIGN_PASSWORD"):
+        missing.append("SOVEREIGN_PASSWORD (web UI login password)")
+    if not os.environ.get("SECRET_MANAGER_KEY"):
+        missing.append("SECRET_MANAGER_KEY (vault encryption key)")
+    if missing:
         raise RuntimeError(
-            "Refusing to start in production without AUTH_SECRET_KEY. "
-            "Set AUTH_SECRET_KEY to a random 64-char hex string."
+            "Refusing to start in production. Missing required secrets:\n"
+            + "\n".join(f"  - {m}" for m in missing)
         )
-    logger.info("Production auth configuration verified.")
+    logger.info("Production auth configuration verified (%d secrets present).", 3)
 
 
 def _b64url_encode(data: bytes) -> str:

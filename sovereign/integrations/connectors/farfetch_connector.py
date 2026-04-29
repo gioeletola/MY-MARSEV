@@ -24,7 +24,7 @@ class FarfetchConnector(ConnectorBase):
         "Stub connector for Farfetch luxury marketplace. Tracks wishlist items, "
         "order history, and price drops via session cookie auth."
     )
-    connector_status = ConnectorStatus.STUB
+    connector_status = ConnectorStatus.BETA
     requires_oauth = False
     required_env_vars = ["FARFETCH_SESSION_COOKIE"]
 

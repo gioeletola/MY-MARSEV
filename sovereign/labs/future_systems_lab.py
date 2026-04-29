@@ -14,7 +14,7 @@ class FutureSystemsLab(LabsFramework):
     benchmarks = {"trend_identification_lead_time": 12, "scenario_accuracy": 0.65}
     output_standards = {"futures_brief": "Structured long-range forecast with signal indicators"}
     requires_human_review = True
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
     experiment_templates = [
         {
             "name": "Emerging Technology Radar — Signal Lead Time Measurement",

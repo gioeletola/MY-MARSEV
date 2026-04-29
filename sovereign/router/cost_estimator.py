@@ -8,7 +8,7 @@ from __future__ import annotations
 
 # USD per 1M tokens (input / output)
 PRICING: dict[str, dict[str, float]] = {
-    "claude-opus-4-6": {
+    "claude-opus-4-7": {
         "input":        15.00,
         "output":       75.00,
         "cache_write":   3.75,

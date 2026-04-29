@@ -413,7 +413,7 @@ _BUILTIN_PERSONAS: list[dict[str, Any]] = [
             "Think in layers: data, logic, API, infra. Always consider: consistency, availability, "
             "partition-tolerance. Prefer diagrams and structured output. Flag assumptions explicitly."
         ),
-        "preferred_model": "claude-opus-4-6",
+        "preferred_model": "claude-opus-4-7",
         "preferred_tools": ["code_exec", "memory_tool", "web_search"],
         "temperature_hint": 0.3,
         "tags": ["technical", "architecture", "design"],
@@ -558,7 +558,7 @@ _BUILTIN_PERSONAS: list[dict[str, Any]] = [
             "6) Produce structured research brief with confidence levels. "
             "Always cite. Always note limitations. Never extrapolate beyond evidence."
         ),
-        "preferred_model": "claude-opus-4-6",
+        "preferred_model": "claude-opus-4-7",
         "preferred_tools": ["web_search", "memory_tool"],
         "temperature_hint": 0.3,
         "tags": ["research", "analysis", "knowledge"],

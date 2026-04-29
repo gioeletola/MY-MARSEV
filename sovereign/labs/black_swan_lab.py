@@ -14,7 +14,7 @@ class BlackSwanLab(LabsFramework):
     benchmarks = {"scenario_coverage": 0.85, "tail_risk_identification": 0.80}
     output_standards = {"black_swan_report": "Scenario brief with probability, impact, and preparedness score"}
     requires_human_review = True
-    model = "claude-opus-4-6"
+    model = "claude-opus-4-7"
     experiment_templates = [
         {
             "name": "Tail Risk Identification — Historical Analogue Scan",

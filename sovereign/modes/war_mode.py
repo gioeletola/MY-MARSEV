@@ -18,7 +18,7 @@ class WarMode(BaseMode):
             description="Maximum urgency — crisis, competitive battle, hostile situation",
             default_action_class=ActionClass.EXECUTE,
             escalation_threshold=0.3,
-            preferred_model="claude-opus-4-6",
+            preferred_model="claude-opus-4-7",
             offline_capable=False,
             require_approval_for=["MANAGE_FINANCE", "MANAGE_SECURITY", "external_comms"],
         )

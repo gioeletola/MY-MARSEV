@@ -1,0 +1,29 @@
+[skill]
+id = "changelog"
+name = "Changelog Generator"
+description = "Generate a professional changelog entry from git commits or feature descriptions"
+category = "engineering"
+version = "1.0"
+tags = ["changelog", "engineering", "documentation", "release"]
+
+[inputs]
+version = {type = "string", required = true, description = "Release version (e.g. v2.1.0)"}
+changes = {type = "string", required = true, description = "Raw list of changes or git log output"}
+release_date = {type = "string", required = false, description = "Release date (ISO format)"}
+project = {type = "string", required = false, description = "Project name"}
+
+[outputs]
+changelog_entry = {type = "string"}
+breaking_changes = {type = "list"}
+new_features = {type = "list"}
+bug_fixes = {type = "list"}
+improvements = {type = "list"}
+
+[prompt]
+template = """
+Generate a changelog entry for {{project}} version {{version}} ({{release_date}})
+Changes: {{changes}}
+
+Format: Keep a Changelog standard (Added, Changed, Deprecated, Removed, Fixed, Security).
+Group and deduplicate. Mark breaking changes clearly.
+"""

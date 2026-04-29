@@ -63,6 +63,6 @@ class TestCostEstimator:
         assert cost > 0
 
     def test_opus_more_expensive_than_haiku(self):
-        cost_opus = estimate_cost("claude-opus-4-6", 10_000, 2_000)
+        cost_opus = estimate_cost("claude-opus-4-7", 10_000, 2_000)
         cost_haiku = estimate_cost("claude-haiku-4-5-20251001", 10_000, 2_000)
         assert cost_opus > cost_haiku

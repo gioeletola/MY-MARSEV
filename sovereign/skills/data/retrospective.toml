@@ -1,0 +1,30 @@
+[skill]
+id = "retrospective"
+name = "Sprint / Project Retrospective"
+description = "Facilitate a structured retrospective with action items"
+category = "management"
+version = "1.0"
+tags = ["agile", "retrospective", "management", "team"]
+
+[inputs]
+period = {type = "string", required = true, description = "Sprint or project period"}
+team_size = {type = "string", required = false, description = "Team size"}
+what_went_well = {type = "string", required = false, description = "Positive highlights"}
+what_went_wrong = {type = "string", required = false, description = "Problems or blockers"}
+context = {type = "string", required = false, description = "Additional project context"}
+
+[outputs]
+went_well = {type = "list"}
+improvements = {type = "list"}
+action_items = {type = "list"}
+kudos = {type = "list"}
+metrics = {type = "string"}
+
+[prompt]
+template = """
+Facilitate a retrospective for: {{period}}
+Team: {{team_size}} | What went well: {{what_went_well}} | Issues: {{what_went_wrong}}
+Context: {{context}}
+
+Produce: Start/Stop/Continue format, concrete action items with owners, kudos section, key metrics summary.
+"""

@@ -1,106 +1,32 @@
 [skill]
 id = "press-release"
-name = "Press Release"
-description = "Draft a professional press release for a product launch, funding round, partnership, or company milestone."
-version = "1.0.0"
-status = "active"
-permissions = ["read", "write"]
-tools = []
-tags = ["writing", "communication"]
-author = "system"
-requires_approval = false
-enabled = true
+name = "Press Release Writer"
+description = "Write a professional PR-style press release for a product launch or announcement"
+category = "marketing"
+version = "1.0"
+tags = ["pr", "marketing", "writing", "launch"]
 
-[[inputs]]
-name = "headline_topic"
-type = "string"
-description = "What is the announcement? (e.g. Series A funding, product launch, acquisition)"
-required = true
+[inputs]
+headline = {type = "string", required = true, description = "Main announcement headline"}
+company = {type = "string", required = false, description = "Company or brand name"}
+announcement = {type = "string", required = true, description = "What is being announced"}
+quote_person = {type = "string", required = false, description = "Name and title of person to quote"}
+audience = {type = "string", required = false, description = "Target audience or market"}
 
-[[inputs]]
-name = "company_name"
-type = "string"
-description = "Company or organization name"
-required = true
-
-[[inputs]]
-name = "key_facts"
-type = "string"
-description = "Key facts, figures, and quotes to include (bullet points or sentences)"
-required = true
-
-[[inputs]]
-name = "spokesperson"
-type = "string"
-description = "Name and title of the spokesperson for the quote"
-required = false
-default = "CEO"
-
-[[inputs]]
-name = "release_date"
-type = "string"
-description = "Release date (e.g. FOR IMMEDIATE RELEASE or a specific date)"
-required = false
-default = "FOR IMMEDIATE RELEASE"
-
-[[inputs]]
-name = "city"
-type = "string"
-description = "City of origin for the dateline (e.g. San Francisco, CA)"
-required = false
-default = ""
-
-[[outputs]]
-name = "press_release"
-type = "string"
-description = "Full press release in AP style"
-
-[[outputs]]
-name = "social_snippet"
-type = "string"
-description = "Short social media teaser for the announcement"
+[outputs]
+headline = {type = "string"}
+subheadline = {type = "string"}
+body = {type = "string"}
+quote = {type = "string"}
+boilerplate = {type = "string"}
 
 [prompt]
-template = """You are a senior PR writer drafting a professional press release in AP style.
+template = """
+Write a professional press release for: {{company}}
+Headline: {{headline}}
+Announcement: {{announcement}}
+Quote from: {{quote_person}}
+Audience: {{audience}}
 
-ANNOUNCEMENT TOPIC: {{headline_topic}}
-COMPANY: {{company_name}}
-SPOKESPERSON: {{spokesperson}}
-RELEASE DATE: {{release_date}}
-DATELINE CITY: {{city}}
-
-KEY FACTS TO INCLUDE:
-{{key_facts}}
-
-Write a complete, publication-ready press release following this structure:
-
-{{release_date}}
-
-**[HEADLINE — Action-oriented, under 12 words, captures the news value]**
-
-**[SUBHEADLINE — Adds one key detail the headline leaves out]**
-
-**{{city}}** — [Opening paragraph: The five Ws — Who, What, When, Where, Why — in 2-3 sentences. Lead with the most newsworthy fact.]
-
-[Body paragraph 1: Expand on the announcement with context and significance.]
-
-[Body paragraph 2: Quote from {{spokesperson}} — must be natural, strategic, and not a cliché. 2-3 sentences.]
-
-[Body paragraph 3: Supporting details — data, milestones, product details, or market context.]
-
-[Optional paragraph: Customer or partner quote if relevant.]
-
-[Closing paragraph: What happens next — availability, next steps, call to action.]
-
-**About {{company_name}}**
-[2-3 sentence boilerplate describing the company, its mission, and key metrics.]
-
-**Media Contact:**
-[Name]
-[Email]
-[Phone]
-
----
-**SOCIAL SNIPPET (under 280 characters):**
-[Punchy teaser for Twitter/X with the most compelling stat or angle]
+Format: Headline, dateline, opening paragraph (5Ws), body, executive quote, boilerplate. AP style.
 """

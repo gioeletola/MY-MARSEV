@@ -1,0 +1,29 @@
+[skill]
+id = "onboarding-plan"
+name = "Employee Onboarding Plan"
+description = "Create a structured 30-60-90 day onboarding plan for a new hire"
+category = "hr"
+version = "1.0"
+tags = ["hr", "onboarding", "management", "hiring"]
+
+[inputs]
+role = {type = "string", required = true, description = "Job title and role description"}
+department = {type = "string", required = false, description = "Department or team"}
+company = {type = "string", required = false, description = "Company name and stage"}
+key_goals = {type = "string", required = false, description = "Key outcomes expected in first 90 days"}
+
+[outputs]
+day_1_checklist = {type = "list"}
+week_1_goals = {type = "list"}
+day_30_milestones = {type = "list"}
+day_60_milestones = {type = "list"}
+day_90_milestones = {type = "list"}
+success_metrics = {type = "list"}
+
+[prompt]
+template = """
+Create a 30-60-90 day onboarding plan for: {{role}} in {{department}} at {{company}}
+Key goals: {{key_goals}}
+
+Produce: Day 1 logistics checklist, Week 1 orientation goals, 30-day ramp milestones, 60-day independence milestones, 90-day full ownership milestones, and measurable success criteria.
+"""
