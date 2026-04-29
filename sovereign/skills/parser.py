@@ -63,6 +63,9 @@ def parse_skill_file(path: pathlib.Path) -> SkillDefinition | None:
 
     meta = raw.get("skill", raw)
     try:
+        raw_inputs = raw.get("inputs", [])
+        if isinstance(raw_inputs, dict):
+            raw_inputs = [{"name": k, **v} for k, v in raw_inputs.items()]
         inputs = [
             SkillInput(
                 name=i.get("name", ""),
@@ -71,15 +74,18 @@ def parse_skill_file(path: pathlib.Path) -> SkillDefinition | None:
                 required=i.get("required", True),
                 default=i.get("default"),
             )
-            for i in raw.get("inputs", [])
+            for i in raw_inputs
         ]
+        raw_outputs = raw.get("outputs", [])
+        if isinstance(raw_outputs, dict):
+            raw_outputs = [{"name": k, **v} for k, v in raw_outputs.items()]
         outputs = [
             SkillOutput(
                 name=o.get("name", ""),
                 type=o.get("type", "string"),
                 description=o.get("description", ""),
             )
-            for o in raw.get("outputs", [])
+            for o in raw_outputs
         ]
         deps = [
             SkillDependency(

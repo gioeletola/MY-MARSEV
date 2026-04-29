@@ -1,0 +1,28 @@
+[skill]
+id = "board-memo"
+name = "Board Memo / Executive Brief"
+description = "Write a crisp board-level memo or executive brief"
+category = "business"
+version = "1.0"
+tags = ["business", "executive", "communication"]
+
+[inputs]
+topic = {type = "string", required = true}
+situation = {type = "string", required = true}
+recommendation = {type = "string", required = true}
+financials = {type = "string", required = false}
+
+[outputs]
+memo = {type = "string"}
+tldr = {type = "string"}
+
+[prompt]
+template = """
+Write a board memo on: {{topic}}
+Situation: {{situation}}
+Recommendation: {{recommendation}}
+Financial context: {{financials}}
+
+Format: Executive Summary (3 lines) / Situation / Analysis / Recommendation / Next Steps
+Tone: precise, data-driven, confident.
+"""

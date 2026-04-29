@@ -1,0 +1,27 @@
+[skill]
+id = "system-prompt-builder"
+name = "AI System Prompt Builder"
+description = "Build an optimised system prompt for a specific AI agent or use case"
+category = "ai"
+version = "1.0"
+tags = ["ai", "prompts", "engineering"]
+
+[inputs]
+agent_role = {type = "string", required = true}
+task = {type = "string", required = true}
+tone = {type = "string", required = false, default = "professional"}
+constraints = {type = "string", required = false}
+output_format = {type = "string", required = false}
+
+[outputs]
+system_prompt = {type = "string"}
+token_estimate = {type = "integer"}
+
+[prompt]
+template = """
+Build an optimised system prompt for: {{agent_role}}
+Task: {{task}} | Tone: {{tone}} | Constraints: {{constraints}} | Output format: {{output_format}}
+
+Include: role definition, core behaviours, output format spec, edge case handling.
+Target under 400 tokens. Use clear sections.
+"""

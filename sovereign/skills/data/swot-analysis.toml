@@ -1,0 +1,27 @@
+[skill]
+id = "swot-analysis"
+name = "SWOT Analysis"
+description = "Build a structured SWOT analysis for a business, product, or decision"
+category = "strategy"
+version = "1.0"
+tags = ["strategy", "analysis", "business"]
+
+[inputs]
+subject = {type = "string", required = true, description = "What to analyse (company, product, decision)"}
+context = {type = "string", required = false, description = "Additional context or industry"}
+
+[outputs]
+strengths = {type = "list"}
+weaknesses = {type = "list"}
+opportunities = {type = "list"}
+threats = {type = "list"}
+summary = {type = "string"}
+
+[prompt]
+template = """
+Perform a SWOT analysis for: {{subject}}
+Context: {{context}}
+
+Return a structured SWOT with 4-6 bullet points per quadrant and a 2-sentence executive summary.
+Format: Strengths / Weaknesses / Opportunities / Threats / Summary
+"""

@@ -1,0 +1,24 @@
+[skill]
+id = "legal-checklist"
+name = "Legal Compliance Checklist"
+description = "Generate a compliance checklist for a given business type and jurisdiction"
+category = "legal"
+version = "1.0"
+tags = ["legal", "compliance", "business"]
+
+[inputs]
+business_type = {type = "string", required = true}
+jurisdiction = {type = "string", required = false, default = "EU"}
+stage = {type = "string", required = false, default = "startup", description = "startup | growth | enterprise"}
+
+[outputs]
+checklist = {type = "list"}
+priority_items = {type = "list"}
+estimated_cost = {type = "string"}
+
+[prompt]
+template = """
+Generate a legal compliance checklist for a {{stage}} {{business_type}} in {{jurisdiction}}.
+Include: registration, tax, data protection (GDPR), IP, employment, contracts.
+Mark critical items. Estimate compliance cost range.
+"""

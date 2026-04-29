@@ -1,0 +1,28 @@
+[skill]
+id = "persona-builder"
+name = "User Persona Builder"
+description = "Create a detailed user persona for product or marketing strategy"
+category = "product"
+version = "1.0"
+tags = ["product", "marketing", "ux"]
+
+[inputs]
+target = {type = "string", required = true, description = "Target user type"}
+product = {type = "string", required = true}
+research_notes = {type = "string", required = false}
+
+[outputs]
+name = {type = "string"}
+demographics = {type = "object"}
+goals = {type = "list"}
+pain_points = {type = "list"}
+channels = {type = "list"}
+quote = {type = "string"}
+
+[prompt]
+template = """
+Build a user persona for {{target}} using {{product}}.
+Research notes: {{research_notes}}
+
+Include: name, age, job, goals (3), pain points (3), preferred channels, motivational quote.
+"""

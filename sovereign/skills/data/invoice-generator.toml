@@ -1,0 +1,25 @@
+[skill]
+id = "invoice-generator"
+name = "Invoice Generator"
+description = "Generate a professional invoice as structured text"
+category = "finance"
+version = "1.0"
+tags = ["finance", "billing", "business"]
+
+[inputs]
+client_name = {type = "string", required = true}
+services = {type = "list", required = true, description = "List of service descriptions"}
+amounts = {type = "list", required = true, description = "List of amounts in EUR"}
+due_days = {type = "integer", required = false, default = 30}
+
+[outputs]
+invoice_text = {type = "string"}
+total = {type = "number"}
+
+[prompt]
+template = """
+Generate a professional invoice for {{client_name}}.
+Services and amounts: {{services}} / {{amounts}}
+Payment due: {{due_days}} days.
+Include: invoice number (auto), date, line items, subtotal, VAT (22%), total.
+"""

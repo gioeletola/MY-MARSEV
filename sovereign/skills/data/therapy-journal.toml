@@ -1,0 +1,27 @@
+[skill]
+id = "therapy-journal"
+name = "Guided Therapy Journal"
+description = "Structured CBT-style journaling prompt for self-reflection"
+category = "personal"
+version = "1.0"
+tags = ["personal", "mental_health", "journaling"]
+
+[inputs]
+situation = {type = "string", required = true}
+emotion = {type = "string", required = false}
+intensity = {type = "integer", required = false, description = "1-10"}
+
+[outputs]
+reflection_prompts = {type = "list"}
+cognitive_reframe = {type = "string"}
+action_step = {type = "string"}
+
+[prompt]
+template = """
+Help me journal through this situation using CBT principles:
+Situation: {{situation}}
+Emotion felt: {{emotion}} (intensity: {{intensity}}/10)
+
+Provide: 3 reflection questions, cognitive reframe of the situation, one concrete action step.
+Be compassionate, direct, and practical.
+"""

@@ -1,0 +1,27 @@
+[skill]
+id = "crypto-report"
+name = "Crypto Portfolio Report"
+description = "Generate a structured crypto portfolio analysis and risk report"
+category = "finance"
+version = "1.0"
+tags = ["finance", "crypto", "portfolio"]
+
+[inputs]
+holdings = {type = "string", required = true, description = "List assets and amounts"}
+total_value = {type = "string", required = false}
+timeframe = {type = "string", required = false, default = "30d"}
+
+[outputs]
+allocation = {type = "object"}
+risk_score = {type = "string"}
+recommendations = {type = "list"}
+summary = {type = "string"}
+
+[prompt]
+template = """
+Analyse this crypto portfolio: {{holdings}} (Total: {{total_value}})
+Timeframe: {{timeframe}}
+
+Output: allocation by category (BTC/ETH/altcoin/stablecoin), concentration risk, correlation risk,
+3 rebalancing recommendations, overall risk score (1-10).
+"""

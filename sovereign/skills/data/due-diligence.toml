@@ -1,0 +1,27 @@
+[skill]
+id = "due-diligence"
+name = "Due Diligence Report"
+description = "Run a structured due diligence checklist on a company or investment"
+category = "finance"
+version = "1.0"
+tags = ["finance", "investment", "analysis"]
+
+[inputs]
+target = {type = "string", required = true, description = "Company or asset to analyse"}
+deal_type = {type = "string", required = false, default = "investment", description = "investment | acquisition | partnership"}
+known_facts = {type = "string", required = false}
+
+[outputs]
+sections = {type = "list"}
+red_flags = {type = "list"}
+rating = {type = "string"}
+next_steps = {type = "list"}
+
+[prompt]
+template = """
+Conduct due diligence on {{target}} for a {{deal_type}}.
+Known facts: {{known_facts}}
+
+Cover: financials, legal, team, market, technology, customers, risks.
+Flag red flags. Give a rating (Pass/Conditional/Fail). List next steps.
+"""

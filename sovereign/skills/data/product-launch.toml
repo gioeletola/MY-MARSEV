@@ -1,0 +1,29 @@
+[skill]
+id = "product-launch"
+name = "Product Launch Plan"
+description = "Create a go-to-market launch plan for a product"
+category = "product"
+version = "1.0"
+tags = ["product", "launch", "gtm", "marketing"]
+
+[inputs]
+product_name = {type = "string", required = true}
+description = {type = "string", required = true}
+target_audience = {type = "string", required = true}
+launch_date = {type = "string", required = false}
+budget = {type = "string", required = false}
+
+[outputs]
+phases = {type = "list"}
+channels = {type = "list"}
+kpis = {type = "list"}
+timeline = {type = "string"}
+
+[prompt]
+template = """
+Create a product launch plan for {{product_name}}: {{description}}
+Target audience: {{target_audience}}
+Launch date: {{launch_date}} | Budget: {{budget}}
+
+Output: Pre-launch (4w), Launch week, Post-launch (4w) phases with channels and KPIs.
+"""

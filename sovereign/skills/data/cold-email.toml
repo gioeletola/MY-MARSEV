@@ -1,0 +1,30 @@
+[skill]
+id = "cold-email"
+name = "Cold Email Writer"
+description = "Write a high-converting cold outreach email"
+category = "sales"
+version = "1.0"
+tags = ["sales", "email", "outreach"]
+
+[inputs]
+prospect_name = {type = "string", required = true}
+company = {type = "string", required = true}
+value_prop = {type = "string", required = true, description = "What value you offer"}
+sender_name = {type = "string", required = false}
+tone = {type = "string", required = false, default = "professional"}
+
+[outputs]
+subject = {type = "string"}
+body = {type = "string"}
+cta = {type = "string"}
+
+[prompt]
+template = """
+Write a cold email to {{prospect_name}} at {{company}}.
+Value proposition: {{value_prop}}
+Tone: {{tone}}
+Sender: {{sender_name}}
+
+Keep it under 100 words. Lead with value, end with one clear CTA.
+Output: Subject / Body / CTA
+"""
