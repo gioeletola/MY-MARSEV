@@ -1,0 +1,117 @@
+"""Cybersecurity superpower pack — threat modeling, defense, and security principles."""
+from __future__ import annotations
+
+PACK = {
+    "id": "cybersecurity",
+    "title": "Cybersecurity Fundamentals",
+    "version": "1.0",
+    "sections": {
+        "frameworks": {
+            "MITRE ATT&CK": "Adversary tactics and techniques knowledge base; used for threat modeling and detection",
+            "NIST CSF": "Identify → Protect → Detect → Respond → Recover",
+            "ISO 27001": "Information security management system (ISMS) standard",
+            "OWASP Top 10": "Most critical web app security risks (2021)",
+            "Zero Trust": "Never trust, always verify; least privilege; microsegmentation",
+            "CIA Triad": "Confidentiality · Integrity · Availability — foundation of all security",
+        },
+        "threat_modeling": {
+            "STRIDE": {
+                "S": "Spoofing — impersonating users/systems",
+                "T": "Tampering — modifying data/code",
+                "R": "Repudiation — denying actions (→ need audit logs)",
+                "I": "Information disclosure — data leaks",
+                "D": "Denial of Service — availability attack",
+                "E": "Elevation of Privilege — gaining unintended permissions",
+            },
+            "PASTA": "Process for Attack Simulation and Threat Analysis — business-centric 7-stage method",
+            "DREAD": "Damage + Reproducibility + Exploitability + Affected users + Discoverability",
+            "process": [
+                "1. Define scope and objectives",
+                "2. Create architecture diagram (data flow diagram)",
+                "3. Identify assets and entry points",
+                "4. Identify threats (STRIDE per element)",
+                "5. Assess risk (likelihood × impact)",
+                "6. Define mitigations",
+                "7. Validate mitigations",
+            ],
+        },
+        "owasp_top10_2021": {
+            "A01_Broken_Access_Control": "Users can act outside permissions; mitigation: server-side checks, deny-by-default",
+            "A02_Cryptographic_Failures": "Weak crypto, plaintext secrets; mitigation: TLS, strong hashing (Argon2/bcrypt)",
+            "A03_Injection": "SQLi, command injection, LDAP; mitigation: parameterised queries, input validation",
+            "A04_Insecure_Design": "Missing threat modeling, insecure architecture patterns",
+            "A05_Security_Misconfiguration": "Default creds, open S3 buckets, verbose errors; mitigation: hardening guides",
+            "A06_Vulnerable_Components": "Outdated libs with CVEs; mitigation: SCA tools (Snyk, Dependabot)",
+            "A07_Auth_Failures": "Weak passwords, no MFA, session fixation; mitigation: MFA, secure session mgmt",
+            "A08_Software_Integrity_Failures": "CI/CD without signing, auto-updates without verification",
+            "A09_Logging_Failures": "No audit trail; mitigation: structured logging, SIEM",
+            "A10_SSRF": "Server fetches attacker-controlled URL; mitigation: allowlist, block metadata endpoints",
+        },
+        "defensive_practices": {
+            "authentication": [
+                "Multi-factor authentication (TOTP, hardware keys)",
+                "Password hashing: Argon2id > bcrypt > scrypt (never MD5/SHA1)",
+                "Short-lived tokens (JWTs < 1h; refresh tokens with rotation)",
+                "Account lockout and rate limiting",
+                "Passkeys (WebAuthn) for phishing-resistant auth",
+            ],
+            "secure_coding": [
+                "Parameterised queries — never string-concat SQL",
+                "Validate + sanitise all input at boundaries",
+                "Output encode to prevent XSS (HTML, JS, URL, CSS contexts)",
+                "CSRF tokens on state-changing forms",
+                "Content Security Policy (CSP) headers",
+                "HTTPS everywhere; HSTS preloading",
+                "Secrets in env vars / vaults, never in code/logs",
+            ],
+            "network": [
+                "Firewall: default deny; allowlist specific ports",
+                "VPN / private subnets for backend services",
+                "WAF (Web Application Firewall) for layer-7 protection",
+                "DDoS protection (Cloudflare, AWS Shield)",
+                "Network segmentation — blast radius reduction",
+                "mTLS for service-to-service communication",
+            ],
+            "incident_response": {
+                "phases": ["Preparation", "Detection & Analysis", "Containment", "Eradication", "Recovery", "Post-incident review"],
+                "key_actions": [
+                    "Preserve evidence before wiping systems",
+                    "Rotate ALL credentials when breach suspected",
+                    "Communicate on out-of-band channel (assume comms compromised)",
+                    "Document timeline meticulously",
+                    "Conduct blameless post-mortem",
+                ],
+                "metrics": ["MTTD (Mean Time to Detect)", "MTTR (Mean Time to Respond)", "Dwell time"],
+            },
+        },
+        "cryptography": {
+            "symmetric": {
+                "AES-256-GCM": "Gold standard for symmetric encryption; authenticated",
+                "ChaCha20-Poly1305": "Fast on mobile; equally secure to AES-GCM",
+                "key_management": "Rotate keys periodically; use KMS (AWS KMS, HashiCorp Vault)",
+            },
+            "asymmetric": {
+                "RSA-2048+": "Legacy; use 4096 for new systems; slow",
+                "ECDSA P-256": "Digital signatures; faster than RSA",
+                "Ed25519": "Modern signatures; preferred for new protocols",
+                "X25519": "Key exchange (ECDH); used in TLS 1.3",
+            },
+            "hashing": {
+                "SHA-256/512": "Data integrity; NOT for passwords",
+                "bcrypt": "Password hashing; work factor tunable; max 72 bytes",
+                "Argon2id": "Current best practice for passwords; memory-hard",
+                "BLAKE3": "Fastest cryptographic hash; great for file integrity",
+            },
+            "tls": "Use TLS 1.3; disable TLS 1.0/1.1; use strong cipher suites; verify certificates",
+        },
+        "mental_models": [
+            "Security is a process, not a product",
+            "Defense in depth — multiple independent layers",
+            "Principle of least privilege — minimum access needed",
+            "Assume breach — design for when, not if",
+            "Security ≠ obscurity — don't rely on hiding implementation",
+            "Attack surface minimisation — fewer components = fewer vulnerabilities",
+            "Shift left — find vulnerabilities in development, not production",
+        ],
+    },
+}

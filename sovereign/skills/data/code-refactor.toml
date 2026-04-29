@@ -1,0 +1,55 @@
+id = "code-refactor"
+name = "Code Refactor Plan"
+description = "Analyse code and produce a prioritised refactoring plan with specific improvements."
+category = "engineering"
+tags = ["code", "refactoring", "quality", "technical-debt"]
+model = "claude-sonnet-4-6"
+requires_review = false
+confidence = 0.88
+version = "1.0"
+
+[[inputs]]
+name = "code"
+type = "string"
+description = "The code snippet or description of the codebase to refactor"
+required = true
+
+[[inputs]]
+name = "language"
+type = "string"
+description = "Programming language"
+required = false
+default = "Python"
+
+[[inputs]]
+name = "goals"
+type = "string"
+description = "Refactoring goals: readability, performance, testability, maintainability"
+required = false
+default = "readability, maintainability, testability"
+
+[[outputs]]
+name = "refactor_plan"
+type = "string"
+description = "Prioritised refactoring plan with specific steps"
+
+[[outputs]]
+name = "quick_wins"
+type = "string"
+description = "Immediate improvements that can be made in < 1 hour"
+
+system_prompt = """You are a senior software engineer specialising in code quality and refactoring.
+Produce a practical, prioritised refactoring plan. Focus on:
+- SOLID principles and clean code practices
+- Eliminating code smells (duplication, long methods, magic numbers)
+- Improving testability and modularity
+- Performance bottlenecks if visible
+Always show before/after examples for key refactors."""
+
+user_prompt = """Language: {{language}}
+Goals: {{goals}}
+
+Code / Codebase Description:
+{{code}}
+
+Produce a prioritised refactoring plan with concrete examples."""

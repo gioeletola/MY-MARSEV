@@ -1,0 +1,59 @@
+id = "bug-report"
+name = "Bug Report Writer"
+description = "Turn a vague bug description into a complete, actionable bug report."
+category = "engineering"
+tags = ["engineering", "bugs", "qa", "testing", "documentation"]
+model = "claude-sonnet-4-6"
+requires_review = false
+confidence = 0.89
+version = "1.0"
+
+[[inputs]]
+name = "bug_description"
+type = "string"
+description = "Describe what went wrong — as much detail as you have"
+required = true
+
+[[inputs]]
+name = "environment"
+type = "string"
+description = "Environment: OS, browser, app version, device"
+required = false
+default = ""
+
+[[inputs]]
+name = "severity"
+type = "string"
+description = "Severity: critical, high, medium, low"
+required = false
+default = "medium"
+
+[[inputs]]
+name = "reproduction_steps"
+type = "string"
+description = "Steps to reproduce (if known)"
+required = false
+default = ""
+
+[[outputs]]
+name = "bug_report"
+type = "string"
+description = "Complete, structured bug report ready for Jira/GitHub Issues"
+
+[[outputs]]
+name = "root_cause_hypotheses"
+type = "string"
+description = "Possible root causes and debugging starting points"
+
+system_prompt = """You are a QA engineer and technical writer. Transform bug descriptions into professional bug reports.
+Format: Title | Summary | Steps to Reproduce | Expected vs Actual | Environment | Severity | Acceptance Criteria for fix.
+Also suggest 2–3 probable root causes and debugging steps to help engineers triage faster."""
+
+user_prompt = """Bug Description:
+{{bug_description}}
+
+Environment: {{environment}}
+Severity: {{severity}}
+Known Reproduction Steps: {{reproduction_steps}}
+
+Write a complete, actionable bug report."""

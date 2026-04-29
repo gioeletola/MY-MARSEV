@@ -1,0 +1,62 @@
+id = "user-story"
+name = "User Story Generator"
+description = "Convert feature ideas into well-structured user stories with acceptance criteria."
+category = "product"
+tags = ["product", "agile", "user-stories", "requirements", "backlog"]
+model = "claude-sonnet-4-6"
+requires_review = false
+confidence = 0.92
+version = "1.0"
+
+[[inputs]]
+name = "feature"
+type = "string"
+description = "Feature or functionality to break into user stories"
+required = true
+
+[[inputs]]
+name = "user_types"
+type = "string"
+description = "Types of users (e.g. admin, end user, developer, guest)"
+required = false
+default = "end user"
+
+[[inputs]]
+name = "context"
+type = "string"
+description = "Product context: what does the product do, who uses it"
+required = false
+default = ""
+
+[[inputs]]
+name = "format"
+type = "string"
+description = "Story format: gherkin, standard (As a... I want... So that...), simple"
+required = false
+default = "standard"
+
+[[outputs]]
+name = "user_stories"
+type = "string"
+description = "Complete user stories with acceptance criteria"
+
+[[outputs]]
+name = "edge_cases"
+type = "string"
+description = "Edge cases and error scenarios to consider"
+
+system_prompt = """You are a senior product manager and agile practitioner.
+Write user stories that are:
+- INVEST: Independent, Negotiable, Valuable, Estimable, Small, Testable
+- Format: As a [user type], I want [action], So that [benefit]
+- Include 3–5 specific acceptance criteria per story (Given/When/Then for Gherkin)
+- Flag dependencies between stories
+- Include error/empty/edge case stories
+Stories should be implementable in 1–3 days of development."""
+
+user_prompt = """Feature: {{feature}}
+User Types: {{user_types}}
+Context: {{context}}
+Format: {{format}}
+
+Generate complete user stories with acceptance criteria."""

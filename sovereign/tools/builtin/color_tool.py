@@ -70,6 +70,7 @@ class ColorTool(BaseTool):
         **_: Any,
     ) -> Any:
         try:
+            original_color = color
             color = _NAMED_COLORS.get(color.lower(), color)
             color2 = _NAMED_COLORS.get(color2.lower(), color2)
 
@@ -95,8 +96,8 @@ class ColorTool(BaseTool):
             if action == "mix":
                 return self._mix(color, color2, weight)
             if action == "named_to_hex":
-                result = _NAMED_COLORS.get(color.lower())
-                return {"result": result, "error": None if result else f"Unknown color: {color}"}
+                result = _NAMED_COLORS.get(original_color.lower())
+                return {"result": result, "error": None if result else f"Unknown color: {original_color}"}
             return {"result": None, "error": f"Unknown action: {action}"}
         except Exception as exc:
             return {"result": None, "error": str(exc)}

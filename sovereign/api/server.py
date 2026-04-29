@@ -30,8 +30,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from sovereign import __version__
 from sovereign.api.auth import (
-    check_rate_limit, create_token, require_auth, reset_rate_limit,
-    revoke_token, verify_token,
+    check_rate_limit, consume_ws_ticket, create_token, create_ws_ticket,
+    require_auth, reset_rate_limit, revoke_token, verify_token,
 )
 from sovereign.api.ws_handler import WebSocketSessionManager
 
@@ -156,6 +156,13 @@ async def refresh_token(user: dict = Depends(require_auth)) -> JSONResponse:
     return JSONResponse({"token": new_token, "expires_in": 28_800})
 
 
+@app.get("/api/ws-ticket")
+async def get_ws_ticket(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Issue a 30-second single-use WebSocket ticket (avoids long-lived JWT in URL logs)."""
+    ticket = create_ws_ticket()
+    return JSONResponse({"ticket": ticket, "expires_in": 30})
+
+
 @app.post("/api/auth/logout")
 async def logout(
     request: Request, user: dict = Depends(require_auth)
@@ -217,12 +224,25 @@ async def root(request: Request) -> HTMLResponse:
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
-    """Real-time bidirectional channel for agent streaming (JWT required via ?token= param)."""
-    from sovereign.api.auth import verify_token
+    """Real-time bidirectional channel for agent streaming.
+
+    Preferred auth: short-lived ticket via ?ticket= (obtained from GET /api/ws-ticket).
+    Legacy fallback: long-lived JWT via ?token= (deprecated — logs may capture it).
+    """
+    ticket = ws.query_params.get("ticket", "")
     token = ws.query_params.get("token", "")
-    try:
-        verify_token(token)
-    except Exception:
+    authenticated = False
+
+    if ticket:
+        authenticated = consume_ws_ticket(ticket)
+    elif token:
+        try:
+            verify_token(token)
+            authenticated = True
+        except Exception:
+            pass
+
+    if not authenticated:
         await ws.accept()
         await ws.send_json({"type": "error", "code": "unauthorized", "message": "Invalid or missing token"})
         await ws.close(code=4401)

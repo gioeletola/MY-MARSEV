@@ -1,0 +1,54 @@
+id = "system-design"
+name = "System Design Review"
+description = "Analyse and provide recommendations for software system architecture."
+category = "engineering"
+tags = ["architecture", "scalability", "backend", "design"]
+model = "claude-opus-4-7"
+requires_review = false
+confidence = 0.85
+version = "1.0"
+
+[[inputs]]
+name = "system_description"
+type = "string"
+description = "Describe the system: purpose, scale, current architecture, pain points"
+required = true
+
+[[inputs]]
+name = "focus_areas"
+type = "string"
+description = "Areas to focus on: scalability, reliability, security, performance, cost"
+required = false
+default = "scalability, reliability, performance"
+
+[[inputs]]
+name = "constraints"
+type = "string"
+description = "Known constraints: team size, budget, timeline, existing tech stack"
+required = false
+default = ""
+
+[[outputs]]
+name = "architecture_review"
+type = "string"
+description = "Detailed architecture analysis and recommendations"
+
+[[outputs]]
+name = "trade_offs"
+type = "string"
+description = "Key trade-offs to consider"
+
+system_prompt = """You are a principal software architect. Analyse the provided system design and produce:
+1. Architecture assessment (strengths and gaps)
+2. Scalability analysis (bottlenecks, single points of failure)
+3. Specific recommendations with trade-offs
+4. Prioritised action items (quick wins first)
+Be concrete — include specific technologies, patterns, and numbers where relevant."""
+
+user_prompt = """System Description:
+{{system_description}}
+
+Focus Areas: {{focus_areas}}
+Constraints: {{constraints}}
+
+Provide a structured architecture review with actionable recommendations."""

@@ -1,0 +1,65 @@
+id = "competitor-teardown"
+name = "Competitor Teardown"
+description = "Deep-dive analysis of a competitor: product, pricing, positioning, strengths, and weaknesses."
+category = "strategy"
+tags = ["strategy", "competitive", "analysis", "market", "business"]
+model = "claude-opus-4-7"
+requires_review = false
+confidence = 0.83
+version = "1.0"
+
+[[inputs]]
+name = "competitor"
+type = "string"
+description = "Competitor name and product/service to analyse"
+required = true
+
+[[inputs]]
+name = "your_product"
+type = "string"
+description = "Your product or service (for positioning comparison)"
+required = false
+default = ""
+
+[[inputs]]
+name = "focus"
+type = "string"
+description = "Focus areas: pricing, UX, marketing, distribution, technology, team"
+required = false
+default = "product, pricing, marketing, positioning"
+
+[[inputs]]
+name = "known_info"
+type = "string"
+description = "What you already know about them"
+required = false
+default = ""
+
+[[outputs]]
+name = "teardown"
+type = "string"
+description = "Comprehensive competitor teardown"
+
+[[outputs]]
+name = "strategic_implications"
+type = "string"
+description = "What this means for your strategy and where you can win"
+
+system_prompt = """You are a competitive intelligence analyst and product strategist.
+Produce a rigorous competitor teardown covering:
+1. Business model and revenue streams
+2. Product analysis (strengths, weaknesses, UX patterns)
+3. Pricing and packaging
+4. Go-to-market and marketing strategy
+5. Target customer and positioning
+6. Technology and moat
+7. Team and culture signals
+8. Vulnerabilities and strategic gaps
+Be specific, not generic. Identify concrete opportunities."""
+
+user_prompt = """Competitor: {{competitor}}
+Your Product: {{your_product}}
+Focus Areas: {{focus}}
+Known Information: {{known_info}}
+
+Produce a detailed competitor teardown and strategic implications."""

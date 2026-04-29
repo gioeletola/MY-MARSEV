@@ -80,7 +80,7 @@ class NumberTool(BaseTool):
             if action == "convert_unit":
                 return self._convert(value, from_unit, to_unit, unit_type)
             if action == "stats":
-                return self._stats(values or [value])
+                return self._stats(values if values is not None else [value])
             if action == "percentage":
                 return self._percentage(part, total, decimals)
             if action == "clamp":
@@ -94,7 +94,7 @@ class NumberTool(BaseTool):
         ops = {
             "floor": lambda x, _: math.floor(x),
             "ceil": lambda x, _: math.ceil(x),
-            "round": lambda x, d: round(x, d),
+            "round": lambda x, d: round(x, int(d)),
             "sqrt": lambda x, _: math.sqrt(x),
             "log": lambda x, b: math.log(x, b) if b != 0 else math.log(x),
             "log10": lambda x, _: math.log10(x),

@@ -26,10 +26,18 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" bandit
 
       - name: Lint with ruff
         run: ruff check sovereign/ tests/
+
+      - name: Type check with mypy
+        run: mypy sovereign/ --ignore-missing-imports --no-strict-optional --follow-imports=silent
+        continue-on-error: true
+
+      - name: Security scan with bandit
+        run: bandit -r sovereign/ -ll -x sovereign/labs/,sovereign/centers/ --format txt
+        continue-on-error: true
 
       - name: Run tests
         run: python -m pytest tests/ -q --tb=short --cov=sovereign --cov-report=term-missing --cov-fail-under=60

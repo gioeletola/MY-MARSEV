@@ -1,0 +1,64 @@
+id = "job-application"
+name = "Job Application Package"
+description = "Create a tailored cover letter and resume talking points for a specific job."
+category = "career"
+tags = ["career", "job", "cover-letter", "resume", "interview"]
+model = "claude-sonnet-4-6"
+requires_review = false
+confidence = 0.87
+version = "1.0"
+
+[[inputs]]
+name = "job_description"
+type = "string"
+description = "Full job description including requirements and responsibilities"
+required = true
+
+[[inputs]]
+name = "candidate_background"
+type = "string"
+description = "Your experience, skills, achievements, and background"
+required = true
+
+[[inputs]]
+name = "company_name"
+type = "string"
+description = "Company name and what you know about them"
+required = false
+default = ""
+
+[[inputs]]
+name = "tone"
+type = "string"
+description = "Tone: professional, enthusiastic, formal, conversational"
+required = false
+default = "professional"
+
+[[outputs]]
+name = "cover_letter"
+type = "string"
+description = "Tailored cover letter"
+
+[[outputs]]
+name = "key_talking_points"
+type = "string"
+description = "Resume bullet points and interview talking points matched to the role"
+
+system_prompt = """You are an expert career coach and professional writer.
+Create compelling job application materials that:
+- Mirror the language and keywords from the job description
+- Quantify achievements wherever possible
+- Tell a coherent narrative about the candidate's fit
+- Address the top 3 requirements directly
+- Are authentic and avoid generic phrases like 'I am a passionate team player'"""
+
+user_prompt = """Job Description:
+{{job_description}}
+
+Candidate Background:
+{{candidate_background}}
+
+Company: {{company_name}}
+Tone: {{tone}}
+
+Create a tailored cover letter and key talking points for this application."""

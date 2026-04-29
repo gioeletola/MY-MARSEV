@@ -986,14 +986,26 @@ function sovereign() {
       if (this.ws) this.ws.close();
     },
 
-    // WebSocket
-    connect() {
+    // WebSocket — uses short-lived ticket to avoid JWT in server logs
+    async connect() {
       if (!this.token) { this.showLogin = true; return; }
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const url   = `${proto}://${location.host}/ws?token=${encodeURIComponent(this.token)}`;
+      let wsUrl = `${proto}://${location.host}/ws`;
+      try {
+        const res = await fetch('/api/ws-ticket', { headers: this.authHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          wsUrl += `?ticket=${encodeURIComponent(data.ticket)}`;
+        } else {
+          // Fallback to legacy token in URL (less secure but works)
+          wsUrl += `?token=${encodeURIComponent(this.token)}`;
+        }
+      } catch (_) {
+        wsUrl += `?token=${encodeURIComponent(this.token)}`;
+      }
       this.wsStatus = 'connecting';
       try {
-        this.ws = new WebSocket(url);
+        this.ws = new WebSocket(wsUrl);
       } catch(e) {
         this.wsStatus = 'error';
         setTimeout(() => this.reconnect(), this.wsReconnectDelay);

@@ -1,0 +1,65 @@
+id = "prompt-optimizer"
+name = "Prompt Optimizer"
+description = "Analyse and rewrite prompts to improve AI model performance and output quality."
+category = "ai"
+tags = ["ai", "prompt-engineering", "llm", "optimization"]
+model = "claude-opus-4-7"
+requires_review = false
+confidence = 0.90
+version = "1.0"
+
+[[inputs]]
+name = "original_prompt"
+type = "string"
+description = "The prompt you want to optimise"
+required = true
+
+[[inputs]]
+name = "target_model"
+type = "string"
+description = "Target model: claude, gpt-4, gemini, llama, general"
+required = false
+default = "claude"
+
+[[inputs]]
+name = "use_case"
+type = "string"
+description = "What you want the prompt to achieve"
+required = false
+default = ""
+
+[[inputs]]
+name = "issues"
+type = "string"
+description = "Current problems: too verbose, hallucinations, wrong format, off-topic, etc."
+required = false
+default = ""
+
+[[outputs]]
+name = "optimised_prompt"
+type = "string"
+description = "Rewritten, improved prompt"
+
+[[outputs]]
+name = "explanation"
+type = "string"
+description = "What was changed and why"
+
+system_prompt = """You are a prompt engineering expert who deeply understands how LLMs process instructions.
+Apply these principles to rewrite prompts:
+- Clear role/persona setting
+- Specific, measurable output format
+- Examples (few-shot) when helpful
+- Chain-of-thought triggering when needed
+- Constraints to prevent drift
+- XML/markdown tags for structure
+Explain every change you make and the reasoning behind it."""
+
+user_prompt = """Original Prompt:
+{{original_prompt}}
+
+Target Model: {{target_model}}
+Use Case: {{use_case}}
+Current Issues: {{issues}}
+
+Rewrite this prompt for maximum effectiveness and explain your changes."""

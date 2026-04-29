@@ -206,3 +206,39 @@ async def require_auth(
             detail=str(exc),
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+# ---------------------------------------------------------------------------
+# Short-lived WebSocket tickets
+# ---------------------------------------------------------------------------
+
+_ws_ticket_lock = threading.Lock()
+_ws_tickets: dict[str, float] = {}   # ticket → expiry epoch
+_WS_TICKET_TTL = 30.0               # seconds
+
+
+def _prune_ws_tickets() -> None:
+    now = time.time()
+    expired = [t for t, exp in _ws_tickets.items() if exp < now]
+    for t in expired:
+        del _ws_tickets[t]
+
+
+def create_ws_ticket() -> str:
+    """Issue a single-use 30-second ticket for WebSocket authentication."""
+    import secrets
+    ticket = secrets.token_urlsafe(32)
+    with _ws_ticket_lock:
+        _prune_ws_tickets()
+        _ws_tickets[ticket] = time.time() + _WS_TICKET_TTL
+    return ticket
+
+
+def consume_ws_ticket(ticket: str) -> bool:
+    """Consume a WS ticket. Returns True if valid and not yet used."""
+    with _ws_ticket_lock:
+        _prune_ws_tickets()
+        if ticket not in _ws_tickets:
+            return False
+        del _ws_tickets[ticket]  # single-use: delete on consume
+        return True
