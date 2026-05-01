@@ -30,6 +30,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Runtime state (local only)
+.sovereign_state/
+
 # Runtime data (local only; do not commit real memory/ledger data)
 data/memory/*.json
 data/ledger/*.jsonl
