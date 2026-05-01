@@ -173,8 +173,8 @@ class SovereignOrchestrator:
         for cb in self._event_callbacks:
             try:
                 cb(payload)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Event callback error (%s): %s", event_type, exc)
 
     # ------------------------------------------------------------------
     # Mode management

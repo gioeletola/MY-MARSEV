@@ -296,20 +296,61 @@ app.add_typer(agent_app)
 
 @agent_app.command("list")
 def agent_list(
-    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),  # noqa: ARG001
 ) -> None:
-    """List all registered agents."""
-    from sovereign.bootstrap import create_orchestrator
-    orch = create_orchestrator(config)
-    agents = orch._agent_registry.list_all() if hasattr(orch, "_agent_registry") else []
-    table = Table(title="Registered Agents")
+    """List all registered agents (no API key required)."""
+    import inspect
+    import importlib
+    from sovereign.swarm.base_agent import BaseAgent
+
+    _swarm_modules = [
+        "sovereign.swarm.business_agents",
+        "sovereign.swarm.finance_agents",
+        "sovereign.swarm.personal_agents",
+        "sovereign.swarm.personal_workers",
+        "sovereign.swarm.imperial_agents",
+        "sovereign.swarm.decision_networking_agents",
+        "sovereign.swarm.security_agents",
+        "sovereign.swarm.offline_agents",
+        "sovereign.swarm.black_tier_agents",
+        "sovereign.swarm.special_agent",
+        "sovereign.swarm.domain_chiefs",
+        "sovereign.executive.ceo_agent",
+        "sovereign.executive.chief_of_staff",
+        "sovereign.executive.coordinator",
+        "sovereign.executive.guardian",
+        "sovereign.executive.executive_assistant",
+        "sovereign.executive.task_setter",
+    ]
+
+    agents: list[tuple[str, str, str]] = []
+    for mod_name in _swarm_modules:
+        try:
+            mod = importlib.import_module(mod_name)
+            for _name, obj in inspect.getmembers(mod, inspect.isclass):
+                if (
+                    issubclass(obj, BaseAgent)
+                    and obj is not BaseAgent
+                    and hasattr(obj, "agent_id")
+                    and obj.agent_id
+                ):
+                    agents.append((
+                        obj.agent_id,
+                        getattr(obj, "agent_name", obj.agent_id),
+                        getattr(obj, "model", "—"),
+                    ))
+        except Exception:
+            pass
+
+    # Deduplicate by agent_id
+    seen: set[str] = set()
+    unique = [(aid, name, model) for aid, name, model in agents if aid not in seen and not seen.add(aid)]  # type: ignore[func-returns-value]
+
+    table = Table(title=f"Registered Agents ({len(unique)} total)")
     table.add_column("ID", style="cyan")
     table.add_column("Name")
     table.add_column("Model", style="dim")
-    for a in agents:
-        aid = getattr(a, "agent_id", str(a))
-        name = getattr(a, "agent_name", aid)
-        model = getattr(a, "model", "—")
+    for aid, name, model in sorted(unique, key=lambda x: x[0]):
         table.add_row(aid, name, model)
     console.print(table)
 
@@ -317,21 +358,52 @@ def agent_list(
 @agent_app.command("info")
 def agent_info(
     agent_id: str = typer.Argument(..., help="Agent ID"),
-    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),  # noqa: ARG001
 ) -> None:
-    """Show detailed info about a specific agent."""
-    from sovereign.bootstrap import create_orchestrator
-    orch = create_orchestrator(config)
-    reg = getattr(orch, "_agent_registry", None)
-    agent = reg.get(agent_id) if reg else None
-    if agent is None:
+    """Show detailed info about a specific agent (no API key required)."""
+    import inspect
+    import importlib
+    from sovereign.swarm.base_agent import BaseAgent
+
+    _swarm_modules = [
+        "sovereign.swarm.business_agents", "sovereign.swarm.finance_agents",
+        "sovereign.swarm.personal_agents", "sovereign.swarm.personal_workers",
+        "sovereign.swarm.imperial_agents", "sovereign.swarm.decision_networking_agents",
+        "sovereign.swarm.security_agents", "sovereign.swarm.offline_agents",
+        "sovereign.swarm.black_tier_agents", "sovereign.swarm.special_agent",
+        "sovereign.swarm.domain_chiefs", "sovereign.executive.ceo_agent",
+        "sovereign.executive.chief_of_staff", "sovereign.executive.coordinator",
+        "sovereign.executive.guardian", "sovereign.executive.executive_assistant",
+        "sovereign.executive.task_setter",
+    ]
+
+    found = None
+    for mod_name in _swarm_modules:
+        try:
+            mod = importlib.import_module(mod_name)
+            for _, obj in inspect.getmembers(mod, inspect.isclass):
+                if (
+                    issubclass(obj, BaseAgent)
+                    and obj is not BaseAgent
+                    and getattr(obj, "agent_id", None) == agent_id
+                ):
+                    found = obj
+                    break
+        except Exception:
+            pass
+        if found:
+            break
+
+    if found is None:
         console.print(f"[red]Agent '{agent_id}' not found.[/red]")
         raise typer.Exit(1)
+
     console.print(Panel(
-        f"[bold]ID:[/bold] {agent.agent_id}\n"
-        f"[bold]Name:[/bold] {getattr(agent, 'agent_name', '—')}\n"
-        f"[bold]Model:[/bold] {getattr(agent, 'model', '—')}\n"
-        f"[bold]Requires review:[/bold] {getattr(agent, 'requires_review', False)}",
+        f"[bold]ID:[/bold] {found.agent_id}\n"
+        f"[bold]Name:[/bold] {getattr(found, 'agent_name', found.agent_id)}\n"
+        f"[bold]Model:[/bold] {getattr(found, 'model', '—')}\n"
+        f"[bold]Requires review:[/bold] {getattr(found, 'requires_review', False)}\n"
+        f"[bold]Confidence:[/bold] {getattr(found, 'default_confidence', '—')}",
         title=f"Agent: {agent_id}",
         border_style="cyan",
     ))

@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
-import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -164,7 +163,6 @@ class TestTelemetryAggregator:
 # DecisionLedger
 # ===========================================================================
 
-import pytest
 
 
 class TestDecisionLedger:
@@ -262,7 +260,7 @@ class TestEntityRegistry:
 
     def test_upsert_and_get(self):
         ent = self._make_entity()
-        saved = self.registry.upsert(ent)
+        self.registry.upsert(ent)
         fetched = self.registry.get_entity("ent1")
         assert fetched is not None
         assert fetched.name == "Test Entity"

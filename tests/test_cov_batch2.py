@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 
 def run(coro):
@@ -474,7 +473,6 @@ class TestLeveledAgentHelpers:
         assert isinstance(state.decisions, list)
 
     def test_guardian_state_load_save(self):
-        import tempfile, os
         from sovereign.executive.guardian import GuardianAgent
         agent = GuardianAgent(
             claude_client=_mock_claude_client(),

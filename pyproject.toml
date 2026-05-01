@@ -87,7 +87,12 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+addopts = "--cov=sovereign --cov-fail-under=70 -q"
 
 [tool.coverage.run]
 source = ["sovereign"]
 omit = ["tests/*", "sovereign/*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = false
