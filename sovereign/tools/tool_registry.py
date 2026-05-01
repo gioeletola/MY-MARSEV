@@ -95,6 +95,9 @@ class ToolRegistry:
             logger.error("Tool execution failed tool=%s: %s", name, exc)
             raise RuntimeError(f"Tool '{name}' failed: {exc}") from exc
 
+    def count(self) -> int:
+        return len(self._tools)
+
     def __len__(self) -> int:
         return len(self._tools)
 

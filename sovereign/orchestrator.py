@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import pathlib
 import time
 import uuid
 from typing import Any, Awaitable, Callable
@@ -148,10 +149,10 @@ class SovereignOrchestrator:
         self._init_entities()
 
         logger.info(
-            "SOVEREIGN AI OS started",
-            mode=config.default_operating_mode,
-            model=config.default_model,
-            action_class=config.max_action_class,
+            "SOVEREIGN AI OS started mode=%s model=%s action_class=%s",
+            config.default_operating_mode,
+            config.default_model,
+            config.max_action_class,
         )
 
     # ------------------------------------------------------------------
@@ -929,7 +930,7 @@ class SovereignOrchestrator:
 
             # Register daily digest (done here so the orchestrator is fully initialised)
             from sovereign.proactive.daily_digest import build_daily_digest_task
-            digest_hour = getattr(self._config, "digest_hour", 8)
+            digest_hour = getattr(self.config, "digest_hour", 8)
             digest_cb = build_daily_digest_task(self, digest_hour=digest_hour)
             if not any(t.task_id == "daily_digest" for t in self._silent_ops._tasks.values()):
                 self._silent_ops.register(SilentTask(

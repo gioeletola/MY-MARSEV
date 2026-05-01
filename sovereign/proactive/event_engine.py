@@ -141,6 +141,16 @@ class EventEngine:
             "history_size": len(self._history),
         }
 
+    async def run_loop(self, stop_event: asyncio.Event | None = None) -> None:
+        """Background loop — waits for stop signal. EventEngine is event-driven."""
+        if stop_event is not None:
+            await stop_event.wait()
+        else:
+            await asyncio.Event().wait()
+
+    def stop(self) -> None:
+        pass
+
     def reset(self) -> None:
         self._history.clear()
         self._counts.clear()

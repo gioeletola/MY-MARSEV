@@ -50,11 +50,20 @@ class BaseTool(ABC):
     with ToolRegistry via ``registry.register(MyTool())``.
     """
 
+    # Subclasses may define these class-level attributes as an alternative to
+    # overriding the schema property.
+    name: str = ""
+    description: str = ""
+    parameters_schema: dict[str, Any] = {}
+
     @property
-    @abstractmethod
     def schema(self) -> ToolSchema:
-        """Return the tool's ToolSchema (name, description, input_schema)."""
-        ...
+        """Return the tool's ToolSchema. Reads class-level attributes by default."""
+        return ToolSchema(
+            name=self.name,
+            description=self.description,
+            input_schema=self.parameters_schema,
+        )
 
     @abstractmethod
     async def execute(self, **kwargs: Any) -> Any:
