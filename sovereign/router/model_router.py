@@ -38,6 +38,13 @@ _PROVIDER_PRICING: dict[str, dict[str, tuple[float, float]]] = {
         "sonar":     (1.00, 1.00),
         "sonar-pro": (3.00, 15.00),
     },
+    "kimi": {
+        "moonshot-v1-8k":          (1.65,  1.65),
+        "moonshot-v1-32k":         (3.30,  3.30),
+        "moonshot-v1-128k":        (8.25,  8.25),
+        "kimi-latest":             (8.25,  8.25),
+        "kimi-thinking-preview":  (16.50, 16.50),
+    },
     "qwen": {
         "qwen2.5:7b":        (0.00, 0.00),
         "qwen2.5:14b":       (0.00, 0.00),
@@ -213,6 +220,7 @@ def build_fallback_chain(
         ("anthropic", "claude-sonnet-4-6"),
         ("openai",    "gpt-4o-mini"),
         ("gemini",    "gemini-1.5-flash"),
+        ("kimi",      "moonshot-v1-32k"),
         ("qwen",      "qwen2.5:14b"),
         ("local",     "ollama-mistral"),
     ]
@@ -231,7 +239,7 @@ class ModelRouter:
     Routes tasks to the best (provider, model) pair.
 
     Features:
-    - Multi-provider: Anthropic, OpenAI, Gemini, Perplexity, local
+    - Multi-provider: Anthropic, OpenAI, Gemini, Perplexity, Kimi, Qwen, local
     - Fallback chain with circuit-breaker per provider
     - Privacy gate: PII tasks stay on anthropic/local
     - Cost-aware: respects budget_limit_usd
@@ -315,6 +323,9 @@ class ModelRouter:
             return ("gemini", model)
         if c.preferred_provider == "perplexity":
             return ("perplexity", "sonar")
+        if c.preferred_provider == "kimi":
+            model = "kimi-latest" if c.task_complexity >= 0.7 else "moonshot-v1-32k"
+            return ("kimi", model)
         if c.preferred_provider == "qwen":
             model = "qwen3:32b" if c.task_complexity >= 0.8 else (
                 "qwen2.5:14b" if c.task_complexity >= 0.5 else "qwen2.5:7b"

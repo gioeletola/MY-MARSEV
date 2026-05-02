@@ -311,7 +311,7 @@ class TestModelRouterFallback:
 
     def test_caveman_mode_when_all_down(self, router):
         from sovereign.router.model_router import RoutingCriteria
-        for provider in ["anthropic", "openai", "gemini", "perplexity", "qwen"]:
+        for provider in ["anthropic", "openai", "gemini", "perplexity", "kimi", "qwen"]:
             for _ in range(5):
                 router.health.record_error(provider)
         provider, model, _ = router.route_with_fallback(RoutingCriteria())

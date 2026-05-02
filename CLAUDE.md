@@ -17,6 +17,7 @@ A multi-agent AI operating system. Orchestrates 326 specialized agents across bu
 > | `OPENAI_API_KEY` | OpenAI | GPT-4o, GPT-4o-mini |
 > | `GEMINI_API_KEY` | Google Gemini | 1.5 Pro, 1.5 Flash |
 > | `PERPLEXITY_API_KEY` | Perplexity | Sonar, Sonar Pro (web-augmented) |
+> | `MOONSHOT_API_KEY` | Kimi (Moonshot AI) | kimi-latest, moonshot-v1-32k, moonshot-v1-8k |
 > | Ollama running locally | Qwen / local | qwen2.5:7b–qwen3:32b, Mistral 7B |
 >
 > All optional providers degrade gracefully: if the key/endpoint is absent they return a stub and the router falls back to Claude.
@@ -38,6 +39,15 @@ User Input
 ```bash
 # Install
 pip install -e ".[dev]"
+
+# Copy and fill env (ANTHROPIC_API_KEY is required; all others are optional)
+cp .env.example .env && $EDITOR .env
+
+# Pre-flight check (validates env, configs, dirs, packages)
+python main.py check
+
+# Pre-flight check WITH live Claude API call (costs ~1 token)
+python main.py check --live
 
 # CLI demo (requires ANTHROPIC_API_KEY)
 python main.py demo

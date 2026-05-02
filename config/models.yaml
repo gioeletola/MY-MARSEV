@@ -101,6 +101,42 @@ models:
       - free_tier_fallback
       - budget
 
+  # ── Kimi / Moonshot AI (optional cloud provider) ────────────────────
+  kimi_frontier:
+    id: kimi-latest
+    provider: kimi
+    description: "Kimi Latest — Moonshot AI flagship, 128K context, excellent at Chinese-language tasks"
+    max_tokens: 8192
+    context_window: 128000
+    requires_key: MOONSHOT_API_KEY
+    use_for:
+      - kimi_fallback
+      - long_context
+      - chinese_language
+      - cloud_fallback
+
+  kimi_balanced:
+    id: moonshot-v1-32k
+    provider: kimi
+    description: "Kimi Moonshot 32K — balanced, cost-effective cloud option"
+    max_tokens: 4096
+    context_window: 32000
+    requires_key: MOONSHOT_API_KEY
+    use_for:
+      - general_tasks
+      - cost_effective
+
+  kimi_fast:
+    id: moonshot-v1-8k
+    provider: kimi
+    description: "Kimi Moonshot 8K — cheapest Kimi option, fast response"
+    max_tokens: 2048
+    context_window: 8000
+    requires_key: MOONSHOT_API_KEY
+    use_for:
+      - budget
+      - fast_tasks
+
   # ── Perplexity (optional; web-augmented) ────────────────────────────
   perplexity_search:
     id: sonar

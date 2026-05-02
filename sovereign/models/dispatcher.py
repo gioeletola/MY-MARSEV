@@ -6,12 +6,13 @@ Architecture:
   ProviderDispatcher.complete(provider, model, request) → CompletionResponse
 
 Providers:
-  anthropic  → AnthropicProvider (native SDK, prompt caching)
-  openai     → OpenAIProvider    (requires OPENAI_API_KEY)
-  gemini     → GeminiProvider    (requires GEMINI_API_KEY)
+  anthropic  → AnthropicProvider  (native SDK, prompt caching)
+  openai     → OpenAIProvider     (requires OPENAI_API_KEY)
+  gemini     → GeminiProvider     (requires GEMINI_API_KEY)
   perplexity → PerplexityProvider (requires PERPLEXITY_API_KEY)
-  qwen       → QwenProvider      (requires local Ollama)
-  local      → LocalProvider     (requires local Ollama)
+  kimi       → KimiProvider       (requires MOONSHOT_API_KEY)
+  qwen       → QwenProvider       (requires local Ollama)
+  local      → LocalProvider      (requires local Ollama)
 
 All providers degrade gracefully: if the key/endpoint is missing they
 return a stub response (never crash the orchestrator).
@@ -29,6 +30,7 @@ from sovereign.models.base_provider import (
     ProviderStatus,
 )
 from sovereign.models.gemini_provider import GeminiProvider
+from sovereign.models.kimi_provider import KimiProvider
 from sovereign.models.local_provider import LocalProvider
 from sovereign.models.openai_provider import OpenAIProvider
 from sovereign.models.perplexity_provider import PerplexityProvider
@@ -64,6 +66,8 @@ class ProviderDispatcher:
                 return GeminiProvider()
             case "perplexity":
                 return PerplexityProvider()
+            case "kimi":
+                return KimiProvider()
             case "qwen":
                 return QwenProvider()
             case "local":

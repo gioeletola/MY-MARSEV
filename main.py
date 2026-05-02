@@ -1006,5 +1006,126 @@ def report(
     asyncio.run(_send())
 
 
+# ---------------------------------------------------------------------------
+# check command — pre-flight startup validation
+# ---------------------------------------------------------------------------
+
+@app.command()
+def check(
+    config: str = typer.Option("config/sovereign.yaml", "--config", "-c"),
+    live: bool = typer.Option(
+        False, "--live", "-l",
+        help="Make a real Claude API call to verify connectivity (costs tokens).",
+    ),
+) -> None:
+    """
+    Pre-flight check: validate environment, config, data dirs, and provider availability.
+
+    Run this before 'serve' to catch issues early.
+    """
+    import os
+    import pathlib
+
+    ok = True
+
+    def _row(label: str, passed: bool, detail: str = "") -> None:
+        nonlocal ok
+        sym = "[green]✓[/green]" if passed else "[red]✗[/red]"
+        suffix = f"  [dim]{detail}[/dim]" if detail else ""
+        console.print(f"  {sym}  {label}{suffix}")
+        if not passed:
+            ok = False
+
+    console.print("\n[bold cyan]SOVEREIGN AI OS — Pre-flight Check[/bold cyan]\n")
+
+    # ── Required secrets ──────────────────────────────────────────────────
+    console.print("[bold]1. Required secrets[/bold]")
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    _row("ANTHROPIC_API_KEY", bool(api_key), "set" if api_key else "MISSING — set in .env")
+
+    # ── Optional providers ────────────────────────────────────────────────
+    console.print("\n[bold]2. Optional providers[/bold]")
+    optional_providers = [
+        ("OPENAI_API_KEY",     "OpenAI (GPT-4o)"),
+        ("GEMINI_API_KEY",     "Google Gemini"),
+        ("PERPLEXITY_API_KEY", "Perplexity Sonar"),
+        ("MOONSHOT_API_KEY",   "Kimi (Moonshot AI)"),
+    ]
+    for env_var, name in optional_providers:
+        val = os.environ.get(env_var, "")
+        _row(name, True, "active" if val else "not configured (optional)")
+
+    # ── Config files ──────────────────────────────────────────────────────
+    console.print("\n[bold]3. Config files[/bold]")
+    import yaml
+    for cfg_path in ["config/sovereign.yaml", "config/models.yaml", "config/operating_modes.yaml"]:
+        p = pathlib.Path(cfg_path)
+        try:
+            yaml.safe_load(p.read_text())
+            _row(cfg_path, True)
+        except FileNotFoundError:
+            _row(cfg_path, False, "file missing")
+        except yaml.YAMLError as e:
+            _row(cfg_path, False, f"YAML error: {e}")
+
+    # ── Data directories ──────────────────────────────────────────────────
+    console.print("\n[bold]4. Data directories[/bold]")
+    for d in ["data/memory", "data/ledger", "data/labs", "data/conversations"]:
+        p = pathlib.Path(d)
+        p.mkdir(parents=True, exist_ok=True)
+        writable = os.access(p, os.W_OK)
+        _row(d, writable, "writable" if writable else "NOT WRITABLE")
+
+    # ── Prompt templates ──────────────────────────────────────────────────
+    console.print("\n[bold]5. Prompt templates[/bold]")
+    prompt_count = len(list(pathlib.Path("prompts").rglob("*.txt"))) if pathlib.Path("prompts").exists() else 0
+    _row(f"prompts/ ({prompt_count} templates)", prompt_count > 0, "ok" if prompt_count > 0 else "missing prompts/")
+
+    # ── Python packages ───────────────────────────────────────────────────
+    console.print("\n[bold]6. Core packages[/bold]")
+    packages = [
+        ("anthropic", "anthropic"),
+        ("fastapi", "fastapi"),
+        ("uvicorn", "uvicorn"),
+        ("httpx", "httpx"),
+        ("pydantic", "pydantic"),
+        ("structlog", "structlog"),
+        ("sklearn", "scikit-learn"),
+    ]
+    for mod, pkg in packages:
+        try:
+            __import__(mod)
+            _row(pkg, True)
+        except ImportError:
+            _row(pkg, False, f"pip install {pkg}")
+
+    # ── Live API probe ────────────────────────────────────────────────────
+    if live and api_key:
+        console.print("\n[bold]7. Live Claude API probe[/bold]")
+        import anthropic as _ant
+        try:
+            client = _ant.Anthropic(api_key=api_key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=5,
+                messages=[{"role": "user", "content": "Reply: OK"}],
+            )
+            reply = msg.content[0].text if msg.content else ""
+            _row("Claude API reachable", True, f"response: {reply!r}")
+        except Exception as exc:
+            _row("Claude API reachable", False, str(exc))
+    elif live and not api_key:
+        console.print("\n[dim]  Skipping live probe — ANTHROPIC_API_KEY not set[/dim]")
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    console.print()
+    if ok:
+        console.print("[bold green]All checks passed — ready to start.[/bold green]")
+        console.print("[dim]Run: python main.py serve --port 8080[/dim]\n")
+    else:
+        console.print("[bold red]Some checks failed — fix the issues above before starting.[/bold red]\n")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

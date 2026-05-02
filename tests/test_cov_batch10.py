@@ -1,4 +1,4 @@
-"""Coverage batch 10 — new model providers: Perplexity, ProviderDispatcher."""
+"""Coverage batch 10 — new model providers: Perplexity, Kimi, ProviderDispatcher."""
 from __future__ import annotations
 
 import asyncio
@@ -310,3 +310,184 @@ class TestGeminiHeaderAuth(unittest.TestCase):
     def test_headers_contain_api_key(self):
         headers = self.provider._headers()
         self.assertEqual(headers["X-Goog-Api-Key"], "test-gemini-key")
+
+
+# ---------------------------------------------------------------------------
+# KimiProvider
+# ---------------------------------------------------------------------------
+
+class TestKimiProviderNoKey(unittest.TestCase):
+    def setUp(self):
+        os.environ.pop("MOONSHOT_API_KEY", None)
+        from sovereign.models.kimi_provider import KimiProvider
+        self.provider = KimiProvider()
+
+    def test_status_unavailable_without_key(self):
+        from sovereign.models.base_provider import ProviderStatus
+        self.assertEqual(self.provider._status, ProviderStatus.UNAVAILABLE)
+
+    def test_complete_stub_without_key(self):
+        from sovereign.models.base_provider import CompletionRequest
+        req = CompletionRequest(messages=[{"role": "user", "content": "hi"}])
+        resp = asyncio.run(self.provider.complete(req))
+        self.assertIn("Kimi unavailable", resp.content)
+        self.assertEqual(resp.provider, "kimi")
+
+    def test_stream_stub_without_key(self):
+        from sovereign.models.base_provider import CompletionRequest
+        req = CompletionRequest(messages=[{"role": "user", "content": "hi"}])
+        async def collect():
+            tokens = []
+            async for t in self.provider.stream(req):
+                tokens.append(t)
+            return tokens
+        tokens = asyncio.run(collect())
+        self.assertTrue(any("Kimi unavailable" in t for t in tokens))
+
+    def test_health_check_unavailable(self):
+        from sovereign.models.base_provider import ProviderStatus
+        status = asyncio.run(self.provider.health_check())
+        self.assertEqual(status, ProviderStatus.UNAVAILABLE)
+
+    def test_estimate_cost_known_model(self):
+        from sovereign.models.kimi_provider import KimiProvider
+        cost = KimiProvider.estimate_cost("moonshot-v1-32k", 1_000_000, 1_000_000)
+        self.assertGreater(cost, 0.0)
+
+    def test_estimate_cost_unknown_model(self):
+        from sovereign.models.kimi_provider import KimiProvider
+        cost = KimiProvider.estimate_cost("unknown-kimi", 100, 100)
+        self.assertEqual(cost, 0.0)
+
+    def test_estimate_cost_thinking_model_premium(self):
+        from sovereign.models.kimi_provider import KimiProvider
+        cost_thinking = KimiProvider.estimate_cost("kimi-thinking-preview", 1_000_000, 1_000_000)
+        cost_regular = KimiProvider.estimate_cost("kimi-latest", 1_000_000, 1_000_000)
+        self.assertGreater(cost_thinking, cost_regular)
+
+
+class TestKimiProviderWithKey(unittest.TestCase):
+    def setUp(self):
+        os.environ["MOONSHOT_API_KEY"] = "sk-test-moonshot-key"
+        from sovereign.models.kimi_provider import KimiProvider
+        self.provider = KimiProvider()
+
+    def tearDown(self):
+        os.environ.pop("MOONSHOT_API_KEY", None)
+
+    def test_status_available_with_key(self):
+        from sovereign.models.base_provider import ProviderStatus
+        self.assertEqual(self.provider._status, ProviderStatus.AVAILABLE)
+
+    def test_headers_bearer_token(self):
+        headers = self.provider._headers()
+        self.assertIn("Bearer sk-test-moonshot-key", headers["Authorization"])
+
+    def test_build_body_with_system(self):
+        from sovereign.models.base_provider import CompletionRequest
+        req = CompletionRequest(
+            messages=[{"role": "user", "content": "hi"}],
+            system="You are helpful",
+            model="moonshot-v1-32k",
+        )
+        body = self.provider._build_body(req)
+        self.assertEqual(body["messages"][0]["role"], "system")
+        self.assertEqual(body["model"], "moonshot-v1-32k")
+        self.assertFalse(body["stream"])
+
+    def test_build_body_stream_flag(self):
+        from sovereign.models.base_provider import CompletionRequest
+        req = CompletionRequest(messages=[{"role": "user", "content": "hi"}])
+        body = self.provider._build_body(req, stream=True)
+        self.assertTrue(body["stream"])
+
+    def test_complete_success(self):
+        from sovereign.models.base_provider import CompletionRequest
+        mock_data = {
+            "choices": [{"message": {"content": "ciao"}, "finish_reason": "stop"}],
+            "model": "moonshot-v1-32k",
+            "usage": {"prompt_tokens": 8, "completion_tokens": 3},
+        }
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = mock_data
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as MockClient:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = mock_client
+
+            req = CompletionRequest(messages=[{"role": "user", "content": "hi"}])
+            resp = asyncio.run(self.provider.complete(req))
+
+        self.assertEqual(resp.content, "ciao")
+        self.assertEqual(resp.input_tokens, 8)
+        self.assertEqual(resp.output_tokens, 3)
+        self.assertEqual(resp.provider, "kimi")
+
+    def test_complete_records_error_on_exception(self):
+        from sovereign.models.base_provider import CompletionRequest
+        with patch("httpx.AsyncClient") as MockClient:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post = AsyncMock(side_effect=RuntimeError("timeout"))
+            MockClient.return_value = mock_client
+
+            req = CompletionRequest(messages=[{"role": "user", "content": "hi"}])
+            with self.assertRaises(RuntimeError):
+                asyncio.run(self.provider.complete(req))
+        self.assertEqual(self.provider._error_count, 1)
+
+    def test_stream_success(self):
+        from sovereign.models.base_provider import CompletionRequest
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"ciao"},"finish_reason":null}]}',
+            'data: {"choices":[{"delta":{"content":" mondo"},"finish_reason":null}]}',
+            "data: [DONE]",
+        ]
+
+        async def fake_aiter_lines():
+            for line in sse_lines:
+                yield line
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.aiter_lines = fake_aiter_lines
+        mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+        mock_client = MagicMock()
+        mock_client.stream = MagicMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            req = CompletionRequest(messages=[{"role": "user", "content": "hi"}])
+            async def collect():
+                tokens = []
+                async for t in self.provider.stream(req):
+                    tokens.append(t)
+                return tokens
+            tokens = asyncio.run(collect())
+
+        self.assertIn("ciao", tokens)
+        self.assertIn(" mondo", tokens)
+
+    def test_dispatcher_routes_to_kimi(self):
+        from sovereign.models.base_provider import CompletionRequest, CompletionResponse
+        from sovereign.models.dispatcher import ProviderDispatcher
+
+        d = ProviderDispatcher()
+        mock_resp = CompletionResponse(content="kimi!", model="kimi-latest", provider="kimi")
+        mock_provider = MagicMock()
+        mock_provider.complete = AsyncMock(return_value=mock_resp)
+        mock_provider.record_error = MagicMock()
+        d._providers["kimi"] = mock_provider
+
+        req = CompletionRequest(messages=[{"role": "user", "content": "test"}])
+        resp = asyncio.run(d.complete("kimi", "kimi-latest", req))
+        self.assertEqual(resp.content, "kimi!")
+        self.assertEqual(resp.provider, "kimi")
