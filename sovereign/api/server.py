@@ -87,13 +87,16 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["X-XSS-Protection"] = "0"  # modern browsers use CSP; disabling legacy header
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://fonts.googleapis.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "connect-src 'self' ws: wss:; "
-            "img-src 'self' data:;"
+            "img-src 'self' data:; "
+            "frame-ancestors 'none';"
         )
         return response
 
@@ -236,6 +239,12 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     if ticket:
         authenticated = consume_ws_ticket(ticket)
     elif token:
+        # Deprecated: JWT in URL query string may appear in server access logs.
+        # Use POST /api/ws-ticket + ?ticket= instead.
+        logger.warning(
+            "WS auth via deprecated ?token= URL param from %s — migrate to /api/ws-ticket",
+            ws.client.host if ws.client else "unknown",
+        )
         try:
             verify_token(token)
             authenticated = True

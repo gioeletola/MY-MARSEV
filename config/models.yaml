@@ -1,10 +1,26 @@
 # SOVEREIGN AI OS — Model routing configuration
+#
+# PRIMARY provider: Anthropic (always available; prompt caching enabled)
+# FALLBACK providers: OpenAI, Gemini, Perplexity (activate when key is set)
+# LOCAL / OFFLINE providers: Qwen via Ollama (privacy-safe, zero cloud cost)
+#
+# Provider activation:
+#   ANTHROPIC_API_KEY  → anthropic   (required)
+#   OPENAI_API_KEY     → openai      (optional cloud fallback)
+#   GEMINI_API_KEY     → gemini      (optional cloud fallback)
+#   PERPLEXITY_API_KEY → perplexity  (optional; web-search augmented)
+#   Ollama running     → qwen / local (optional; offline / privacy mode)
 
 models:
+
+  # ── Anthropic Claude (primary) ───────────────────────────────────────
   frontier:
     id: claude-opus-4-7
+    provider: anthropic
     description: "Highest capability — strategic decisions, complex reasoning, sensitive tasks"
     max_tokens: 8192
+    context_window: 200000
+    prompt_caching: true
     use_for:
       - strategic_planning
       - sensitive_decisions
@@ -14,8 +30,11 @@ models:
 
   balanced:
     id: claude-sonnet-4-6
+    provider: anthropic
     description: "General purpose — coordination, guardian review, most worker tasks"
     max_tokens: 4096
+    context_window: 200000
+    prompt_caching: true
     use_for:
       - general_tasks
       - coordination
@@ -25,21 +44,96 @@ models:
 
   fast:
     id: claude-haiku-4-5-20251001
+    provider: anthropic
     description: "Cheapest/fastest — ephemeral agents, classification, simple queries"
     max_tokens: 2048
+    context_window: 200000
+    prompt_caching: true
     use_for:
       - ephemeral_agents
       - simple_classification
       - bulk_operations
       - routing_decisions
 
-  # ── Qwen (local, privacy-safe) ──────────────────────────────────────
+  # ── OpenAI (optional cloud fallback) ────────────────────────────────
+  openai_frontier:
+    id: gpt-4o
+    provider: openai
+    description: "GPT-4o — OpenAI flagship, multimodal cloud fallback"
+    max_tokens: 4096
+    context_window: 128000
+    requires_key: OPENAI_API_KEY
+    use_for:
+      - cloud_fallback
+      - multimodal
+
+  openai_fast:
+    id: gpt-4o-mini
+    provider: openai
+    description: "GPT-4o Mini — budget OpenAI option"
+    max_tokens: 4096
+    context_window: 128000
+    requires_key: OPENAI_API_KEY
+    use_for:
+      - budget_fallback
+      - fast_cloud_fallback
+
+  # ── Google Gemini (optional cloud fallback) ──────────────────────────
+  gemini_frontier:
+    id: gemini-1.5-pro
+    provider: gemini
+    description: "Gemini 1.5 Pro — 1M context, strong at large documents"
+    max_tokens: 8192
+    context_window: 1000000
+    requires_key: GEMINI_API_KEY
+    use_for:
+      - large_context
+      - cloud_fallback
+
+  gemini_fast:
+    id: gemini-1.5-flash
+    provider: gemini
+    description: "Gemini 1.5 Flash — free tier, ultra-fast"
+    max_tokens: 4096
+    context_window: 1000000
+    requires_key: GEMINI_API_KEY
+    use_for:
+      - free_tier_fallback
+      - budget
+
+  # ── Perplexity (optional; web-augmented) ────────────────────────────
+  perplexity_search:
+    id: sonar
+    provider: perplexity
+    description: "Sonar — real-time web search augmented responses"
+    max_tokens: 4096
+    context_window: 28000
+    requires_key: PERPLEXITY_API_KEY
+    use_for:
+      - web_search_tasks
+      - current_events
+      - research_with_citations
+
+  perplexity_deep:
+    id: sonar-pro
+    provider: perplexity
+    description: "Sonar Pro — deep research with citations"
+    max_tokens: 8192
+    context_window: 28000
+    requires_key: PERPLEXITY_API_KEY
+    use_for:
+      - deep_research
+      - fact_checking
+
+  # ── Qwen via Ollama (local, privacy-safe) ───────────────────────────
   qwen_fast:
     id: qwen2.5:7b
     provider: qwen
     description: "Fast local Qwen 2.5 7B — low VRAM, privacy-safe"
     max_tokens: 8192
+    context_window: 32768
     privacy_safe: true
+    offline_capable: true
     use_for:
       - offline_mode
       - privacy_sensitive
@@ -50,7 +144,9 @@ models:
     provider: qwen
     description: "Balanced local Qwen 2.5 14B — solid capability, privacy-safe"
     max_tokens: 16384
+    context_window: 32768
     privacy_safe: true
+    offline_capable: true
     use_for:
       - offline_mode
       - local_reasoning
@@ -61,7 +157,9 @@ models:
     provider: qwen
     description: "High-capability local Qwen 3 32B — near-frontier, privacy-safe"
     max_tokens: 32768
+    context_window: 32768
     privacy_safe: true
+    offline_capable: true
     use_for:
       - complex_local_tasks
       - frontier_offline
@@ -71,14 +169,29 @@ models:
     provider: qwen
     description: "Code-specialized Qwen 2.5 Coder 14B"
     max_tokens: 16384
+    context_window: 32768
     privacy_safe: true
+    offline_capable: true
     use_for:
       - code_generation
       - code_review
       - debugging
 
+  # ── Generic Ollama local (last-resort fallback) ──────────────────────
+  local_fallback:
+    id: ollama-mistral
+    provider: local
+    description: "Mistral 7B via Ollama — last-resort offline fallback"
+    max_tokens: 4096
+    context_window: 8192
+    privacy_safe: true
+    offline_capable: true
+    use_for:
+      - caveman_mode
+      - offline_fallback
+
 routing_rules:
-  # ── Frontier (Opus 4.6) ──────────────────────────────────────────────
+  # ── Frontier (Claude Opus 4.7) ──────────────────────────────────────
   - if:
       complexity_above: 0.8
     use: frontier

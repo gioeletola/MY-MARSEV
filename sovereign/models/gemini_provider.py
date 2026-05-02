@@ -64,7 +64,13 @@ class GeminiProvider(BaseProvider):
             self._status = ProviderStatus.UNAVAILABLE
 
     def _url(self, model: str, action: str = "generateContent") -> str:
-        return f"{_API_BASE}/{model}:{action}?key={self._api_key}"
+        return f"{_API_BASE}/{model}:{action}"
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "X-Goog-Api-Key": self._api_key,
+            "Content-Type": "application/json",
+        }
 
     def _build_body(self, request: CompletionRequest) -> dict:
         body: dict = {
@@ -93,7 +99,7 @@ class GeminiProvider(BaseProvider):
         body = self._build_body(request)
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(self._url(model), json=body)
+                resp = await client.post(self._url(model), headers=self._headers(), json=body)
                 resp.raise_for_status()
 
             data = resp.json()
@@ -135,6 +141,7 @@ class GeminiProvider(BaseProvider):
                 async with client.stream(
                     "POST",
                     self._url(model, "streamGenerateContent"),
+                    headers=self._headers(),
                     json=body,
                 ) as resp:
                     resp.raise_for_status()

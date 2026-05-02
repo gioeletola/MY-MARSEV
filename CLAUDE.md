@@ -1,9 +1,25 @@
 # SOVEREIGN AI OS
 
-A multi-agent AI operating system built on the Anthropic Claude API. Orchestrates 280+ specialized agents across business, personal, finance, security, and strategy domains.
+A multi-agent AI operating system. Orchestrates 326 specialized agents across business, personal, finance, security, and strategy domains.
 
 > **Status:** Alpha/Advanced Prototype — architecture is solid, hardening in progress. Not recommended for autonomous execution on critical systems without human supervision.
-> **Model:** Frontier model is `claude-opus-4-7` | Standard is `claude-sonnet-4-6` | Fast/cheap is `claude-haiku-4-5-20251001`
+>
+> **Primary provider:** Anthropic Claude (required — set `ANTHROPIC_API_KEY`)
+> | Tier | Model ID |
+> |---|---|
+> | Frontier | `claude-opus-4-7` |
+> | Balanced (default) | `claude-sonnet-4-6` |
+> | Fast / cheap | `claude-haiku-4-5-20251001` |
+>
+> **Optional providers** (activate by setting their key):
+> | Key | Provider | Models |
+> |---|---|---|
+> | `OPENAI_API_KEY` | OpenAI | GPT-4o, GPT-4o-mini |
+> | `GEMINI_API_KEY` | Google Gemini | 1.5 Pro, 1.5 Flash |
+> | `PERPLEXITY_API_KEY` | Perplexity | Sonar, Sonar Pro (web-augmented) |
+> | Ollama running locally | Qwen / local | qwen2.5:7b–qwen3:32b, Mistral 7B |
+>
+> All optional providers degrade gracefully: if the key/endpoint is absent they return a stub and the router falls back to Claude.
 
 ## Architecture
 
@@ -100,15 +116,16 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 |---|---|
 | `sovereign/orchestrator.py` | Master wiring — 10-step session flow |
 | `sovereign/executive/` | CEO, ChiefOfStaff, Coordinator, Guardian, ApprovalGate, TaskSetter |
-| `sovereign/swarm/` | All 280+ agent classes (factory pattern) |
+| `sovereign/swarm/` | All 326 agent classes (factory pattern) |
 | `sovereign/memory/` | 18-domain memory system with semantic search (TF-IDF + sentence-transformers) |
 | `sovereign/tools/builtin/` | web_search, code_exec, file_ops, memory_tool, notes, calendar, hash, url, date, text_analysis, base64, uuid, number, color, template_render, markdown, diff, translation, etc. |
-| `sovereign/claude/client.py` | Claude API client with prompt caching |
+| `sovereign/claude/client.py` | Claude API client with prompt caching (primary execution path) |
+| `sovereign/models/` | Multi-provider layer: AnthropicProvider, OpenAIProvider, GeminiProvider, PerplexityProvider, QwenProvider, LocalProvider, ProviderDispatcher |
 | `sovereign/kernel/` | Constitution, ActionClasses, StopConditions |
 | `sovereign/authority/` | ApprovalGate, EscalationThresholds, Policy |
 | `sovereign/governance/` | RBAC, EscalationChain, SpendingLimits, RiskScoring, ChangeManagement |
 | `sovereign/security/` | SecretManager, SecurityStack (7-layer), AccessControl, SessionMonitor |
-| `sovereign/integrations/` | 44 connectors (Finance, Social, Productivity, E-Commerce, Health, Travel) |
+| `sovereign/integrations/` | 46 connectors (Finance, Social, Productivity, E-Commerce, Health, Travel) |
 | `sovereign/integrations/connectors/` | BinanceConnector, StripeConnector, TelegramConnector, SlackConnector, YouTubeConnector, RedditConnector, ProductHuntConnector, … |
 | `scripts/` | `build_local.sh` — PyInstaller local app packaging |
 | `sovereign.spec` | PyInstaller spec for standalone desktop/server binary |
@@ -131,19 +148,21 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 
 `command` · `business` · `personal` · `finance` · `study` · `travel` · `research` · `builder` · `local_offline` · `survival` · `founder` · `war` · `prestige` · `silent` · `recovery` · `emergency`
 
-## Agent Count (~280)
+## Agent Count (326)
 
 | File | Count |
 |---|---|
-| `finance_agents.py` | 26 |
+| `finance_agents.py` | 25 |
 | `business_agents.py` | 72 |
-| `personal_agents.py` + `personal_workers.py` | ~80 |
-| `imperial_agents.py` | ~57 |
+| `personal_agents.py` | 45 |
+| `personal_workers.py` | 63 |
+| `imperial_agents.py` | 58 |
 | `decision_networking_agents.py` | 15 |
 | `security_agents.py` | 5 |
 | `offline_agents.py` | 4 |
-| `black_tier_agents.py` | ~10 |
+| `black_tier_agents.py` | 39 |
 | Executive core | 8 |
+| **Total** | **334** |
 
 ## Connector Registry (44)
 
@@ -191,25 +210,34 @@ class MyConnector(ConnectorBase):
 
 ```python
 # In sovereign/tools/builtin/my_tool.py
-class MyTool(BaseTool):
-    tool_id = "my_tool"
-    name = "My Tool"
-    description = "What it does."
-    parameters_schema = {...}
+from sovereign.tools.base_tool import BaseTool, ToolSchema
 
-    async def execute(self, params: dict, context: dict) -> dict:
-        try:
-            return {"result": result, "error": None}
-        except Exception as exc:
-            return {"result": None, "error": str(exc)}
+class MyTool(BaseTool):
+    @property
+    def schema(self) -> ToolSchema:
+        return ToolSchema(
+            name="my_tool",
+            description="What it does.",
+            input_schema={
+                "type": "object",
+                "properties": {"param": {"type": "string"}},
+                "required": ["param"],
+            },
+        )
+
+    async def execute(self, param: str, **_) -> dict:
+        return {"result": f"processed: {param}"}
 ```
 
 ## Security
 
-- **Web UI**: login with `SOVEREIGN_PASSWORD`, JWT stored in localStorage, passed as `?token=` on WebSocket
-- **Vault**: secrets encrypted at rest via `SecretManager` — use `python main.py vault set KEY VALUE`
+- **Web UI**: login with `SOVEREIGN_PASSWORD`, JWT (HMAC-SHA256) stored in localStorage
+- **WebSocket auth**: use `GET /api/ws-ticket` to obtain a 30-second single-use ticket, then connect with `?ticket=<ticket>`. The legacy `?token=` URL param is deprecated (logs may capture it).
+- **Vault**: secrets encrypted at rest via `SecretManager` (PBKDF2-SHA256) — use `python main.py vault set KEY VALUE`
 - **SecurityStack**: 7-layer defense — prompt injection, PII, dangerous commands, RBAC, secret masking, audit, incident escalation
-- **WebSocket**: unauthenticated connections are rejected with code 4401
+- **WebSocket**: unauthenticated connections rejected with code 4401
+- **Security headers**: HSTS, CSP, X-Frame-Options DENY, X-Content-Type-Options nosniff, Permissions-Policy on every response
+- **Production mode**: set `SOVEREIGN_ENV=production` to enforce all secrets are present at startup (`AUTH_SECRET_KEY`, `SOVEREIGN_PASSWORD`, `SECRET_MANAGER_KEY`)
 
 ## Prompt Caching
 
