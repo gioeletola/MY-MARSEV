@@ -154,9 +154,11 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 | `prompts/` | System and task prompt templates |
 | `docs/` | API spec, agent map, permission matrix |
 
-## Operating Modes (16)
+## Operating Modes (17)
 
-`command` · `business` · `personal` · `finance` · `study` · `travel` · `research` · `builder` · `local_offline` · `survival` · `founder` · `war` · `prestige` · `silent` · `recovery` · `emergency`
+`command` · `business` · `personal` · `finance` · `study` · `travel` · `research` · `builder` · `local_offline` · `survival` · `founder` · `war` · `prestige` · `silent` · `recovery` · `emergency` · `caveman`
+
+> **caveman** — budget-constrained mode: forces cheapest models (Haiku → Qwen → local), terse synthetic responses, 512-token output cap, offline-capable. NOT a model — it's a mode that overrides routing. See `sovereign/modes/caveman_mode.py`.
 
 ## Agent Count (326)
 

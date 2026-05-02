@@ -1,4 +1,10 @@
-"""Caveman mode — hard token budget enforcer that blocks calls exceeding monthly limits."""
+"""
+Token budget enforcer for the Caveman operating mode.
+
+This module tracks and enforces monthly/daily token limits so that Caveman
+mode can hard-block calls that would exceed the configured budget.  It is
+NOT the operating mode itself — see sovereign/modes/caveman_mode.py for that.
+"""
 from __future__ import annotations
 
 import json

@@ -1099,9 +1099,50 @@ def check(
         except ImportError:
             _row(pkg, False, f"pip install {pkg}")
 
+    # ── Modes & core registries ───────────────────────────────────────────
+    console.print("\n[bold]7. Modes & core registries[/bold]")
+    try:
+        from sovereign.modes import MODES
+        mode_count = len(MODES)
+        expected_modes = {
+            "command", "business", "personal", "finance", "study", "travel",
+            "research", "builder", "survival", "local_offline", "caveman",
+            "founder", "war", "prestige", "silent", "recovery", "emergency",
+        }
+        missing_modes = expected_modes - set(MODES)
+        if missing_modes:
+            _row(f"Modes ({mode_count} loaded)", False, f"missing: {missing_modes}")
+        else:
+            _row(f"Modes ({mode_count} loaded)", True, "all 17 modes present")
+    except Exception as exc:
+        _row("Modes registry", False, str(exc))
+
+    try:
+        from sovereign.router.model_router import ModelRouter
+        r = ModelRouter()
+        from sovereign.router.model_router import RoutingCriteria
+        p, m, _ = r.route_with_fallback(RoutingCriteria())
+        _row("ModelRouter", True, f"default route: {p}/{m}")
+    except Exception as exc:
+        _row("ModelRouter", False, str(exc))
+
+    try:
+        from sovereign.models.dispatcher import get_dispatcher
+        _ = get_dispatcher()
+        _row("ProviderDispatcher", True)
+    except Exception as exc:
+        _row("ProviderDispatcher", False, str(exc))
+
+    try:
+        from sovereign.kernel.constitution import default_constitution
+        c = default_constitution()
+        _row("Constitutional kernel", True, f"{len(c.principles)} principles loaded")
+    except Exception as exc:
+        _row("Constitutional kernel", False, str(exc))
+
     # ── Live API probe ────────────────────────────────────────────────────
     if live and api_key:
-        console.print("\n[bold]7. Live Claude API probe[/bold]")
+        console.print("\n[bold]8. Live Claude API probe[/bold]")
         import anthropic as _ant
         try:
             client = _ant.Anthropic(api_key=api_key)

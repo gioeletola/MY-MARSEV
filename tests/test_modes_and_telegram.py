@@ -5,14 +5,38 @@ import pytest
 
 # ── Extended Modes ────────────────────────────────────────────────────────────
 
-def test_all_16_modes_in_registry():
+def test_all_17_modes_in_registry():
     from sovereign.modes import MODES
     expected = {
         "command", "business", "personal", "finance", "study", "travel",
-        "research", "builder", "local_offline", "survival",
+        "research", "builder", "local_offline", "survival", "caveman",
         "founder", "war", "prestige", "silent", "recovery", "emergency",
     }
     assert expected == set(MODES.keys())
+
+
+def test_caveman_mode_attributes():
+    from sovereign.modes.caveman_mode import CavemanMode
+    m = CavemanMode()
+    assert m.name == "caveman"
+    assert m.offline_capable is True
+    assert m.max_tokens() == 512
+    assert m.preferred_model == "claude-haiku-4-5-20251001"
+    overrides = m.routing_overrides()
+    assert overrides["budget_limit_usd"] <= 0.01
+    assert "[CAVEMAN MODE]" in m.system_prompt_suffix()
+    assert m.select_model_for_provider("openai") == "gpt-4o-mini"
+    assert m.select_model_for_provider("qwen") == "qwen2.5:7b"
+
+
+def test_caveman_cheap_model_chain():
+    from sovereign.modes.caveman_mode import CavemanMode
+    m = CavemanMode()
+    chain = m.CHEAP_MODEL_CHAIN
+    providers = [p for p, _ in chain]
+    assert "anthropic" in providers
+    assert "qwen" in providers
+    assert "local" in providers
 
 
 def test_founder_mode_attributes():

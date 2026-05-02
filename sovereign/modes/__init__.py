@@ -1,4 +1,4 @@
-"""Operating modes layer — 16 mode configurations.
+"""Operating modes layer — 17 mode configurations.
 
 Simple modes (no extra logic) are defined inline via _mode().
 Complex modes with custom behaviour live in their own files.
@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from sovereign.kernel.action_classes import ActionClass
 from sovereign.modes.base_mode import BaseMode
+from sovereign.modes.caveman_mode import CavemanMode
 from sovereign.modes.emergency_mode import EmergencyMode
 from sovereign.modes.founder_mode import FounderMode
 
@@ -60,8 +61,9 @@ MODES: dict[str, BaseMode] = {
     "survival": _mode("survival", "Emergency mode with minimal resources and offline packs",
                       ActionClass.SUGGEST, threshold=0.9,
                       model="claude-haiku-4-5-20251001", offline_capable=True),
-    # ── Offline ─────────────────────────────────────────────────────────
+    # ── Offline / budget ────────────────────────────────────────────────
     "local_offline": Local_offlineMode(),
+    "caveman":       CavemanMode(),
     # ── Extended modes ───────────────────────────────────────────────────
     "founder":   FounderMode(),
     "war":       WarMode(),
@@ -88,6 +90,6 @@ __all__ = [
     "CommandMode", "BusinessMode", "PersonalMode", "FinanceMode",
     "StudyMode", "TravelMode", "ResearchMode", "BuilderMode", "SurvivalMode",
     # Complex modes with own files
-    "Local_offlineMode", "FounderMode", "WarMode", "PrestigeMode",
+    "CavemanMode", "Local_offlineMode", "FounderMode", "WarMode", "PrestigeMode",
     "SilentMode", "RecoveryMode", "EmergencyMode",
 ]

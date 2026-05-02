@@ -3,7 +3,12 @@ Model router — selects the appropriate model+provider for each task.
 
 Routing considers: task complexity, sensitivity, latency budget, cost,
 privacy constraints (PII), and provider health. Supports fallback chains
-and an offline/caveman mode when all providers are unavailable.
+and a local-only fallback when all cloud providers are unavailable.
+
+Note: "Caveman" is an operating MODE (sovereign/modes/caveman_mode.py), not
+a model tier. When caveman mode is active the orchestrator calls
+CavemanMode.routing_overrides() to force cheap models into RoutingCriteria
+before this router runs.
 """
 from __future__ import annotations
 
@@ -283,11 +288,11 @@ class ModelRouter:
                 logger.debug("Router: selected %s/%s", provider, model)
                 return provider, model, chain
 
-        # All cloud providers down → try qwen then local (caveman mode)
+        # All cloud providers down → local-only fallback (equivalent to caveman mode)
         if self.health.is_healthy("qwen"):
-            logger.info("Router: cloud down — falling back to qwen")
+            logger.info("Router: all cloud providers down — falling back to qwen (caveman)")
             return "qwen", "qwen2.5:14b", chain
-        logger.warning("Router: ALL providers down — caveman mode (local only)")
+        logger.warning("Router: ALL providers down — last resort local (caveman mode active)")
         return "local", "ollama-mistral", chain
 
     # ------------------------------------------------------------------

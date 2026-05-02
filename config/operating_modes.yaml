@@ -69,3 +69,15 @@ modes:
     escalation_threshold: 0.9
     offline_capable: true
     preferred_model: fast
+
+  caveman:
+    description: "Budget-constrained mode — forces cheap models (Haiku/Qwen), terse synthetic responses, 512-token cap"
+    default_action_class: SUGGEST
+    escalation_threshold: 0.85
+    offline_capable: true
+    preferred_model: fast           # claude-haiku-4-5-20251001
+    budget_per_call_usd: 0.005
+    max_tokens_per_turn: 512
+    require_approval_for:
+      - financial
+      - external_api
