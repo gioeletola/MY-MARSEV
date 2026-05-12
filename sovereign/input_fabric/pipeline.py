@@ -278,15 +278,28 @@ class InputPipeline:
 
     async def _step_security_scan(self, text: str) -> bool:
         """
-        Detect potential prompt injection patterns.
-        Returns True if a suspicious pattern is found.
+        Detect prompt injection and dangerous command patterns.
+        Returns True if a suspicious pattern is found (blocks processing).
         """
-        INJECTION_PATTERNS = [
-            "ignore previous instructions",
-            "ignore all instructions",
-            "disregard your",
-            "you are now",
-            "forget your instructions",
-        ]
-        lower = text.lower()
-        return any(p in lower for p in INJECTION_PATTERNS)
+        try:
+            from sovereign.security.security_stack import (
+                _PROMPT_INJECTION_PATTERNS,
+                _DANGEROUS_COMMANDS,
+            )
+            for pat in _PROMPT_INJECTION_PATTERNS:
+                if pat.search(text):
+                    logger.warning("Pipeline blocked: prompt injection pattern matched")
+                    return True
+            for pat in _DANGEROUS_COMMANDS:
+                if pat.search(text):
+                    logger.warning("Pipeline blocked: dangerous command pattern matched")
+                    return True
+            return False
+        except Exception:
+            # Fallback to minimal inline check if import fails
+            lower = text.lower()
+            _FALLBACK = (
+                "ignore previous instructions", "ignore all instructions",
+                "disregard your", "you are now", "forget your instructions",
+            )
+            return any(p in lower for p in _FALLBACK)

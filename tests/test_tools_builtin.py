@@ -555,8 +555,9 @@ class TestCodeExecTool:
 
     @pytest.mark.asyncio
     async def test_stderr_captured(self, tool):
-        r = await tool.execute(code="import sys; sys.stderr.write('err\\n')")
-        assert "err" in r["stderr"]
+        # sys is blocked by sandbox; use an uncaught exception to generate stderr
+        r = await tool.execute(code="raise ValueError('err_marker')")
+        assert "err_marker" in r["stderr"]
 
     @pytest.mark.asyncio
     async def test_nonzero_exit_code(self, tool):
@@ -586,7 +587,8 @@ class TestCodeExecTool:
 
     @pytest.mark.asyncio
     async def test_input_data_passed(self, tool):
-        r = await tool.execute(code="import sys; print(sys.stdin.read().strip())", input_data="hello_input")
+        # sys is blocked; use input() built-in to read from stdin
+        r = await tool.execute(code="print(input().strip())", input_data="hello_input")
         assert "hello_input" in r["stdout"]
 
     def test_schema_is_defined(self, tool):

@@ -88,30 +88,26 @@ def is_revoked(jti: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Secret key — fail hard in production if not configured
+# Secret key — lazy validation; never falls back to a default
 # ---------------------------------------------------------------------------
 
-_DEFAULT_SECRET = "sovereign-change-me-in-production"
-_WARNED_DEFAULT = False
+_MIN_KEY_LEN = 32  # characters
 
 
-def _secret() -> str:
-    global _WARNED_DEFAULT
-    val = os.environ.get("AUTH_SECRET_KEY")
-    if val:
-        return val
-    if os.environ.get("SOVEREIGN_ENV", "").lower() == "production":
-        raise RuntimeError(
-            "AUTH_SECRET_KEY must be set in production (SOVEREIGN_ENV=production). "
-            "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+def _get_secret_key() -> str:
+    """Return AUTH_SECRET_KEY, raising ValueError if missing or too short.
+
+    Called at token creation/verification time (not at import) so the module
+    can be imported safely in CI environments where the key is not set.
+    """
+    key = os.environ.get("AUTH_SECRET_KEY", "")
+    if not key or len(key) < _MIN_KEY_LEN:
+        raise ValueError(
+            f"AUTH_SECRET_KEY missing or too short ({len(key)} chars; minimum {_MIN_KEY_LEN}). "
+            "Set a 64-char random string: "
+            "python -c \"import secrets; print(secrets.token_hex(32))\""
         )
-    if not _WARNED_DEFAULT:
-        _WARNED_DEFAULT = True
-        logger.warning(
-            "AUTH_SECRET_KEY is not set — using insecure default. "
-            "Set AUTH_SECRET_KEY in your .env before exposing this service."
-        )
-    return _DEFAULT_SECRET
+    return key
 
 
 # ---------------------------------------------------------------------------
@@ -122,17 +118,35 @@ def assert_production_ready() -> None:
     """Call during server startup; raises RuntimeError if config is insecure in production."""
     if os.environ.get("SOVEREIGN_ENV", "").lower() != "production":
         return
-    missing = []
-    if not os.environ.get("AUTH_SECRET_KEY"):
-        missing.append("AUTH_SECRET_KEY (random 64-char hex: python -c \"import secrets; print(secrets.token_hex(32))\")")
-    if not os.environ.get("SOVEREIGN_PASSWORD"):
-        missing.append("SOVEREIGN_PASSWORD (web UI login password)")
-    if not os.environ.get("SECRET_MANAGER_KEY"):
-        missing.append("SECRET_MANAGER_KEY (vault encryption key)")
-    if missing:
+    errors: list[str] = []
+    auth_key = os.environ.get("AUTH_SECRET_KEY", "")
+    if not auth_key:
+        errors.append(
+            "AUTH_SECRET_KEY is not set "
+            "(generate: python -c \"import secrets; print(secrets.token_hex(32))\")"
+        )
+    elif len(auth_key) < _MIN_KEY_LEN:
+        errors.append(
+            f"AUTH_SECRET_KEY is too short ({len(auth_key)} chars; minimum {_MIN_KEY_LEN})"
+        )
+    sovereign_pw = os.environ.get("SOVEREIGN_PASSWORD", "")
+    if not sovereign_pw:
+        errors.append("SOVEREIGN_PASSWORD is not set (web UI login password)")
+    elif len(sovereign_pw) < 12:
+        errors.append(
+            f"SOVEREIGN_PASSWORD is too short ({len(sovereign_pw)} chars; minimum 12)"
+        )
+    secret_mgr_key = os.environ.get("SECRET_MANAGER_KEY", "")
+    if not secret_mgr_key:
+        errors.append("SECRET_MANAGER_KEY is not set (vault encryption key)")
+    elif len(secret_mgr_key) < _MIN_KEY_LEN:
+        errors.append(
+            f"SECRET_MANAGER_KEY is too short ({len(secret_mgr_key)} chars; minimum {_MIN_KEY_LEN})"
+        )
+    if errors:
         raise RuntimeError(
-            "Refusing to start in production. Missing required secrets:\n"
-            + "\n".join(f"  - {m}" for m in missing)
+            "Refusing to start in production. Configuration errors:\n"
+            + "\n".join(f"  - {e}" for e in errors)
         )
     logger.info("Production auth configuration verified (%d secrets present).", 3)
 
@@ -147,29 +161,45 @@ def _b64url_decode(s: str) -> bytes:
 
 
 def create_token(payload: dict, exp_seconds: int = 28_800) -> str:
-    """Create a signed JWT string. Default expiry: 8 hours."""
+    """Create a signed JWT string (HMAC-SHA256 / HS256). Default expiry: 8 hours.
+
+    Raises ValueError if AUTH_SECRET_KEY is missing or too short.
+    """
     import uuid
+    secret = _get_secret_key()
     header = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
     now = int(time.time())
     body_data = dict(payload, iat=now, exp=now + exp_seconds, jti=str(uuid.uuid4()))
     body = _b64url_encode(json.dumps(body_data).encode())
     sig_input = f"{header}.{body}".encode()
     sig = _b64url_encode(
-        hmac.new(_secret().encode(), sig_input, hashlib.sha256).digest()
+        hmac.new(secret.encode(), sig_input, hashlib.sha256).digest()
     )
     return f"{header}.{body}.{sig}"
 
 
 def verify_token(token: str) -> dict:
-    """Verify and decode a JWT. Raises ValueError on any failure."""
+    """Verify and decode a JWT. Raises ValueError on any failure.
+
+    Explicitly uses HS256 to prevent algorithm-confusion attacks.
+    Raises ValueError if AUTH_SECRET_KEY is missing or too short.
+    """
+    secret = _get_secret_key()
     try:
         parts = token.split(".")
         if len(parts) != 3:
             raise ValueError("Invalid token format")
         header, body, sig = parts
+        # Guard against algorithm confusion: only accept HS256 tokens.
+        try:
+            header_data = json.loads(_b64url_decode(header))
+        except Exception:
+            raise ValueError("Invalid token format")
+        if header_data.get("alg") != "HS256":
+            raise ValueError("Invalid token algorithm — only HS256 is accepted")
         expected_sig = _b64url_encode(
             hmac.new(
-                _secret().encode(),
+                secret.encode(),
                 f"{header}.{body}".encode(),
                 hashlib.sha256,
             ).digest()

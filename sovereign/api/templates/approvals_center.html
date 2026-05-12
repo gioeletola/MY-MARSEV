@@ -4,10 +4,10 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SOVEREIGN — Approvals Center</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.tailwindcss.com" nonce="{{ nonce }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer nonce="{{ nonce }}"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <script>
+  <script nonce="{{ nonce }}">
     tailwind.config = {
       theme: { extend: {
         colors: { bg:'#0a0a0f', surface:'#11111a', border:'#1e1e2e',
@@ -17,7 +17,7 @@
       }}
     }
   </script>
-  <style>
+  <style nonce="{{ nonce }}">
     body { background:#0a0a0f; color:#e2e8f0; font-family:'Inter',sans-serif; }
     ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:#1e1e2e; border-radius:2px; }
     .card { background:#11111a; border:1px solid #1e1e2e; border-radius:12px; }
@@ -171,7 +171,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ nonce }}">
 function approvals() {
   return {
     clock: '',

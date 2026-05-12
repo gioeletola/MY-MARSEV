@@ -79,7 +79,18 @@ class FileOpsTool(BaseTool):
         return {"error": f"Unknown action: {action}"}
 
     def _safe_path(self, relative: str) -> pathlib.Path:
-        """Resolve path and enforce sandbox within data_dir."""
+        """
+        Resolve path and enforce sandbox within data_dir.
+
+        Defenses applied:
+        - Null byte injection → immediate reject
+        - Path traversal via ../ → caught by resolve() + relative_to()
+        - Symlink escape: resolve() follows all symlinks, so relative_to() catches
+          any component that points outside data_dir
+        """
+        if "\x00" in str(relative):
+            raise PermissionError("Null byte in path is not allowed.")
+        # resolve() follows ALL symlinks (including directory-level ones)
         resolved = (self._root / relative).resolve()
         try:
             resolved.relative_to(self._root)

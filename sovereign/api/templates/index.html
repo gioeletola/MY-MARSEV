@@ -10,11 +10,11 @@
   <meta name="theme-color" content="#06b6d4"/>
   <link rel="manifest" href="/manifest.json"/>
   <title>SOVEREIGN AI OS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.tailwindcss.com" nonce="{{ nonce }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer nonce="{{ nonce }}"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <script>
+  <script nonce="{{ nonce }}">
     tailwind.config = {
       theme: {
         extend: {
@@ -36,7 +36,7 @@
       }
     }
   </script>
-  <style>
+  <style nonce="{{ nonce }}">
     body { background: #0a0a0f; color: #e2e8f0; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: #11111a; }
@@ -923,7 +923,7 @@
   </div>
 </nav>
 
-<script>
+<script nonce="{{ nonce }}">
 function sovereign() {
   return {
     // Auth state
@@ -1105,11 +1105,15 @@ function sovereign() {
           const data = await res.json();
           wsUrl += `?ticket=${encodeURIComponent(data.ticket)}`;
         } else {
-          // Fallback to legacy token in URL (less secure but works)
-          wsUrl += `?token=${encodeURIComponent(this.token)}`;
+          // Ticket fetch failed — reconnect will retry after re-auth
+          this.wsStatus = 'error';
+          setTimeout(() => this.reconnect(), this.wsReconnectDelay);
+          return;
         }
       } catch (_) {
-        wsUrl += `?token=${encodeURIComponent(this.token)}`;
+        this.wsStatus = 'error';
+        setTimeout(() => this.reconnect(), this.wsReconnectDelay);
+        return;
       }
       this.wsStatus = 'connecting';
       try {
@@ -1491,7 +1495,7 @@ function sovereign() {
   };
 }
 </script>
-<script>
+<script nonce="{{ nonce }}">
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }

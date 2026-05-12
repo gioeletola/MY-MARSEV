@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import secrets as _secrets
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -109,35 +110,48 @@ app = FastAPI(
 
 
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Adds security headers to every HTTP response."""
+    """Adds security headers (including per-request CSP nonce) to every HTTP response."""
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
+        nonce = _secrets.token_urlsafe(16)
+        request.state.csp_nonce = nonce
         response = await call_next(request)
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        response.headers["X-XSS-Protection"] = "0"  # modern browsers use CSP; disabling legacy header
-        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-        response.headers["Content-Security-Policy"] = (
+        csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://fonts.googleapis.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
+            f"script-src 'self' 'nonce-{nonce}' https://cdn.tailwindcss.com https://unpkg.com "
+            "https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com "
+            "https://fonts.gstatic.com https://cdn.tailwindcss.com; "
+            "img-src 'self' data: https:; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "connect-src 'self' ws: wss:; "
-            "img-src 'self' data:; "
-            "frame-ancestors 'none';"
+            "connect-src 'self' wss: ws:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
         )
+        response.headers["Content-Security-Policy"] = csp
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "0"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
 
 
-# ── Security middleware ────────────────────────────────────────────────────
-_allowed_origins_raw = os.environ.get("SOVEREIGN_ALLOWED_ORIGINS", "")
-_allowed_origins = (
-    [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
-    if _allowed_origins_raw
-    else ["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000"]
-)
+# ── CORS ──────────────────────────────────────────────────────────────────
+_env = os.environ.get("SOVEREIGN_ENV", "")
+_raw_origins = os.environ.get("SOVEREIGN_ALLOWED_ORIGINS", "")
+
+if _raw_origins:
+    _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+elif _env == "production":
+    _allowed_origins = []  # production MUST set SOVEREIGN_ALLOWED_ORIGINS
+    logging.getLogger(__name__).warning(
+        "SOVEREIGN_ALLOWED_ORIGINS not set in production — CORS disabled"
+    )
+else:
+    _allowed_origins = ["http://localhost:8080", "http://127.0.0.1:8080"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -252,15 +266,16 @@ async def service_worker() -> FileResponse:
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request) -> HTMLResponse:
     """Serve the single-page UI."""
-    return templates.TemplateResponse(request, "index.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "index.html", {"nonce": nonce})
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
     """Real-time bidirectional channel for agent streaming.
 
-    Preferred auth: short-lived ticket via ?ticket= (obtained from GET /api/ws-ticket).
-    Legacy fallback: long-lived JWT via ?token= (deprecated — logs may capture it).
+    Auth: short-lived ticket via ?ticket= (obtained from GET /api/ws-ticket).
+    The ?token= URL parameter is no longer supported — use /api/ws-ticket instead.
     """
     ticket = ws.query_params.get("ticket", "")
     token = ws.query_params.get("token", "")
@@ -269,17 +284,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     if ticket:
         authenticated = consume_ws_ticket(ticket)
     elif token:
-        # Deprecated: JWT in URL query string may appear in server access logs.
-        # Use POST /api/ws-ticket + ?ticket= instead.
-        logger.warning(
-            "WS auth via deprecated ?token= URL param from %s — migrate to /api/ws-ticket",
-            ws.client.host if ws.client else "unknown",
-        )
-        try:
-            verify_token(token)
-            authenticated = True
-        except Exception:
-            pass
+        await ws.close(code=4401, reason="Deprecated ?token= auth removed. Use /api/ws-ticket.")
+        return
 
     if not authenticated:
         await ws.accept()
@@ -321,27 +327,32 @@ async def usage(_: dict = Depends(require_auth)) -> JSONResponse:
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def executive_dashboard(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "executive_dashboard.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "executive_dashboard.html", {"nonce": nonce})
 
 
 @app.get("/finance", response_class=HTMLResponse)
 async def finance_cockpit(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "finance_cockpit.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "finance_cockpit.html", {"nonce": nonce})
 
 
 @app.get("/business", response_class=HTMLResponse)
 async def business_wall(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "business_wall.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "business_wall.html", {"nonce": nonce})
 
 
 @app.get("/approvals", response_class=HTMLResponse)
 async def approvals_center(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "approvals_center.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "approvals_center.html", {"nonce": nonce})
 
 
 @app.get("/hud", response_class=HTMLResponse)
 async def jarvis_hud(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "jarvis_hud.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "jarvis_hud.html", {"nonce": nonce})
 
 
 # ---------------------------------------------------------------------------
@@ -887,7 +898,8 @@ async def lab_experiments(lab_id: str, _: dict = Depends(require_auth)) -> JSONR
 @app.get("/expansion", response_class=HTMLResponse)
 async def expansion_dashboard(request: Request) -> HTMLResponse:
     """Serve the Expansion Dashboard."""
-    return templates.TemplateResponse(request, "expansion_dashboard.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "expansion_dashboard.html", {"nonce": nonce})
 
 
 @app.get("/api/expansion/gaps")
@@ -1013,17 +1025,20 @@ async def set_mode(body: SetModeRequest, _: dict = Depends(require_auth)) -> JSO
 
 @app.get("/entities", response_class=HTMLResponse)
 async def entities_panel(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "entities_panel.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "entities_panel.html", {"nonce": nonce})
 
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_panel(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "settings_panel.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "settings_panel.html", {"nonce": nonce})
 
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_panel(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "admin_panel.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "admin_panel.html", {"nonce": nonce})
 
 
 class ProvisionRequest(BaseModel):
@@ -2003,7 +2018,8 @@ async def list_business_ideas(status: str = "", _: dict = Depends(require_auth))
 @app.get("/marsev", response_class=HTMLResponse)
 async def marsev_portal(request: Request) -> HTMLResponse:
     """Serve the MARSEV private portal page."""
-    return templates.TemplateResponse(request, "marsev.html")
+    nonce = getattr(request.state, "csp_nonce", "")
+    return templates.TemplateResponse(request, "marsev.html", {"nonce": nonce})
 
 
 @app.post("/api/chat")

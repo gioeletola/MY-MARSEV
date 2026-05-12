@@ -2,12 +2,15 @@
 Secret Manager — AES-256-GCM encrypted storage for sensitive credentials.
 
 Encryption strategy:
-  - AES-256-GCM via the `cryptography` library (Fernet-compatible key derivation).
-  - Key is derived from SECRET_MANAGER_KEY env var using PBKDF2-HMAC-SHA256.
+  - AES-256-GCM via the ``cryptography`` library (required; no fallback).
+  - Key is derived from SECRET_MANAGER_KEY env var using PBKDF2-HMAC-SHA256
+    with 600,000 iterations (OWASP 2024 recommendation for SHA-256).
+  - Salt is generated randomly per installation and persisted to
+    ``data/memory/.vault_salt`` (256-bit / 32 bytes). Keep this file
+    alongside ``secrets.json`` — losing it makes existing vault data
+    unrecoverable.
   - Each secret gets its own random 12-byte nonce; ciphertext is stored as
     base64(nonce + tag + ciphertext) so it is self-contained.
-  - Falls back to XOR obfuscation when `cryptography` is not installed,
-    logging a prominent warning.
 
 Values are NEVER written to disk in plaintext or included in logs.
 """
@@ -25,27 +28,50 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 _STORE_PATH = Path("data/memory/secrets.json")
-_SALT = b"SOVEREIGN-AI-OS-SALT-v1"   # static salt; rotate with key rotation
-_ITERATIONS = 100_000
+# Salt file lives next to the secrets store.  Keep both together.
+_SALT_FILE = Path("data/memory/.vault_salt")
+_ITERATIONS = 600_000   # OWASP 2024 recommendation for PBKDF2-HMAC-SHA256
 
-# Probe cryptography once at import time.
-# pyo3_runtime.PanicException is a BaseException (not Exception) so we must
-# use `except BaseException` here to catch broken Rust-backed installs.
+# cryptography is a hard requirement — no XOR fallback.
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM  # noqa: F401
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC as _PBKDF2HMAC  # noqa: F401
     from cryptography.hazmat.primitives import hashes as _hashes  # noqa: F401
-    _CRYPTOGRAPHY_AVAILABLE = True
+    _CRYPTO_AVAILABLE = True
 except BaseException:
-    _CRYPTOGRAPHY_AVAILABLE = False
+    _CRYPTO_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# Per-instance random salt
+# ---------------------------------------------------------------------------
+
+def _load_or_create_salt(salt_file: Path = _SALT_FILE) -> bytes:
+    """Load the persisted salt or generate and save a fresh one.
+
+    The salt file must be kept alongside the vault data file.  If the salt
+    file is lost, existing encrypted secrets cannot be decrypted.
+    """
+    salt_file.parent.mkdir(parents=True, exist_ok=True)
+    if salt_file.exists():
+        return salt_file.read_bytes()
+    salt = os.urandom(32)   # 256-bit random salt
+    salt_file.write_bytes(salt)
+    logger.info("Generated new vault salt: %s", salt_file)
+    return salt
 
 
 # ---------------------------------------------------------------------------
 # Key derivation
 # ---------------------------------------------------------------------------
 
-def _derive_key_aes() -> bytes:
+def _derive_key_aes(salt: bytes) -> bytes:
     """Derive a 32-byte AES-256 key from SECRET_MANAGER_KEY via PBKDF2."""
+    if not _CRYPTO_AVAILABLE:
+        raise RuntimeError(
+            "The 'cryptography' package is required for SecretManager. "
+            "Install it: pip install cryptography"
+        )
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from cryptography.hazmat.primitives import hashes
 
@@ -53,7 +79,7 @@ def _derive_key_aes() -> bytes:
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=_SALT,
+        salt=salt,
         iterations=_ITERATIONS,
     )
     return kdf.derive(raw.encode())
@@ -63,87 +89,45 @@ def _derive_key_aes() -> bytes:
 # AES-256-GCM cipher helpers
 # ---------------------------------------------------------------------------
 
-def _encrypt(plaintext: str) -> str:
+def _encrypt(plaintext: str, salt: bytes | None = None) -> str:
     """Encrypt *plaintext* with AES-256-GCM.
 
     Returns base64(nonce[12] + tag[16] + ciphertext).
-    Falls back to XOR obfuscation only in non-production environments when
-    the ``cryptography`` library is unavailable (e.g. minimal CI environments).
-    In production (``SOVEREIGN_ENV=production``) the XOR fallback is disabled
-    and a RuntimeError is raised instead.
+    Requires the ``cryptography`` package — raises RuntimeError if missing.
     """
-    if not _CRYPTOGRAPHY_AVAILABLE:
-        if os.environ.get("SOVEREIGN_ENV", "").lower() == "production":
-            raise RuntimeError(
-                "cryptography library is required in production. "
-                "Run: pip install cryptography>=42.0.0"
-            )
-        logger.warning(
-            "cryptography unavailable — falling back to XOR obfuscation (dev only). "
-            "Run: pip install cryptography>=42.0.0"
+    if not _CRYPTO_AVAILABLE:
+        raise RuntimeError(
+            "The 'cryptography' package is required for SecretManager. "
+            "Install it: pip install cryptography"
         )
-        return _xor_encrypt(plaintext)
-
+    if salt is None:
+        salt = _load_or_create_salt()
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-    key = _derive_key_aes()
+    key = _derive_key_aes(salt)
     nonce = os.urandom(12)
     ct = AESGCM(key).encrypt(nonce, plaintext.encode(), None)
     return base64.b64encode(nonce + ct).decode()
 
 
-def _decrypt(ciphertext: str) -> str:
+def _decrypt(ciphertext: str, salt: bytes | None = None) -> str:
     """Decrypt AES-256-GCM ciphertext.
 
-    Falls back to XOR for legacy values or when ``cryptography`` is missing
-    (non-production only).
+    Requires the ``cryptography`` package — raises RuntimeError if missing.
     """
-    if not _CRYPTOGRAPHY_AVAILABLE:
-        if os.environ.get("SOVEREIGN_ENV", "").lower() == "production":
-            raise RuntimeError(
-                "cryptography library is required in production. "
-                "Run: pip install cryptography>=42.0.0"
-            )
-        return _xor_decrypt(ciphertext)
-
+    if not _CRYPTO_AVAILABLE:
+        raise RuntimeError(
+            "The 'cryptography' package is required for SecretManager. "
+            "Install it: pip install cryptography"
+        )
+    if salt is None:
+        salt = _load_or_create_salt()
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-    try:
-        raw = base64.b64decode(ciphertext.encode())
-        if len(raw) < 28:
-            raise ValueError("Blob too short for AES-GCM — trying XOR fallback")
-        nonce, ct = raw[:12], raw[12:]
-        key = _derive_key_aes()
-        return AESGCM(key).decrypt(nonce, ct, None).decode()
-    except Exception:
-        # Could be a legacy XOR-encrypted value stored before AES migration
-        try:
-            return _xor_decrypt(ciphertext)
-        except Exception:
-            raise
-
-
-# ---------------------------------------------------------------------------
-# XOR fallback (legacy + no-cryptography environments)
-# ---------------------------------------------------------------------------
-
-_FALLBACK_KEY = b"SOVEREIGN-DEV-KEY-DO-NOT-USE-IN-PROD"
-
-
-def _xor_bytes(data: bytes, key: bytes) -> bytes:
-    key_len = len(key)
-    return bytes(b ^ key[i % key_len] for i, b in enumerate(data))
-
-
-def _derive_key() -> bytes:
-    """Return the XOR key (env var or fallback). Used by tests."""
-    return os.environ.get("SECRET_MANAGER_KEY", "").encode() or _FALLBACK_KEY
-
-
-def _xor_encrypt(plaintext: str) -> str:
-    return base64.b64encode(_xor_bytes(plaintext.encode(), _derive_key())).decode()
-
-
-def _xor_decrypt(ciphertext: str) -> str:
-    return _xor_bytes(base64.b64decode(ciphertext.encode()), _derive_key()).decode()
+    raw = base64.b64decode(ciphertext.encode())
+    if len(raw) < 28:
+        raise ValueError("Ciphertext blob too short for AES-GCM")
+    nonce, ct = raw[:12], raw[12:]
+    key = _derive_key_aes(salt)
+    return AESGCM(key).decrypt(nonce, ct, None).decode()
 
 
 # ---------------------------------------------------------------------------
@@ -175,11 +159,38 @@ class SecretEntry:
 class SecretManager:
     """
     Thread-safe AES-256-GCM secret store backed by a JSON file.
+
+    Each instance loads (or creates) a per-installation random salt from
+    ``_SALT_FILE`` (default: ``data/memory/.vault_salt``).  Keep the salt
+    file and ``secrets.json`` together — losing the salt makes existing
+    vault data unrecoverable.
+
     Plaintext never appears in logs or on disk.
     """
 
-    def __init__(self, store_path: Path = _STORE_PATH) -> None:
+    def __init__(
+        self,
+        store_path: Path = _STORE_PATH,
+        salt_file: Path = _SALT_FILE,
+    ) -> None:
+        if not _CRYPTO_AVAILABLE:
+            raise RuntimeError(
+                "The 'cryptography' package is required for SecretManager. "
+                "Install it: pip install cryptography"
+            )
         self._path = store_path
+        # Derive the salt once so all operations within this instance use it.
+        # Warn if vault data exists but no salt file (legacy installation).
+        if not salt_file.exists() and store_path.exists():
+            logger.warning(
+                "Vault data found at %s but no salt file at %s. "
+                "A new random salt will be generated; existing secrets may not "
+                "decrypt correctly. Re-encrypt with the original key or migrate "
+                "the vault before relying on stored secrets.",
+                store_path,
+                salt_file,
+            )
+        self._salt: bytes = _load_or_create_salt(salt_file)
         self._secrets: dict[str, SecretEntry] = {}
         self._load()
 
@@ -196,7 +207,7 @@ class SecretManager:
             secret_id=existing.secret_id if existing else str(uuid.uuid4()),
             name=name,
             category=category,
-            value=_encrypt(value),
+            value=_encrypt(value, self._salt),
             created_at=existing.created_at if existing else now,
             rotated_at=now,
             expires_at=expires_at,
@@ -211,7 +222,7 @@ class SecretManager:
         if entry is None:
             return None
         try:
-            return _decrypt(entry.value)
+            return _decrypt(entry.value, self._salt)
         except Exception:
             logger.error("Failed to decrypt secret: name=%s", name)
             return None
@@ -229,7 +240,7 @@ class SecretManager:
         if entry is None:
             logger.warning("Rotate failed — secret not found: name=%s", name)
             return False
-        entry.value = _encrypt(new_value)
+        entry.value = _encrypt(new_value, self._salt)
         entry.rotated_at = datetime.now(timezone.utc).isoformat()
         self._save()
         logger.info("Secret rotated: name=%s", name)

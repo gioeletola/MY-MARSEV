@@ -93,6 +93,36 @@ class SovereignConfig(BaseModel):
             )
         data["api_key"] = api_key
 
+        # In production, enforce presence and minimum lengths for all secrets.
+        if os.environ.get("SOVEREIGN_ENV", "").lower() == "production":
+            errors: list[str] = []
+            auth_key = os.environ.get("AUTH_SECRET_KEY", "")
+            if not auth_key:
+                errors.append("AUTH_SECRET_KEY is not set")
+            elif len(auth_key) < 32:
+                errors.append(
+                    f"AUTH_SECRET_KEY is too short ({len(auth_key)} chars; minimum 32)"
+                )
+            sovereign_pw = os.environ.get("SOVEREIGN_PASSWORD", "")
+            if not sovereign_pw:
+                errors.append("SOVEREIGN_PASSWORD is not set")
+            elif len(sovereign_pw) < 12:
+                errors.append(
+                    f"SOVEREIGN_PASSWORD is too short ({len(sovereign_pw)} chars; minimum 12)"
+                )
+            secret_mgr_key = os.environ.get("SECRET_MANAGER_KEY", "")
+            if not secret_mgr_key:
+                errors.append("SECRET_MANAGER_KEY is not set")
+            elif len(secret_mgr_key) < 32:
+                errors.append(
+                    f"SECRET_MANAGER_KEY is too short ({len(secret_mgr_key)} chars; minimum 32)"
+                )
+            if errors:
+                raise EnvironmentError(
+                    "Refusing to start in production. Missing or weak secrets:\n"
+                    + "\n".join(f"  - {e}" for e in errors)
+                )
+
         return cls(**data)
 
 

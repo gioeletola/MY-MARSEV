@@ -1,6 +1,8 @@
 """Tests for sovereign/security/secret_manager.py."""
 from __future__ import annotations
 
+import os
+
 import pytest
 
 
@@ -8,7 +10,10 @@ class TestSecretManager:
     @pytest.fixture
     def manager(self, tmp_path):
         from sovereign.security.secret_manager import SecretManager
-        return SecretManager(store_path=tmp_path / "secrets.json")
+        return SecretManager(
+            store_path=tmp_path / "secrets.json",
+            salt_file=tmp_path / ".vault_salt",
+        )
 
     def test_set_and_get(self, manager):
         manager.set("api_key", "supersecret")
@@ -61,9 +66,10 @@ class TestSecretManager:
     def test_persistence(self, tmp_path):
         from sovereign.security.secret_manager import SecretManager
         path = tmp_path / "secrets.json"
-        m1 = SecretManager(store_path=path)
+        salt_file = tmp_path / ".vault_salt"
+        m1 = SecretManager(store_path=path, salt_file=salt_file)
         m1.set("persistent", "value123")
-        m2 = SecretManager(store_path=path)
+        m2 = SecretManager(store_path=path, salt_file=salt_file)
         assert m2.get("persistent") == "value123"
 
     def test_overwrite_existing(self, manager):
@@ -88,29 +94,38 @@ class TestSecretManager:
         assert entry1.secret_id == entry2.secret_id
 
 
-class TestXorCipher:
+class TestAesCipher:
+    """AES-256-GCM encrypt/decrypt helpers (no XOR fallback)."""
+
+    def _make_salt(self) -> bytes:
+        return os.urandom(32)
+
     def test_encrypt_decrypt_roundtrip(self):
+        import os
         from sovereign.security.secret_manager import _encrypt, _decrypt
+        salt = os.urandom(32)
         original = "my secret value"
-        assert _decrypt(_encrypt(original)) == original
+        assert _decrypt(_encrypt(original, salt), salt) == original
 
     def test_different_inputs_different_cipher(self):
+        import os
         from sovereign.security.secret_manager import _encrypt
-        c1 = _encrypt("hello")
-        c2 = _encrypt("world")
+        salt = os.urandom(32)
+        c1 = _encrypt("hello", salt)
+        c2 = _encrypt("world", salt)
         assert c1 != c2
 
     def test_empty_string(self):
-        from sovereign.security.secret_manager import _encrypt, _decrypt
-        assert _decrypt(_encrypt("")) == ""
-
-    def test_derive_key_fallback(self):
-        from sovereign.security.secret_manager import _derive_key, _FALLBACK_KEY
         import os
-        old = os.environ.pop("SECRET_MANAGER_KEY", None)
-        try:
-            key = _derive_key()
-            assert key == _FALLBACK_KEY
-        finally:
-            if old is not None:
-                os.environ["SECRET_MANAGER_KEY"] = old
+        from sovereign.security.secret_manager import _encrypt, _decrypt
+        salt = os.urandom(32)
+        assert _decrypt(_encrypt("", salt), salt) == ""
+
+    def test_random_nonce_produces_distinct_ciphertexts(self):
+        """Same plaintext encrypted twice should differ (random nonce)."""
+        import os
+        from sovereign.security.secret_manager import _encrypt
+        salt = os.urandom(32)
+        c1 = _encrypt("same", salt)
+        c2 = _encrypt("same", salt)
+        assert c1 != c2

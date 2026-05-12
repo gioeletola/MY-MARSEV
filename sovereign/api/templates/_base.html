@@ -9,10 +9,10 @@
   <meta name="theme-color" content="#06b6d4"/>
   <link rel="manifest" href="/manifest.json"/>
   <title>SOVEREIGN — {% block page_title %}Dashboard{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.tailwindcss.com" nonce="{{ nonce }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer nonce="{{ nonce }}"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <script>
+  <script nonce="{{ nonce }}">
     tailwind.config = {
       theme: {
         extend: {
@@ -26,7 +26,7 @@
       }
     };
   </script>
-  <style>
+  <style nonce="{{ nonce }}">
     body { background: #0a0a0f; font-family: 'Inter', sans-serif; }
     .card { background: #111118; border: 1px solid rgba(6,182,212,0.12); }
     .card-hover { transition: border-color 0.2s, box-shadow 0.2s; }

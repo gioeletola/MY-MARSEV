@@ -28,12 +28,34 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
+from collections import deque
 from typing import Any
 
 from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
+
+_MAX_MSG_SIZE = 32_768  # 32 KiB
+
+
+class _RateLimiter:
+    """Token-bucket rate limiter: max_msgs messages per window_s seconds."""
+
+    def __init__(self, max_msgs: int = 30, window_s: float = 10.0) -> None:
+        self._max = max_msgs
+        self._window = window_s
+        self._timestamps: deque = deque()
+
+    def allow(self) -> bool:
+        now = time.monotonic()
+        while self._timestamps and self._timestamps[0] < now - self._window:
+            self._timestamps.popleft()
+        if len(self._timestamps) >= self._max:
+            return False
+        self._timestamps.append(now)
+        return True
 
 
 class WebSocketSessionManager:
@@ -63,11 +85,20 @@ class WebSocketSessionManager:
 
         # Start a heartbeat task: ping every 30 s
         heartbeat_task = asyncio.create_task(self._heartbeat(ws))
+        limiter = _RateLimiter(max_msgs=30, window_s=10.0)
 
         try:
             async for raw in ws.iter_text():
+                # Message size guard
+                if len(raw) > _MAX_MSG_SIZE:
+                    await self._send(ws, {"type": "error", "message": "Message too large"})
+                    continue
                 if raw == "__ping__":
                     await self._send(ws, {"type": "pong"})
+                    continue
+                # Rate limit check
+                if not limiter.allow():
+                    await self._send(ws, {"type": "error", "message": "Rate limit exceeded — slow down"})
                     continue
                 try:
                     msg = json.loads(raw)

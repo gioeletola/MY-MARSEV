@@ -61,20 +61,41 @@ _PII_PATTERNS: list[tuple[str, re.Pattern]] = [
 ]
 
 _DANGEROUS_COMMANDS = [
+    # Filesystem destruction
     re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f\b"),
     re.compile(r"\bformat\s+[Cc]:\b"),
+    re.compile(r"\bsudo\s+rm\b", re.I),
+    re.compile(r"\bdd\s+if="),
+    re.compile(r"\bmkfs\b|\bwipefs\b"),
+    # SQL destruction
     re.compile(r"\bdrop\s+table\b", re.I),
     re.compile(r"\bdrop\s+database\b", re.I),
     re.compile(r"\btruncate\s+table\b", re.I),
     re.compile(r"\bdelete\s+from\b.{0,60}\bwhere\b.{0,20}\b1\s*=\s*1\b", re.I),
-    re.compile(r"\bshutdown\b|\breboot\b", re.I),
-    re.compile(r"\bdd\s+if="),
-    re.compile(r"\bmkfs\b|\bwipefs\b"),
-    re.compile(r":\(\)\s*\{.*\}\s*;"),          # fork bomb
+    # System control
+    re.compile(r"\bshutdown\b|\breboot\b|\bhalt\b|\bpoweroff\b", re.I),
+    re.compile(r"\bkill\s+-9\s+-1\b"),
+    re.compile(r"\bpkill\s+-[A-Z0-9]*\s+-[ua]\b", re.I),
+    # Privilege escalation / persistence
     re.compile(r"\bchmod\s+-R\s+777\b"),
-    re.compile(r"\bkill\s+-9\s+-1\b"),          # kill all processes
-    re.compile(r"\bsudo\s+rm\b", re.I),
+    re.compile(r"\bchmod\s+[a+]s\b"),          # setuid
+    re.compile(r"\bcrontab\s+-[rle]"),
+    re.compile(r"(^|\s|;|&|\|)\s*at\s+now\b", re.I),
+    # Code execution via encoded payloads
     re.compile(r"\beval\s*\(.*\bbase64\b", re.I),
+    re.compile(r"\bbase64\b.*\|\s*(ba)?sh\b", re.I),
+    re.compile(r"\becho\b.*\bbase64\b.*\|\s*(ba)?sh\b", re.I),
+    re.compile(r"\bpython\s+-c\s+['\"].*\\x[0-9a-f]{2}", re.I),
+    re.compile(r"\bpython\s+-c\s+['\"].*__import__", re.I),
+    re.compile(r"\bxxd\s+-r\b.*\|\s*(ba)?sh\b", re.I),
+    # Network pivoting / exfiltration
+    re.compile(r"\b(curl|wget)\s+.*(sh|bash|zsh|fish)\s*\|\s*(ba)?sh\b", re.I),
+    re.compile(r"\bnc\s+(-[a-zA-Z]*[le][a-zA-Z]*\s+)+", re.I),  # netcat listener
+    re.compile(r"\bsocat\b.*\bexec\b", re.I),
+    re.compile(r"\b/dev/tcp/", re.I),
+    # Fork bombs and resource exhaustion
+    re.compile(r":\(\)\s*\{.*\}\s*;"),
+    re.compile(r"\bfork\s*bomb\b", re.I),
 ]
 
 _SECRET_MASK_PATTERNS: list[tuple[re.Pattern, str]] = [

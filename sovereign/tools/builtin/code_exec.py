@@ -20,6 +20,59 @@ from typing import Any
 
 from sovereign.tools.base_tool import BaseTool, ToolSchema
 
+import ast as _ast
+
+_BLOCKED_MODULES = frozenset({
+    "os", "subprocess", "socket", "urllib", "requests", "httpx",
+    "shutil", "ctypes", "importlib", "pickle", "pty", "sys",
+    "builtins", "posix", "nt", "signal", "resource", "fcntl",
+})
+_BLOCKED_BUILTINS = frozenset({
+    "eval", "exec", "compile", "__import__", "open", "breakpoint",
+    "memoryview", "vars", "dir",
+})
+_BLOCKED_ATTR_CALLS = frozenset({
+    "system", "popen", "run", "Popen", "call", "check_output",
+    "check_call", "getoutput", "spawn", "execv", "execve",
+})
+
+
+def _ast_check(code: str) -> str | None:
+    """
+    Walk the AST and block dangerous imports/calls before subprocess execution.
+    Returns a human-readable block reason, or None if code appears safe.
+    """
+    try:
+        tree = _ast.parse(code, mode="exec")
+    except SyntaxError:
+        return None  # let the subprocess surface the syntax error naturally
+
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root in _BLOCKED_MODULES:
+                    return f"import '{alias.name}' is not allowed in sandbox"
+        elif isinstance(node, _ast.ImportFrom):
+            root = (node.module or "").split(".")[0]
+            if root in _BLOCKED_MODULES:
+                return f"'from {node.module} import ...' is not allowed in sandbox"
+        elif isinstance(node, _ast.Call):
+            # Direct built-in call: eval(...), exec(...), __import__(...)
+            if isinstance(node.func, _ast.Name) and node.func.id in _BLOCKED_BUILTINS:
+                return f"call to '{node.func.id}' is not allowed in sandbox"
+            # Attribute call: os.system(...), subprocess.run(...), etc.
+            if isinstance(node.func, _ast.Attribute):
+                if node.func.attr in _BLOCKED_ATTR_CALLS:
+                    return f"call to '.{node.func.attr}' is not allowed in sandbox"
+        elif isinstance(node, _ast.Attribute):
+            # Block __dunder__ attribute access used for class-hierarchy escapes
+            if node.attr in ("__class__", "__bases__", "__subclasses__", "__globals__",
+                             "__builtins__", "__code__", "__closure__"):
+                return f"access to '{node.attr}' is not allowed in sandbox"
+
+    return None
+
 
 class CodeExecTool(BaseTool):
     """
@@ -79,22 +132,17 @@ class CodeExecTool(BaseTool):
         """
         timeout_seconds = min(max(1, timeout_seconds), 30)
 
-        # Reject obviously dangerous patterns before spawning a process
-        _BLOCKED = [
-            "__import__('os').system", "subprocess", "os.system", "os.popen",
-            "shutil.rmtree", "open('/", "open(\"/", "socket", "urllib",
-            "requests", "httpx", "exec(", "eval(", "compile(",
-        ]
-        for pat in _BLOCKED:
-            if pat in code:
-                return {
-                    "stdout": "",
-                    "stderr": f"Blocked: pattern '{pat}' is not allowed in sandbox.",
-                    "exit_code": -2,
-                    "elapsed_ms": 0,
-                    "truncated": False,
-                    "timed_out": False,
-                }
+        # AST-based static analysis — catch dangerous calls regardless of obfuscation
+        block_reason = _ast_check(code)
+        if block_reason:
+            return {
+                "stdout": "",
+                "stderr": f"Sandbox blocked: {block_reason}",
+                "exit_code": -2,
+                "elapsed_ms": 0,
+                "truncated": False,
+                "timed_out": False,
+            }
 
         with tempfile.TemporaryDirectory(prefix="sovereign_exec_") as tmpdir:
             script = Path(tmpdir) / "script.py"
