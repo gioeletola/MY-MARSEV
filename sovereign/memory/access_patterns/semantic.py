@@ -1,10 +1,11 @@
 """
 Semantic (embedding-based) memory access.
 
-Provides two levels of semantic search:
-  1. Dense embeddings via sentence-transformers (best quality, optional)
-  2. Enhanced TF-IDF with char + word n-grams (good quality, always available)
-  3. Basic TF-IDF word n-grams (fallback, always available)
+Provides three levels of semantic search:
+  1. VectorStore (ChromaDB + sentence-transformers) — persistent, best quality, optional
+  2. Dense embeddings via sentence-transformers (in-memory, optional)
+  3. Enhanced TF-IDF with char + word n-grams (good quality, always available)
+  4. Basic TF-IDF word n-grams (fallback, always available)
 
 The public API is SemanticIndex, which wraps EmbeddingSemanticSearch and keeps
 a key→text mapping for use with memory domains.
@@ -18,6 +19,8 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.pipeline import FeatureUnion
+
+from sovereign.memory.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +202,7 @@ class SemanticIndex:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
         self._engine = EmbeddingSemanticSearch(model_name=model_name)
         self._keys: list[str] = []
+        self._vector_store = VectorStore()
 
     def build(self, key_text_mapping: dict[str, str]) -> None:
         """
@@ -218,11 +222,31 @@ class SemanticIndex:
         Returns:
             List of (key, score) tuples sorted by score descending.
         """
+        if self._vector_store.available and self._keys:
+            for key in self._keys:
+                text = self._get_text_for_key(key)
+                if text is not None:
+                    self._vector_store.upsert(key, text)
+            results = self._vector_store.search(query, n_results=top_k)
+            return [(r["id"], r["score"]) for r in results if r["id"] in set(self._keys)]
+
         hits = self._engine.search(query, top_k=top_k)
         return [(self._keys[idx], score) for idx, score in hits]
 
+    def _get_text_for_key(self, key: str) -> str | None:
+        """Return the text for a key from the engine's internal corpus."""
+        try:
+            idx = self._keys.index(key)
+            if hasattr(self._engine, "_texts") and idx < len(self._engine._texts):
+                return self._engine._texts[idx]
+        except (ValueError, AttributeError):
+            pass
+        return None
+
     @property
     def mode(self) -> str:
+        if self._vector_store.available:
+            return self._vector_store.backend
         return self._engine.mode
 
     def __len__(self) -> int:

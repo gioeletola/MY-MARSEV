@@ -127,7 +127,7 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 | `sovereign/orchestrator.py` | Master wiring — 10-step session flow |
 | `sovereign/executive/` | CEO, ChiefOfStaff, Coordinator, Guardian, ApprovalGate, TaskSetter |
 | `sovereign/swarm/` | All 326 agent classes (factory pattern) |
-| `sovereign/memory/` | 18-domain memory system with semantic search (TF-IDF + sentence-transformers) |
+| `sovereign/memory/` | 18-domain memory system with semantic search: ChromaDB + sentence-transformers (all-MiniLM-L6-v2) with TF-IDF fallback. Install: `pip install chromadb sentence-transformers` |
 | `sovereign/tools/builtin/` | web_search, code_exec, file_ops, memory_tool, notes, calendar, hash, url, date, text_analysis, base64, uuid, number, color, template_render, markdown, diff, translation, etc. |
 | `sovereign/claude/client.py` | Claude API client with prompt caching (primary execution path) |
 | `sovereign/models/` | Multi-provider layer: AnthropicProvider, OpenAIProvider, GeminiProvider, PerplexityProvider, QwenProvider, LocalProvider, ProviderDispatcher |
