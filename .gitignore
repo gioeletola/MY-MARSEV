@@ -44,6 +44,7 @@ data/state.json
 data/conversations/
 data/builder/
 data/labs/
+data/backups/
 
 # macOS
 .DS_Store

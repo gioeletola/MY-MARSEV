@@ -14,10 +14,14 @@ Exposes:
 """
 from __future__ import annotations
 
+import asyncio
+import collections
 import logging
 import os
 import pathlib
 import secrets as _secrets
+import threading
+import time
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -46,6 +50,30 @@ _STATIC_DIR = _HERE / "static"
 # Global singletons (initialised in lifespan)
 _orchestrator: Any = None
 _manager: WebSocketSessionManager | None = None
+
+# ---------------------------------------------------------------------------
+# Per-IP HTTP API rate limiter (all /api/* endpoints)
+# ---------------------------------------------------------------------------
+_api_rate_lock = threading.Lock()
+_api_calls: dict[str, collections.deque] = {}
+_API_RATE_MAX    = 120   # requests per window
+_API_RATE_WINDOW = 60.0  # seconds
+
+
+def _api_rate_check(ip: str) -> bool:
+    """Sliding-window rate check for general API endpoints. Returns True if allowed."""
+    now = time.monotonic()
+    cutoff = now - _API_RATE_WINDOW
+    with _api_rate_lock:
+        if ip not in _api_calls:
+            _api_calls[ip] = collections.deque()
+        dq = _api_calls[ip]
+        while dq and dq[0] < cutoff:
+            dq.popleft()
+        if len(dq) >= _API_RATE_MAX:
+            return False
+        dq.append(now)
+        return True
 
 # Voice singletons — lazily initialised on first use
 _tts_engine: Any = None          # TTSEngine | None
@@ -78,9 +106,39 @@ def _get_feedback_registry() -> Any:
     return _feedback_registry
 
 
+class _SchedulerQueueAdapter:
+    """Wrap asyncio.Queue so the Scheduler's run_loop can call queue.enqueue(...)."""
+
+    def __init__(self, q: asyncio.Queue) -> None:
+        self._q = q
+
+    async def enqueue(self, agent_id: str, objective: str, payload: dict | None = None) -> None:
+        # We store a simple namespace so the consumer can read .job_id / .objective
+        import types
+        item = types.SimpleNamespace(
+            job_id=agent_id,
+            agent_id=agent_id,
+            objective=objective,
+            payload=payload or {},
+        )
+        await self._q.put(item)
+
+
+async def _consume_scheduler_queue(queue: asyncio.Queue, orch: Any) -> None:
+    """Drain the scheduler job queue and dispatch each job to the orchestrator."""
+    while True:
+        job = await queue.get()
+        try:
+            await orch.handle_request(job.objective)
+        except Exception as exc:
+            logger.error("Scheduled job %s failed: %s", job.job_id, exc)
+        finally:
+            queue.task_done()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create orchestrator and WS session manager. Shutdown: log."""
+    """Startup: create orchestrator, WS session manager, scheduler, and backup. Shutdown: clean up."""
     global _orchestrator, _manager
     from sovereign.api.auth import assert_production_ready
     assert_production_ready()
@@ -94,9 +152,59 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("Failed to start orchestrator", error=str(exc))
         raise
+
+    # ── Scheduler ─────────────────────────────────────────────────────────
+    _scheduler_task: asyncio.Task | None = None
+    _consumer_task: asyncio.Task | None = None
+    _stop_event: asyncio.Event | None = None
+
+    try:
+        from sovereign.infra.scheduler import Scheduler
+        _scheduler = Scheduler()
+        _stop_event = asyncio.Event()
+        _job_queue: asyncio.Queue = asyncio.Queue()
+        _queue_adapter = _SchedulerQueueAdapter(_job_queue)
+        _scheduler_task = asyncio.create_task(
+            _scheduler.run_loop(_queue_adapter, _stop_event),
+            name="scheduler_loop",
+        )
+        _consumer_task = asyncio.create_task(
+            _consume_scheduler_queue(_job_queue, _orchestrator),
+            name="scheduler_consumer",
+        )
+        logger.info(
+            "Scheduler started with %d job(s)", len(_scheduler.list_jobs())
+        )
+    except ImportError as exc:
+        logger.warning("Scheduler not available: %s", exc)
+
+    # ── Backup manager ────────────────────────────────────────────────────
+    _backup_task: asyncio.Task | None = None
+
+    try:
+        from sovereign.infra.backup_manager import BackupManager
+        _backup_mgr = BackupManager()
+        _backup_task = asyncio.create_task(
+            _backup_mgr.run_loop(interval_hours=24, stop_event=_stop_event),
+            name="backup_loop",
+        )
+        logger.info("BackupManager started (interval=24h)")
+    except ImportError as exc:
+        logger.warning("BackupManager not available: %s", exc)
+
     try:
         yield
     finally:
+        # Signal background tasks to stop
+        if _stop_event is not None:
+            _stop_event.set()
+        for task in (_scheduler_task, _consumer_task, _backup_task):
+            if task is not None and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
         await _orchestrator.stop_background_tasks()
         logger.info("SOVEREIGN AI OS web server shutting down")
 

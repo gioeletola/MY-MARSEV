@@ -1168,5 +1168,40 @@ def check(
         raise typer.Exit(code=1)
 
 
+# ---------------------------------------------------------------------------
+# backup command — manage memory backups
+# ---------------------------------------------------------------------------
+
+@app.command()
+def backup(
+    action: str = typer.Argument("list", help="list | restore <backup_name>"),
+) -> None:
+    """Manage memory backups (list or restore)."""
+    from sovereign.infra.backup_manager import BackupManager
+    bm = BackupManager()
+    if action == "list":
+        backups = bm.list_backups()
+        if backups:
+            for b in backups:
+                console.print(b)
+        else:
+            console.print("[dim](no backups yet)[/dim]")
+    elif action.startswith("restore"):
+        parts = action.split(None, 1)
+        name = parts[1] if len(parts) > 1 else ""
+        if not name:
+            console.print("[red]Usage: backup restore <backup_name>[/red]")
+            raise typer.Exit(1)
+        try:
+            bm.restore(name)
+            console.print(f"[green]Restored from {name}[/green]")
+        except FileNotFoundError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(1)
+    else:
+        console.print(f"[red]Unknown action: {action!r}. Use 'list' or 'restore <name>'.[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
