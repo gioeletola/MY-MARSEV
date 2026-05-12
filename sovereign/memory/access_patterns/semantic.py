@@ -199,10 +199,15 @@ class SemanticIndex:
     index a key→text mapping, then `search(query)` to retrieve top results.
     """
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
+    def __init__(
+        self,
+        model_name: str = "all-MiniLM-L6-v2",
+        persist_dir: str = "data/vector_store",
+        collection: str = "sovereign_memory",
+    ) -> None:
         self._engine = EmbeddingSemanticSearch(model_name=model_name)
         self._keys: list[str] = []
-        self._vector_store = VectorStore()
+        self._vector_store = VectorStore(persist_dir=persist_dir, collection=collection)
 
     def build(self, key_text_mapping: dict[str, str]) -> None:
         """
@@ -221,8 +226,17 @@ class SemanticIndex:
 
         Returns:
             List of (key, score) tuples sorted by score descending.
+
+        VectorStore is only used when it has real semantic embeddings
+        (sentence-transformers). With hash-based embeddings the cosine
+        similarity is meaningless, so TF-IDF is strictly better in that case.
         """
-        if self._vector_store.available and self._keys:
+        use_vector_store = (
+            self._vector_store.available
+            and self._keys
+            and self._vector_store.backend == "chromadb+sentence-transformers"
+        )
+        if use_vector_store:
             for key in self._keys:
                 text = self._get_text_for_key(key)
                 if text is not None:

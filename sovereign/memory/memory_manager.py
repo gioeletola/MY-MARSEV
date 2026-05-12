@@ -152,7 +152,10 @@ class MemoryManager:
             key_text[ck] = self._record_to_text(value)
             composite_keys.append(ck)
 
-        index = SemanticIndex()
+        # Use a unique collection name so this transient index never pollutes
+        # the persistent ChromaDB state shared across sessions and test runs.
+        import uuid as _uuid
+        index = SemanticIndex(collection=f"_transient_{_uuid.uuid4().hex[:8]}")
         index.build(key_text)
         hits = index.search(query, top_k=top_k)
 
