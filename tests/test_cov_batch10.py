@@ -537,3 +537,85 @@ def test_pipeline_output_has_provider_fields():
     assert out.preferred_provider == "openai"
     assert out.preferred_model == "gpt-4o"
     assert out.mode_override is None
+
+
+# ── TTSEngine ─────────────────────────────────────────────────────────────────
+
+def test_tts_engine_no_keys():
+    from sovereign.hud.tts_engine import TTSEngine
+    e = TTSEngine()
+    assert e.backend == "unavailable"
+    assert e.available is False
+
+def test_tts_engine_backend_property():
+    from sovereign.hud.tts_engine import TTSEngine
+    e = TTSEngine()
+    assert e.backend in {"openai", "elevenlabs", "pyttsx3", "unavailable"}
+
+import pytest
+
+@pytest.mark.asyncio
+async def test_tts_engine_speak_unavailable():
+    from sovereign.hud.tts_engine import TTSEngine
+    e = TTSEngine()
+    result = await e.speak("hello")
+    assert result == b""
+
+@pytest.mark.asyncio
+async def test_tts_engine_speak_to_file_unavailable(tmp_path):
+    from sovereign.hud.tts_engine import TTSEngine
+    e = TTSEngine()
+    ok = await e.speak_to_file("hello", tmp_path / "out.mp3")
+    assert ok is False
+
+def test_tts_engine_imports():
+    from sovereign.hud import TTSEngine, VoiceCommandRecogniser
+    assert TTSEngine is not None
+    assert VoiceCommandRecogniser is not None
+
+# ── MorningBrief ──────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_morning_brief_generate():
+    from sovereign.reporting.morning_brief import generate_morning_brief
+    data = {"date": "2026-05-12", "weather": "sunny", "tasks": ["task1"]}
+    brief = await generate_morning_brief(data)
+    assert isinstance(brief, str)
+    assert len(brief) > 10
+
+@pytest.mark.asyncio
+async def test_morning_brief_run_no_tts():
+    from sovereign.reporting.morning_brief import run_morning_brief
+    result = await run_morning_brief({"date": "2026-05-12"}, speak=False)
+    assert isinstance(result, str)
+
+
+# ── AgentFeedbackRegistry ─────────────────────────────────────────────────────
+
+def test_feedback_registry_empty(tmp_path):
+    from sovereign.registries.agent_feedback import AgentFeedbackRegistry
+    r = AgentFeedbackRegistry(path=tmp_path / "feedback.json")
+    s = r.summary()
+    assert s["total_feedback"] == 0
+    assert s["agents_rated"] == 0
+
+def test_feedback_registry_record(tmp_path):
+    from sovereign.registries.agent_feedback import AgentFeedbackRegistry
+    r = AgentFeedbackRegistry(path=tmp_path / "feedback.json")
+    r.record("agent_x", "sess1", "task1", 1, "great")
+    r.record("agent_x", "sess1", "task2", -1, "bad")
+    assert r.agent_score("agent_x") == 0.0
+    r.record("agent_y", "sess1", "task3", 1)
+    tops = r.top_agents(1)
+    assert tops[0]["agent_id"] == "agent_y"
+    summary = r.summary()
+    assert summary["total_feedback"] == 3
+    assert summary["agents_rated"] == 2
+
+def test_feedback_poor_agents(tmp_path):
+    from sovereign.registries.agent_feedback import AgentFeedbackRegistry
+    r = AgentFeedbackRegistry(path=tmp_path / "feedback.json")
+    r.record("bad_agent", "s", "t", -1)
+    r.record("bad_agent", "s", "t2", -1)
+    poor = r.poor_agents(threshold=-0.1)
+    assert any(p["agent_id"] == "bad_agent" for p in poor)
