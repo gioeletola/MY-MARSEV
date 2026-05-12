@@ -22,7 +22,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -45,6 +45,27 @@ _STATIC_DIR = _HERE / "static"
 # Global singletons (initialised in lifespan)
 _orchestrator: Any = None
 _manager: WebSocketSessionManager | None = None
+
+# Voice singletons — lazily initialised on first use
+_tts_engine: Any = None          # TTSEngine | None
+_voice_recogniser: Any = None    # VoiceCommandRecogniser | None
+
+
+def _get_tts() -> Any:
+    global _tts_engine
+    if _tts_engine is None:
+        from sovereign.hud.tts_engine import TTSEngine
+        _tts_engine = TTSEngine()
+    return _tts_engine
+
+
+def _get_recogniser() -> Any:
+    global _voice_recogniser
+    if _voice_recogniser is None:
+        import os
+        from sovereign.hud.voice_command import VoiceCommandRecogniser
+        _voice_recogniser = VoiceCommandRecogniser(api_key=os.environ.get("OPENAI_API_KEY", ""))
+    return _voice_recogniser
 
 
 @asynccontextmanager
@@ -367,6 +388,66 @@ async def metrics(_: dict = Depends(require_auth)) -> JSONResponse:
     if _orchestrator is None:
         return JSONResponse({"error": "Not initialised"}, status_code=503)
     return JSONResponse(_orchestrator.get_experiment_metrics("live_sessions"))
+
+
+# ---------------------------------------------------------------------------
+# REST API — Voice (STT + TTS)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/voice")
+async def voice_transcribe(request: Request, _: dict = Depends(require_auth)) -> JSONResponse:
+    """Receive audio bytes (multipart or raw body), transcribe via Whisper, return text."""
+    content_type = request.headers.get("content-type", "")
+    try:
+        if "multipart/form-data" in content_type:
+            form = await request.form()
+            audio_file = form.get("audio") or form.get("file")
+            if audio_file is None:
+                return JSONResponse({"error": "No audio field in form"}, status_code=400)
+            audio_bytes = await audio_file.read()  # type: ignore[union-attr]
+            mime = audio_file.content_type or "audio/wav"  # type: ignore[union-attr]
+        else:
+            audio_bytes = await request.body()
+            mime = content_type or "audio/wav"
+        recogniser = _get_recogniser()
+        cmd = await recogniser.transcribe_bytes(audio_bytes, mime)
+        return JSONResponse({"text": cmd.text, "confidence": cmd.confidence, "source": cmd.source})
+    except Exception as exc:
+        logger.warning("voice_transcribe error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/tts")
+async def tts_synthesize(payload: dict, _: dict = Depends(require_auth)) -> Response:
+    """Convert text to speech, return audio/mpeg bytes."""
+    text = str(payload.get("text", "")).strip()
+    if not text:
+        return JSONResponse({"error": "text is required"}, status_code=400)
+    tts = _get_tts()
+    if not tts.available:
+        return JSONResponse({"error": "TTS not configured"}, status_code=503)
+    try:
+        voice = str(payload.get("voice", "onyx"))
+        audio_bytes = await tts.speak(text, voice=voice)
+        if not audio_bytes:
+            return JSONResponse({"error": "TTS produced no output"}, status_code=500)
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+    except Exception as exc:
+        logger.warning("tts_synthesize error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/voice/status")
+async def voice_status(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Return voice subsystem status."""
+    tts = _get_tts()
+    recogniser = _get_recogniser()
+    stt_available = bool(recogniser._api_key or recogniser._pyaudio_available)
+    return JSONResponse({
+        "tts_backend": tts.backend,
+        "tts_available": tts.available,
+        "stt_available": stt_available,
+    })
 
 
 # ---------------------------------------------------------------------------

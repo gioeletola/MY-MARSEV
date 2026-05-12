@@ -106,6 +106,16 @@
     .voice-orb.listening { background:rgba(124,58,237,0.3); animation:voicePulse 1s infinite; }
     @keyframes voicePulse { 0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,0.4)} 50%{box-shadow:0 0 0 10px rgba(124,58,237,0)} }
 
+    /* TTS toggle button */
+    .tts-btn {
+      width:30px; height:30px; border-radius:50%;
+      background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:all 0.2s; pointer-events:all; font-size:14px;
+    }
+    .tts-btn.enabled { background:rgba(16,185,129,0.25); border-color:rgba(16,185,129,0.6); }
+    .tts-btn:hover { background:rgba(16,185,129,0.2); }
+
     /* Chat input */
     .hud-input {
       flex:1; background:transparent; border:none; outline:none;
@@ -225,6 +235,10 @@
          :title="listening ? 'Stop listening' : 'Click to speak'">
       🎙
     </div>
+    <div class="tts-btn" :class="ttsEnabled ? 'enabled' : ''" @click="ttsEnabled=!ttsEnabled"
+         :title="ttsEnabled ? 'TTS on — click to disable' : 'TTS off — click to enable'">
+      🔊
+    </div>
     <input class="hud-input" type="text" placeholder="Command SOVEREIGN..." x-model="command"
            @keydown.enter="sendCommand()" @keydown.escape="command=''"/>
     <button style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);
@@ -247,9 +261,11 @@
 function hud() {
   return {
     clock:'', ws:null, wsConnected:false, listening:false,
+    ttsEnabled: false,
     command:'', streamText:'', mode:'command',
     agentCount:0, agentFeed:[], runningAgents:[], uptime:'00:00:00',
     startedAt: Date.now(),
+    _mediaRecorder: null, _audioChunks: [],
     sysItems:[
       {label:'API',    value:'OK',  ok:true},
       {label:'MEMORY', value:'OK',  ok:true},
@@ -301,8 +317,20 @@ function hud() {
           this.runningAgents = this.runningAgents.filter(a=>a!==msg.agent_id);
         }
       }
-      if (msg.type==='stream_delta') this.streamText += msg.content;
-      if (msg.type==='stream_done') { /* done */ }
+      if (msg.type==='stream_delta') {
+        this.streamText += msg.content;
+      }
+      if (msg.type==='stream_done') {
+        if (this.ttsEnabled && this.streamText) {
+          this.speakResponse(this.streamText);
+        }
+      }
+      if (msg.type==='response' || msg.type==='chat_reply') {
+        const text = msg.content || msg.text || msg.reply || '';
+        if (this.ttsEnabled && text) {
+          this.speakResponse(text);
+        }
+      }
     },
     sendCommand() {
       if (!this.command.trim() || !this.ws || this.ws.readyState!==1) return;
@@ -310,22 +338,82 @@ function hud() {
       this.ws.send(JSON.stringify({type:'chat', content:this.command, mode:this.mode}));
       this.command = '';
     },
-    toggleVoice() {
-      this.listening = !this.listening;
+    async speakResponse(text) {
+      const token = localStorage.getItem('sovereign_token') || '';
+      try {
+        const resp = await fetch('/api/tts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? {'Authorization': `Bearer ${token}`} : {}),
+          },
+          body: JSON.stringify({text}),
+        });
+        if (!resp.ok) return;
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.play().catch(e => console.warn('TTS playback error:', e));
+      } catch(e) {
+        console.warn('speakResponse error:', e);
+      }
+    },
+    async toggleVoice() {
       if (this.listening) {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-          this.listening = false;
-          return;
+        this.listening = false;
+        if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+          this._mediaRecorder.stop();
         }
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const rec = new SR();
-        rec.lang = 'en-US'; rec.interimResults = false;
-        rec.onresult = e => {
-          this.command = e.results[0][0].transcript;
-          this.sendCommand();
+        return;
+      }
+      this.listening = true;
+      this._audioChunks = [];
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        const options = mimeType ? {mimeType} : {};
+        this._mediaRecorder = new MediaRecorder(stream, options);
+        this._mediaRecorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) this._audioChunks.push(e.data);
         };
-        rec.onend = () => { this.listening = false; };
-        rec.start();
+        this._mediaRecorder.onstop = async () => {
+          this.listening = false;
+          stream.getTracks().forEach(t => t.stop());
+          if (!this._audioChunks.length) return;
+          const blob = new Blob(this._audioChunks, {type: mimeType || 'audio/webm'});
+          this._audioChunks = [];
+          try {
+            const token = localStorage.getItem('sovereign_token') || '';
+            const form = new FormData();
+            form.append('audio', blob, 'recording.webm');
+            const resp = await fetch('/api/voice', {
+              method: 'POST',
+              headers: token ? {'Authorization': `Bearer ${token}`} : {},
+              body: form,
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data.text && data.text.trim()) {
+                this.command = data.text.trim();
+                this.sendCommand();
+              }
+            }
+          } catch(e) {
+            console.warn('STT upload error:', e);
+          }
+        };
+        this._mediaRecorder.start();
+        setTimeout(() => {
+          if (this._mediaRecorder && this._mediaRecorder.state === 'recording') {
+            this._mediaRecorder.stop();
+          }
+        }, 8000);
+      } catch(e) {
+        console.warn('Microphone access error:', e.message);
+        this.listening = false;
       }
     },
     async startCamera() {
