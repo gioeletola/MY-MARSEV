@@ -6,6 +6,8 @@ import os
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 
 # ---------------------------------------------------------------------------
 # PerplexityProvider
@@ -552,7 +554,6 @@ def test_tts_engine_backend_property():
     e = TTSEngine()
     assert e.backend in {"openai", "elevenlabs", "pyttsx3", "unavailable"}
 
-import pytest
 
 @pytest.mark.asyncio
 async def test_tts_engine_speak_unavailable():
