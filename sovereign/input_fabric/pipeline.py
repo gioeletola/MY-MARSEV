@@ -41,6 +41,9 @@ class PipelineOutput:
     intent: str = "general"
     intent_confidence: float = 0.5
     mode_hint: str = "command"
+    preferred_provider: str | None = None   # explicit provider request detected in text
+    preferred_model: str | None = None      # explicit model request detected in text
+    mode_override: str | None = None        # explicit mode switch detected in text
 
 
 class InputPipeline:
@@ -147,6 +150,11 @@ class InputPipeline:
                 pass
         steps.append("11.5_intent")
 
+        # Step 11.6: Provider/model intent detection
+        from sovereign.input_fabric.provider_intent import parse_provider_intent
+        prov_intent = parse_provider_intent(text)
+        steps.append("11.6_provider_intent")
+
         # Step 12: Build output
         steps.append("12_build")
 
@@ -170,6 +178,9 @@ class InputPipeline:
             intent=intent,
             intent_confidence=intent_confidence,
             mode_hint=mode_hint,
+            preferred_provider=prov_intent.preferred_provider,
+            preferred_model=prov_intent.preferred_model,
+            mode_override=prov_intent.mode_override,
         )
 
     # ------------------------------------------------------------------

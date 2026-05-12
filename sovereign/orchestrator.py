@@ -250,12 +250,30 @@ class SovereignOrchestrator:
         )
 
         mode = operating_mode or self.config.default_operating_mode
+
+        # Apply mode_override detected in text ("modalità caveman", "mode research"…)
+        if pipeline_out.mode_override and self.set_mode(pipeline_out.mode_override):
+            mode = pipeline_out.mode_override
+            logger.info("Mode override from user text: %s", mode)
+            self._emit("mode_change", {"mode": mode, "session_id": session_id})
+
+        # Apply explicit provider/model request ("usa GPT-4o", "use Kimi"…)
+        _override_provider = pipeline_out.preferred_provider
+        _override_model    = pipeline_out.preferred_model
+        if _override_provider:
+            logger.info(
+                "Provider override from user text: %s/%s",
+                _override_provider, _override_model or "default",
+            )
+
         ctx = AgentContext(
             session_id=session_id,
             operating_mode=mode,
             memory_snapshot=snapshot,
             constitution_hash=self._constitution.constitution_hash(),
             memory_manager=self._memory,
+            preferred_provider=_override_provider,
+            preferred_model=_override_model,
         )
 
         # --- Step 3: CEO agent — interpret intent, select mode ---

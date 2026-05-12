@@ -491,3 +491,49 @@ class TestKimiProviderWithKey(unittest.TestCase):
         resp = asyncio.run(d.complete("kimi", "kimi-latest", req))
         self.assertEqual(resp.content, "kimi!")
         self.assertEqual(resp.provider, "kimi")
+
+
+# ── ProviderIntentParser ───────────────────────────────────────────────────────
+
+def test_provider_intent_openai():
+    from sovereign.input_fabric.provider_intent import parse_provider_intent
+    r = parse_provider_intent("usa GPT-4o per questa analisi")
+    assert r.detected is True
+    assert r.preferred_provider == "openai"
+    assert r.preferred_model == "gpt-4o"
+
+def test_provider_intent_kimi():
+    from sovereign.input_fabric.provider_intent import parse_provider_intent
+    r = parse_provider_intent("rispondi con Kimi")
+    assert r.preferred_provider == "kimi"
+
+def test_provider_intent_gemini_flash():
+    from sovereign.input_fabric.provider_intent import parse_provider_intent
+    r = parse_provider_intent("voglio usare Gemini Flash")
+    assert r.preferred_provider == "gemini"
+    assert r.preferred_model == "gemini-1.5-flash"
+
+def test_provider_intent_mode_override():
+    from sovereign.input_fabric.provider_intent import parse_provider_intent
+    r = parse_provider_intent("attiva modalità caveman")
+    assert r.mode_override == "caveman"
+    assert r.preferred_provider is None
+
+def test_provider_intent_no_match():
+    from sovereign.input_fabric.provider_intent import parse_provider_intent
+    r = parse_provider_intent("analizza il mio portafoglio crypto")
+    assert r.detected is False
+    assert r.preferred_provider is None
+
+def test_provider_intent_claude_opus():
+    from sovereign.input_fabric.provider_intent import parse_provider_intent
+    r = parse_provider_intent("use Claude Opus for this")
+    assert r.preferred_provider == "anthropic"
+    assert "opus" in r.preferred_model
+
+def test_pipeline_output_has_provider_fields():
+    from sovereign.input_fabric.pipeline import PipelineOutput
+    out = PipelineOutput(normalized_text="test", preferred_provider="openai", preferred_model="gpt-4o")
+    assert out.preferred_provider == "openai"
+    assert out.preferred_model == "gpt-4o"
+    assert out.mode_override is None

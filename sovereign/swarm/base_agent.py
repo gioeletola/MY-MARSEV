@@ -68,6 +68,8 @@ class AgentContext:
     constitution_hash: str = ""    # Used to verify prompt cache validity
     memory_manager: Any = None     # Live MemoryManager for observe/save steps
     tags: list[str] = field(default_factory=list)   # Routing/classification tags
+    preferred_provider: str | None = None   # Explicit provider override from user ("usa GPT-4o")
+    preferred_model: str | None = None      # Explicit model override from user
 
 
 # ---------------------------------------------------------------------------
@@ -177,10 +179,26 @@ class BaseAgent(ABC):
             },
             memory_snapshot=ctx.memory_snapshot,
         )
+        # If the user explicitly requested a different provider, route via dispatcher
+        if ctx.preferred_provider and ctx.preferred_provider != "anthropic":
+            from sovereign.models.dispatcher import get_dispatcher
+            from sovereign.models.base_provider import CompletionRequest
+            dispatcher = get_dispatcher()
+            model_id = ctx.preferred_model or self.model
+            sys_text = system.to_api_blocks()[0].get("text", "") if hasattr(system, "to_api_blocks") else str(system)
+            req = CompletionRequest(
+                messages=messages,
+                system=sys_text,
+                model=model_id,
+                max_tokens=max_tokens,
+            )
+            comp_resp = await dispatcher.complete(ctx.preferred_provider, model_id, req)
+            return comp_resp.content
+
         response = await self._claude.complete(
             messages=messages,
             system=system,
-            model=self.model,
+            model=ctx.preferred_model if ctx.preferred_model and ctx.preferred_provider == "anthropic" else self.model,
             max_tokens=max_tokens,
         )
         # Extract text from response
