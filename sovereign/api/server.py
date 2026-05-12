@@ -46,6 +46,18 @@ _STATIC_DIR = _HERE / "static"
 _orchestrator: Any = None
 _manager: WebSocketSessionManager | None = None
 
+# Lazy singleton — created on first request to avoid import-time side-effects
+_feedback_registry: Any = None
+
+
+def _get_feedback_registry() -> Any:
+    """Return (and lazily create) the module-level AgentFeedbackRegistry singleton."""
+    global _feedback_registry
+    if _feedback_registry is None:
+        from sovereign.registries.agent_feedback import AgentFeedbackRegistry
+        _feedback_registry = AgentFeedbackRegistry()
+    return _feedback_registry
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -1086,6 +1098,56 @@ async def reset_settings(_: dict = Depends(require_auth)) -> JSONResponse:
     """Reset all settings to defaults."""
     from sovereign.api.user_settings import get_settings_store
     return JSONResponse(get_settings_store().reset())
+
+
+# ---------------------------------------------------------------------------
+# REST API — Agent Feedback (thumbs up / down → prompt scoring)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/feedback")
+async def submit_feedback(
+    payload: dict, _: dict = Depends(require_auth)
+) -> JSONResponse:
+    """Record user feedback (thumbs up/down) for an agent response.
+
+    Expected payload keys:
+        agent_id   — agent that produced the response.
+        session_id — current session identifier.
+        task_id    — message / task identifier (may be empty string).
+        rating     — +1 (thumbs up) or -1 (thumbs down).
+        comment    — optional free-text comment.
+    """
+    try:
+        agent_id   = str(payload.get("agent_id",   "unknown"))
+        session_id = str(payload.get("session_id", ""))
+        task_id    = str(payload.get("task_id",    ""))
+        rating     = int(payload.get("rating",     0))
+        comment    = str(payload.get("comment",    ""))
+        if rating not in (1, -1):
+            return JSONResponse({"error": "rating must be +1 or -1"}, status_code=400)
+        registry = _get_feedback_registry()
+        registry.record(
+            agent_id=agent_id,
+            session_id=session_id,
+            task_id=task_id,
+            rating=rating,
+            comment=comment,
+        )
+        score = registry.agent_score(agent_id)
+        return JSONResponse({"ok": True, "agent_score": score})
+    except Exception as exc:
+        logger.warning("submit_feedback error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/feedback/summary")
+async def feedback_summary(_: dict = Depends(require_auth)) -> JSONResponse:
+    """Return aggregate feedback summary — used by the dashboard."""
+    try:
+        return JSONResponse(_get_feedback_registry().summary())
+    except Exception as exc:
+        logger.warning("feedback_summary error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 # ---------------------------------------------------------------------------

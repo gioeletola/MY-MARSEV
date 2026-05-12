@@ -144,6 +144,40 @@
       .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 39; }
       .sidebar-overlay.open { display: block; }
     }
+    /* Mobile-first responsive layout */
+    @media (max-width: 768px) {
+      /* Bottom nav safe area + chat padding */
+      .chat-container { padding-bottom: 4.5rem; }
+      .msg-user, .msg-system { font-size: 0.875rem; }
+      /* Right panel hidden on mobile by default — shown via bottom nav */
+      aside.right-panel { display: none !important; }
+      aside.right-panel.mobile-visible { display: flex !important; }
+      /* Mode chips container for horizontal scroll */
+      .mode-chips { display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.25rem 0;
+                    scrollbar-width: none; -ms-overflow-style: none; }
+      .mode-chips::-webkit-scrollbar { display: none; }
+      .mode-chip { flex-shrink: 0; white-space: nowrap; padding: 0.2rem 0.65rem;
+                   border-radius: 9999px; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace;
+                   border: 1px solid #1e1e2e; background: #11111a; color: #94a3b8;
+                   cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+      .mode-chip.active { border-color: #06b6d4; color: #06b6d4; }
+      /* Input touch targets */
+      .mobile-input-area textarea { min-height: 44px; font-size: 1rem; }
+      .mobile-send-btn { min-width: 44px; min-height: 44px; }
+      /* Header cleanup on mobile — hide verbose nav links */
+      .header-desktop-nav { display: none !important; }
+    }
+    /* Bottom navigation bar */
+    .bottom-nav-item { display: flex; flex-direction: column; align-items: center;
+                       justify-content: center; flex: 1; padding: 0.5rem 0;
+                       cursor: pointer; color: #6b7280; transition: color 0.15s; font-size: 0.6rem;
+                       gap: 0.15rem; }
+    .bottom-nav-item.active { color: #06b6d4; }
+    .bottom-nav-item svg { width: 1.25rem; height: 1.25rem; }
+    /* Feedback buttons on messages */
+    .feedback-btns { display: flex; gap: 0.4rem; margin-top: 0.35rem; opacity: 0; transition: opacity 0.2s; }
+    .msg-system:hover .feedback-btns,
+    .msg-user:hover .feedback-btns { opacity: 1; }
     /* Mode dot colours */
     .mode-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
     .mode-dot.command  { background: #06b6d4; }
@@ -234,9 +268,9 @@
     </div>
   </div>
   <div class="flex items-center gap-4">
-    <!-- Mode selector -->
+    <!-- Mode selector (desktop) -->
     <select x-model="selectedMode" @change="switchMode()"
-            class="bg-bg border border-border rounded px-2 py-1 text-xs text-slate-300 font-mono focus:outline-none focus:border-cyan">
+            class="hidden md:block bg-bg border border-border rounded px-2 py-1 text-xs text-slate-300 font-mono focus:outline-none focus:border-cyan">
       <option value="command">Command</option>
       <option value="business">Business</option>
       <option value="personal">Personal</option>
@@ -255,7 +289,7 @@
       <option value="emergency">🚨 Emergency</option>
     </select>
     <!-- Dashboard nav -->
-    <div class="flex items-center gap-1">
+    <div class="header-desktop-nav flex items-center gap-1">
       <a href="/dashboard"  target="_blank" class="text-xs text-muted hover:text-cyan font-mono border border-border rounded px-2 py-1 transition-colors" title="Executive Dashboard">exec</a>
       <a href="/finance"    target="_blank" class="text-xs text-muted hover:text-amber font-mono border border-border rounded px-2 py-1 transition-colors" title="Finance Cockpit">fin</a>
       <a href="/business"   target="_blank" class="text-xs text-muted hover:text-violet font-mono border border-border rounded px-2 py-1 transition-colors" title="Business Wall">biz</a>
@@ -283,7 +317,8 @@
 </header>
 
 <!-- Main 3-column layout -->
-<div class="flex flex-1 overflow-hidden" x-show="loggedIn" x-cloak>
+<div class="flex flex-1 overflow-hidden" x-show="loggedIn" x-cloak
+     :class="activeTab === 'settings' ? 'mobile-settings-active' : ''">
 
   <!-- LEFT SIDEBAR — Sessions + Memory -->
   <aside class="left-sidebar w-56 border-r border-border bg-surface flex flex-col shrink-0 overflow-hidden"
@@ -622,8 +657,18 @@
          CHAT VIEW
     ═══════════════════════════════════════════════════ -->
     <div x-show="activeView === 'chat'" class="flex-1 flex flex-col overflow-hidden">
+    <!-- Mobile mode chips (horizontal scroll, md:hidden) -->
+    <div class="md:hidden shrink-0 px-3 py-2 border-b border-border bg-surface">
+      <div class="mode-chips">
+        <template x-for="m in ['command','business','personal','finance','research','builder','study','travel','local_offline','survival','founder','war','prestige','silent','recovery','emergency']" :key="m">
+          <button @click="selectedMode = m; switchMode()"
+                  :class="selectedMode === m ? 'mode-chip active' : 'mode-chip'"
+                  x-text="m"></button>
+        </template>
+      </div>
+    </div>
     <!-- Messages area -->
-    <div id="messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3" x-ref="messages">
+    <div id="messages" class="chat-container flex-1 overflow-y-auto px-4 py-4 space-y-3" x-ref="messages">
 
       <!-- Welcome -->
       <div x-show="messages.length === 0" class="flex flex-col items-center justify-center h-full text-center">
@@ -664,13 +709,25 @@
               <span x-show="msg.mode" class="text-xs font-mono text-muted"
                     x-text="msg.mode"></span>
             </div>
+            <!-- Feedback buttons (AI responses only) -->
+            <div x-show="msg.role !== 'user' && !msg.error && !msg.streaming" class="feedback-btns">
+              <button @click="feedback(msg, 1)"
+                      class="text-xs text-muted hover:text-green-400 transition-colors"
+                      :class="msg.feedbackRating === 1 ? 'text-green-400' : ''"
+                      title="Good response">👍</button>
+              <button @click="feedback(msg, -1)"
+                      class="text-xs text-muted hover:text-rose transition-colors"
+                      :class="msg.feedbackRating === -1 ? 'text-rose' : ''"
+                      title="Bad response">👎</button>
+              <span x-show="msg.feedbackSent" class="text-xs text-muted font-mono">✓ recorded</span>
+            </div>
           </div>
         </div>
       </template>
     </div>
 
     <!-- Input area -->
-    <div class="shrink-0 border-t border-border bg-surface px-4 py-3">
+    <div class="mobile-input-area shrink-0 border-t border-border bg-surface px-4 py-3">
       <!-- Tool calls feed -->
       <div x-show="activeTasks.length > 0" class="mb-2 flex flex-wrap gap-1.5">
         <template x-for="t in activeTasks" :key="t.id">
@@ -704,7 +761,7 @@
           <!-- Send button -->
           <button @click="sendMessage()" :disabled="isStreaming || !inputText.trim()"
                   :class="isStreaming || !inputText.trim() ? 'opacity-30 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-cyan/20'"
-                  class="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan to-violet flex items-center justify-center transition-all">
+                  class="mobile-send-btn shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan to-violet flex items-center justify-center transition-all">
             <svg x-show="!isStreaming" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
@@ -729,7 +786,8 @@
   </main>
 
   <!-- RIGHT PANEL — Health + Tokens + Agents -->
-  <aside class="w-64 border-l border-border bg-surface flex flex-col shrink-0 overflow-hidden">
+  <aside class="right-panel w-64 border-l border-border bg-surface flex flex-col shrink-0 overflow-hidden"
+         :class="activeTab === 'settings' ? 'mobile-visible' : ''">
     <!-- Health panel (toggleable) -->
     <div x-show="showHealth" class="border-b border-border">
       <div class="px-3 pt-3 pb-2">
@@ -821,6 +879,50 @@
   </aside>
 </div>
 
+<!-- Mobile bottom navigation bar -->
+<nav class="fixed bottom-0 left-0 right-0 md:hidden z-50" x-show="loggedIn" x-cloak
+     style="background:#11111a; border-top:1px solid #1e1e2e;">
+  <div class="flex items-stretch">
+    <!-- Chat tab -->
+    <button class="bottom-nav-item" :class="activeTab === 'chat' ? 'active' : ''"
+            @click="activeTab = 'chat'; activeView = 'chat'">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+      </svg>
+      Chat
+    </button>
+    <!-- Dashboard tab -->
+    <button class="bottom-nav-item" :class="activeTab === 'dashboard' ? 'active' : ''"
+            @click="activeTab = 'dashboard'; activeView = 'dashboard'; if (!dashboard) fetchDashboard()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+      </svg>
+      Dashboard
+    </button>
+    <!-- Memory tab -->
+    <button class="bottom-nav-item" :class="activeTab === 'memory' ? 'active' : ''"
+            @click="activeTab = 'memory'; sidebarOpen = !sidebarOpen">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+      </svg>
+      Memory
+    </button>
+    <!-- Settings tab -->
+    <button class="bottom-nav-item" :class="activeTab === 'settings' ? 'active' : ''"
+            @click="activeTab = activeTab === 'settings' ? 'chat' : 'settings'">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      Settings
+    </button>
+  </div>
+</nav>
+
 <script>
 function sovereign() {
   return {
@@ -865,6 +967,12 @@ function sovereign() {
     dashboardUpdatedAt: '',
     reportSending:     false,
     reportSent:        false,
+
+    // Mobile nav
+    activeTab:  'chat',   // 'chat' | 'dashboard' | 'memory' | 'settings'
+
+    // Session ID for feedback
+    sessionId: String(Date.now()),
 
     quickPrompts: [
       'Give me today\'s executive briefing',
@@ -1340,6 +1448,27 @@ function sovereign() {
         this.reportSending = false;
       }
     },
+    // Agent feedback — thumbs up / down
+    async feedback(msg, rating) {
+      if (msg.feedbackRating) return; // already voted
+      msg.feedbackRating = rating;
+      try {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { ...this.authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_id:   msg.agent || 'unknown',
+            session_id: this.sessionId,
+            task_id:    String(msg.id || ''),
+            rating,
+          }),
+        });
+        msg.feedbackSent = true;
+      } catch(e) {
+        console.warn('feedback error', e);
+      }
+    },
+
     fmt(n) {
       if (!n && n !== 0) return '—';
       const v = parseFloat(n);
