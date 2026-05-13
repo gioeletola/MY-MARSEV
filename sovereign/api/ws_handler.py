@@ -37,6 +37,11 @@ from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
+try:
+    from sovereign.persistence.session_store import SessionStore as _SessionStore
+except Exception:  # pragma: no cover
+    _SessionStore = None  # type: ignore[assignment,misc]
+
 _MAX_MSG_SIZE = 32_768  # 32 KiB
 
 
@@ -70,6 +75,8 @@ class WebSocketSessionManager:
         self._orch = orchestrator
         # Map session_id → asyncio.Task for in-flight chat tasks (for cancellation)
         self._active_tasks: dict[str, asyncio.Task] = {}
+        # SQLite session persistence (graceful fallback if unavailable)
+        self._sessions: Any = _SessionStore() if _SessionStore is not None else None
 
     # ------------------------------------------------------------------
     # Main entry — one coroutine per WebSocket connection
@@ -192,6 +199,13 @@ class WebSocketSessionManager:
             })
             return
 
+        # ── Persist user message ───────────────────────────────────────────
+        if self._sessions is not None:
+            try:
+                self._sessions.add_message(session_id, "user", user_input)
+            except Exception as _exc:
+                logger.debug("session_store user write failed: %s", _exc)
+
         # ── Register an event callback so we can forward orchestrator events ──
         async def push_event(event: dict) -> None:
             """Translate orchestrator events into WS messages."""
@@ -252,6 +266,15 @@ class WebSocketSessionManager:
                 operating_mode=mode,
                 on_token=on_token,
             )
+
+            # ── Persist assistant response ─────────────────────────────────
+            if self._sessions is not None:
+                try:
+                    self._sessions.add_message(
+                        session_id, "assistant", str(output.result or "")
+                    )
+                except Exception as _exc:
+                    logger.debug("session_store assistant write failed: %s", _exc)
 
             # Send completion metadata
             await self._send(ws, {

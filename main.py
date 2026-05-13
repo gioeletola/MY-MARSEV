@@ -219,6 +219,118 @@ def _print_result(result, *, verbose: bool = False) -> None:
 
 
 # ---------------------------------------------------------------------------
+# setup command — interactive first-time configuration wizard
+# ---------------------------------------------------------------------------
+
+@app.command()
+def setup() -> None:
+    """Interactive first-time setup wizard — configure .env and validate."""
+    import secrets as _sec
+    import subprocess
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    console.print("[bold cyan]═══ SOVEREIGN AI OS — Setup Wizard ═══[/bold cyan]")
+    console.print(
+        "Press Enter to skip optional fields or accept auto-generated values.\n"
+    )
+
+    env_path = _Path(".env")
+    existing: dict = {}
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if "=" in line and not line.startswith("#"):
+                k, _, v = line.partition("=")
+                existing[k.strip()] = v.strip()
+
+    def _prompt_key(
+        key: str,
+        prompt: str,
+        required: bool = True,
+        validator=None,
+        default: str = "",
+    ) -> str:
+        current = existing.get(key, "")
+        hint = f" (current: {'set' if current else 'not set'})"
+        hide = any(word in key for word in ("KEY", "TOKEN", "PASSWORD", "SECRET"))
+        while True:
+            val = typer.prompt(
+                f"{prompt}{hint}",
+                default=default or current or "",
+                hide_input=hide,
+            )
+            if not val:
+                if required:
+                    console.print("[red]This field is required.[/red]")
+                    continue
+                return current
+            if validator and not validator(val):
+                continue
+            return val
+
+    # ── Required fields ───────────────────────────────────────────────────
+    api_key = _prompt_key(
+        "ANTHROPIC_API_KEY",
+        "Anthropic API Key",
+        validator=lambda v: v.startswith("sk-")
+        or not console.print("[red]Must start with sk-[/red]"),
+    )
+    password = _prompt_key(
+        "SOVEREIGN_PASSWORD",
+        "Web UI Password (min 8 chars)",
+        validator=lambda v: len(v) >= 8
+        or not console.print("[red]Min 8 chars required.[/red]"),
+    )
+
+    auth_key = _prompt_key(
+        "AUTH_SECRET_KEY",
+        "JWT Secret Key (Enter=auto-generate)",
+        required=False,
+    )
+    if not auth_key:
+        auth_key = _sec.token_hex(32)
+        console.print("[dim]Auto-generated AUTH_SECRET_KEY[/dim]")
+
+    mgr_key = _prompt_key(
+        "SECRET_MANAGER_KEY",
+        "Vault Encryption Key (Enter=auto-generate)",
+        required=False,
+    )
+    if not mgr_key:
+        mgr_key = _sec.token_hex(32)
+        console.print("[dim]Auto-generated SECRET_MANAGER_KEY[/dim]")
+
+    # ── Optional fields ───────────────────────────────────────────────────
+    console.print("\n[dim]Optional integrations (Enter to skip):[/dim]")
+    openai_key = _prompt_key("OPENAI_API_KEY", "OpenAI API Key", required=False)
+    tg_token   = _prompt_key("TELEGRAM_BOT_TOKEN", "Telegram Bot Token", required=False)
+    el_key     = _prompt_key("ELEVENLABS_API_KEY", "ElevenLabs API Key (TTS)", required=False)
+
+    # ── Write .env ────────────────────────────────────────────────────────
+    updates: dict = {
+        "ANTHROPIC_API_KEY": api_key,
+        "SOVEREIGN_PASSWORD": password,
+        "AUTH_SECRET_KEY": auth_key,
+        "SECRET_MANAGER_KEY": mgr_key,
+    }
+    if openai_key:
+        updates["OPENAI_API_KEY"] = openai_key
+    if tg_token:
+        updates["TELEGRAM_BOT_TOKEN"] = tg_token
+    if el_key:
+        updates["ELEVENLABS_API_KEY"] = el_key
+
+    merged = {**existing, **updates}
+    lines = [f"{k}={v}" for k, v in merged.items()]
+    env_path.write_text("\n".join(lines) + "\n")
+    console.print(f"\n[green]✓ .env written ({len(updates)} keys)[/green]")
+
+    # ── Run check ─────────────────────────────────────────────────────────
+    console.print("\n[bold]Running pre-flight check...[/bold]")
+    subprocess.run([_sys.executable, "main.py", "check"], check=False)  # noqa: S603
+
+
+# ---------------------------------------------------------------------------
 # serve command
 # ---------------------------------------------------------------------------
 

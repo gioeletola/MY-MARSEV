@@ -41,6 +41,7 @@ data/connectors/*.json
 data/oauth_tokens.json
 data/notifications.jsonl
 data/state.json
+data/sessions.db
 data/conversations/
 data/builder/
 data/labs/

@@ -12,7 +12,10 @@ Security model:
 """
 from __future__ import annotations
 
+import ast as _ast
 import asyncio
+import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -20,7 +23,19 @@ from typing import Any
 
 from sovereign.tools.base_tool import BaseTool, ToolSchema
 
-import ast as _ast
+
+def _check_unshare_net() -> bool:
+    """Return True if the OS supports network namespace isolation via `unshare -n`."""
+    if not shutil.which("unshare"):
+        return False
+    try:
+        r = subprocess.run(["unshare", "-n", "true"], capture_output=True, timeout=2)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+_UNSHARE_NET_AVAILABLE = _check_unshare_net()
 
 _BLOCKED_MODULES = frozenset({
     "os", "subprocess", "socket", "urllib", "requests", "httpx",
@@ -158,9 +173,17 @@ class CodeExecTool(BaseTool):
                 "TMPDIR": tmpdir,
             }
 
+            # Wrap with unshare -n (network namespace) when available to
+            # prevent the subprocess from making any outbound network calls.
+            cmd: list[str]
+            if _UNSHARE_NET_AVAILABLE:
+                cmd = ["unshare", "-n", sys.executable, str(script)]
+            else:
+                cmd = [sys.executable, str(script)]
+
             try:
                 proc = await asyncio.create_subprocess_exec(
-                    sys.executable, str(script),
+                    *cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     stdin=asyncio.subprocess.PIPE if input_data else asyncio.subprocess.DEVNULL,

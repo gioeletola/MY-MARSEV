@@ -217,6 +217,29 @@ app = FastAPI(
 )
 
 
+class _APIRateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    Per-IP sliding-window rate limiter for all /api/* endpoints.
+
+    Limits: 120 requests / 60 seconds per client IP.
+    WebSocket and page routes are excluded (they have their own guards).
+    """
+
+    _EXEMPT_PREFIXES = ("/ws", "/static", "/health")
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        path = request.url.path
+        if path.startswith("/api/") and not any(path.startswith(p) for p in self._EXEMPT_PREFIXES):
+            ip = request.client.host if request.client else "unknown"
+            if not _api_rate_check(ip):
+                return JSONResponse(
+                    {"error": "Rate limit exceeded", "retry_after": int(_API_RATE_WINDOW)},
+                    status_code=429,
+                    headers={"Retry-After": str(int(_API_RATE_WINDOW))},
+                )
+        return await call_next(request)
+
+
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Adds security headers (including per-request CSP nonce) to every HTTP response."""
 
@@ -269,6 +292,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Signature-256", "X-Webhook-Timestamp"],
 )
 app.add_middleware(_SecurityHeadersMiddleware)
+app.add_middleware(_APIRateLimitMiddleware)
 
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
@@ -1348,6 +1372,35 @@ async def feedback_summary(_: dict = Depends(require_auth)) -> JSONResponse:
         return JSONResponse(_get_feedback_registry().summary())
     except Exception as exc:
         logger.warning("feedback_summary error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# REST API — Session history (SQLite-backed)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/sessions")
+async def list_sessions(request: Request) -> JSONResponse:
+    """List recent chat sessions."""
+    require_auth(request)
+    try:
+        from sovereign.persistence.session_store import SessionStore
+        return JSONResponse({"sessions": SessionStore().list_sessions()})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/sessions/{session_id}/history")
+async def get_session_history(session_id: str, request: Request) -> JSONResponse:
+    """Return the message history for a specific session."""
+    require_auth(request)
+    try:
+        from sovereign.persistence.session_store import SessionStore
+        return JSONResponse({
+            "session_id": session_id,
+            "messages": SessionStore().get_history(session_id),
+        })
+    except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 

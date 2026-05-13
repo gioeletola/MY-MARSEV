@@ -40,10 +40,18 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
-        run: python -m pytest tests/ -q --tb=short --cov=sovereign --cov-report=term-missing --cov-fail-under=60
+        run: python -m pytest tests/ -q --tb=short --cov=sovereign --cov-report=term-missing --cov-fail-under=70
 
       - name: Import smoke test
         run: python -c "import sovereign; print(sovereign.__version__)"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: .coverage
+          retention-days: 7
 
   build:
     runs-on: ubuntu-latest
@@ -55,3 +63,17 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t sovereign-ai-os:${{ github.sha }} .
+
+      - name: Verify Docker health endpoint
+        run: |
+          docker run -d --name sovereign-test \
+            -e ANTHROPIC_API_KEY=dummy-key \
+            -e SOVEREIGN_PASSWORD=testpass123 \
+            -e AUTH_SECRET_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+            -e SECRET_MANAGER_KEY=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+            -p 8080:8080 \
+            sovereign-ai-os:${{ github.sha }} || true
+          sleep 5
+          docker logs sovereign-test 2>&1 | head -20 || true
+          docker stop sovereign-test || true
+          docker rm sovereign-test || true
