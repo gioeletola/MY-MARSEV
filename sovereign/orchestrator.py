@@ -109,6 +109,7 @@ from sovereign.tools.builtin.mcp_tool import MCPTool
 from sovereign.tools.builtin.memory_tool import MemoryTool
 from sovereign.tools.builtin.notes_tool import NotesTool
 from sovereign.tools.builtin.notification_tool import NotificationTool
+from sovereign.tools.builtin.computer_use import ComputerUseTool
 from sovereign.tools.builtin.screenshot_tool import ScreenshotTool
 from sovereign.tools.builtin.transcriber_tool import TranscriberTool
 from sovereign.tools.builtin.web_search import WebSearchTool
@@ -719,6 +720,7 @@ class SovereignOrchestrator:
         self._tool_registry.register(NotesTool())
         self._tool_registry.register(CalendarTool())
         self._tool_registry.register(BookmarkTool())
+        self._tool_registry.register(ComputerUseTool())
         self._tool_registry.register(ScreenshotTool())
         self._tool_registry.register(TranscriberTool())
         self._tool_registry.register(NotificationTool())
