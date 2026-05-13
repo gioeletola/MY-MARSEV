@@ -58,7 +58,7 @@ class TestSessionStore:
     def test_list_sessions_order(self, tmp_path):
         from sovereign.persistence.session_store import SessionStore
         store = SessionStore(db_path=tmp_path / "s.db")
-        s1 = store.create_session()
+        store.create_session()
         time.sleep(0.01)
         s2 = store.create_session()
         store.add_message(s2, "user", "latest")
