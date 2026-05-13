@@ -29,9 +29,12 @@ class CalendarConnector(ConnectorBase):
         "Reads/writes calendar events via CalDAV or Google Calendar API. "
         "Falls back to local ICS file for offline mode."
     )
-    connector_status = ConnectorStatus.BETA
+    connector_status = ConnectorStatus.CONNECTED
     requires_oauth = True
-    required_scopes = ["https://www.googleapis.com/auth/calendar.readonly"]
+    required_scopes = [
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/calendar.events",
+    ]
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
@@ -304,18 +307,23 @@ class CalendarConnector(ConnectorBase):
         end: str,
         description: str = "",
         location: str = "",
-    ) -> dict:
+        attendees: list[str] | None = None,
+        calendar_id: str | None = None,
+    ) -> dict[str, Any]:
         """
-        Create a calendar event.
-        For Google Calendar: uses the REST API (requires write scope / access token).
-        For CalDAV: PUTs an iCal VEVENT block.
-        Returns the created event dict or raises on error.
+        Create a Google Calendar event.
+        Returns {"event_id": str, "html_link": str} on success, {"error": str} on failure.
+        For CalDAV: PUTs an iCal VEVENT block (attendees/calendar_id ignored).
         """
+        if not self._access_token and not (self._caldav_url and self._caldav_user):
+            return {"error": "No access token — configure GOOGLE_CALENDAR_ACCESS_TOKEN"}
         if self._caldav_url and self._caldav_user:
-            return await self._create_caldav_event(title, start, end, description, location)
-        if self._access_token:
-            return await self._create_gcal_event(title, start, end, description, location)
-        raise RuntimeError("CalendarConnector: no writable backend configured (need CalDAV or OAuth access token)")
+            try:
+                result = await self._create_caldav_event(title, start, end, description, location)
+                return result
+            except Exception as exc:
+                return {"error": str(exc)}
+        return await self._create_gcal_event_ext(title, start, end, description, location, attendees, calendar_id)
 
     async def _create_gcal_event(
         self, title: str, start: str, end: str, description: str, location: str
@@ -337,6 +345,102 @@ class CalendarConnector(ConnectorBase):
             if resp.status_code in (200, 201):
                 return resp.json()
             raise RuntimeError(f"CalendarConnector: create_event failed: HTTP {resp.status_code} {resp.text[:200]}")
+
+    async def _create_gcal_event_ext(
+        self,
+        title: str,
+        start: str,
+        end: str,
+        description: str,
+        location: str,
+        attendees: list[str] | None,
+        calendar_id: str | None,
+    ) -> dict[str, Any]:
+        """Extended Google Calendar event creation supporting attendees and calendar_id."""
+        if not self._access_token:
+            return {"error": "No access token — configure GOOGLE_CALENDAR_ACCESS_TOKEN"}
+        cal_id = calendar_id or self._calendar_id
+        body: dict[str, Any] = {
+            "summary": title,
+            "description": description,
+            "location": location,
+            "start": {"dateTime": start},
+            "end": {"dateTime": end},
+        }
+        if attendees:
+            body["attendees"] = [{"email": a} for a in attendees]
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{_GCAL_BASE}/calendars/{cal_id}/events",
+                    headers={"Authorization": f"Bearer {self._access_token}",
+                             "Content-Type": "application/json"},
+                    json=body,
+                )
+                if resp.status_code in (200, 201):
+                    data = resp.json()
+                    return {"event_id": data.get("id", ""), "html_link": data.get("htmlLink", "")}
+                return {"error": f"Calendar API {resp.status_code}: {resp.text[:200]}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def update_event(
+        self,
+        event_id: str,
+        title: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        description: str | None = None,
+        calendar_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Patch a Google Calendar event. Only provided fields are updated."""
+        if not self._access_token:
+            return {"error": "No access token"}
+        cal_id = calendar_id or self._calendar_id
+        patch: dict[str, Any] = {}
+        if title:
+            patch["summary"] = title
+        if description is not None:
+            patch["description"] = description
+        if start:
+            patch["start"] = {"dateTime": start}
+        if end:
+            patch["end"] = {"dateTime": end}
+        if not patch:
+            return {"error": "No fields to update"}
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.patch(
+                    f"{_GCAL_BASE}/calendars/{cal_id}/events/{event_id}",
+                    headers={"Authorization": f"Bearer {self._access_token}",
+                             "Content-Type": "application/json"},
+                    json=patch,
+                )
+                return {"updated": resp.status_code == 200, "status": resp.status_code}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def delete_event(
+        self,
+        event_id: str,
+        calendar_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete a Google Calendar event."""
+        if not self._access_token:
+            return {"error": "No access token"}
+        cal_id = calendar_id or self._calendar_id
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.delete(
+                    f"{_GCAL_BASE}/calendars/{cal_id}/events/{event_id}",
+                    headers={"Authorization": f"Bearer {self._access_token}"},
+                )
+                return {"deleted": resp.status_code == 204, "status": resp.status_code}
+        except Exception as exc:
+            return {"error": str(exc)}
 
     async def _create_caldav_event(
         self, title: str, start: str, end: str, description: str, location: str

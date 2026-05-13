@@ -27,7 +27,10 @@ class GmailConnector(ConnectorBase):
     connector_description = "Reads recent emails, labels, and threads from Gmail."
     connector_status = ConnectorStatus.BETA
     requires_oauth = True
-    required_scopes = ["https://www.googleapis.com/auth/gmail.readonly"]
+    required_scopes = [
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.send",
+    ]
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
@@ -109,3 +112,111 @@ class GmailConnector(ConnectorBase):
 
     def get_messages(self) -> list[dict]:
         return self._messages
+
+    # ------------------------------------------------------------------
+    # Write operations
+    # ------------------------------------------------------------------
+
+    async def send_email(
+        self,
+        to: str | list[str],
+        subject: str,
+        body: str,
+        html: bool = False,
+        cc: str | list[str] | None = None,
+        reply_to_message_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send an email via Gmail API.
+        Requires scope: https://www.googleapis.com/auth/gmail.send
+        Returns {"message_id": str, "thread_id": str} on success, {"error": str} on failure.
+        """
+        import base64
+        import email.mime.multipart
+        import email.mime.text
+
+        if not self._access_token:
+            return {"error": "No access token configured"}
+
+        # Build MIME message
+        if html:
+            msg: email.mime.multipart.MIMEMultipart | email.mime.text.MIMEText = (
+                email.mime.multipart.MIMEMultipart("alternative")
+            )
+            msg.attach(email.mime.text.MIMEText(body, "html"))
+        else:
+            msg = email.mime.text.MIMEText(body, "plain")
+
+        to_list = [to] if isinstance(to, str) else to
+        msg["To"] = ", ".join(to_list)
+        msg["Subject"] = subject
+        if cc:
+            cc_list = [cc] if isinstance(cc, str) else cc
+            msg["Cc"] = ", ".join(cc_list)
+        if reply_to_message_id:
+            msg["In-Reply-To"] = reply_to_message_id
+            msg["References"] = reply_to_message_id
+
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{_API_BASE}/users/me/messages/send",
+                    headers={**self._headers(), "Content-Type": "application/json"},
+                    json={"raw": raw},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return {"message_id": data.get("id", ""), "thread_id": data.get("threadId", "")}
+                return {"error": f"Gmail API error {resp.status_code}: {resp.text[:200]}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def create_draft(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+    ) -> dict[str, Any]:
+        """Create a draft email (does not send). Returns {"draft_id": str} on success."""
+        import base64
+        import email.mime.text
+
+        if not self._access_token:
+            return {"error": "No access token configured"}
+
+        msg = email.mime.text.MIMEText(body, "plain")
+        msg["To"] = to
+        msg["Subject"] = subject
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{_API_BASE}/users/me/drafts",
+                    headers={**self._headers(), "Content-Type": "application/json"},
+                    json={"message": {"raw": raw}},
+                )
+                if resp.status_code in (200, 201):
+                    return {"draft_id": resp.json().get("id", "")}
+                return {"error": f"Draft API error {resp.status_code}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def trash_message(self, message_id: str) -> dict[str, Any]:
+        """Move a message to trash. Returns {"trashed": True} on success."""
+        if not self._access_token:
+            return {"error": "No access token configured"}
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{_API_BASE}/users/me/messages/{message_id}/trash",
+                    headers=self._headers(),
+                )
+                return {"trashed": resp.status_code == 200, "status": resp.status_code}
+        except Exception as exc:
+            return {"error": str(exc)}

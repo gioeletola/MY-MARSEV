@@ -97,24 +97,111 @@ class NotionConnector(ConnectorBase):
             metadata={"token_configured": bool(self._token)},
         )
 
-    async def create_page(self, parent_id: str, title: str, content: str = "") -> dict:
-        """Create a new page in Notion under parent_id."""
+    async def create_page(
+        self,
+        parent_database_id: str,
+        properties: dict[str, Any],
+        content_blocks: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a new page in a Notion database.
+        properties: Notion property values (see Notion API docs).
+        Returns {"page_id": str, "url": str} on success, {"error": str} on failure.
+        """
         if not self._token:
-            return {"error": "not connected"}
+            return {"error": "No API token configured"}
+        body: dict[str, Any] = {
+            "parent": {"database_id": parent_database_id},
+            "properties": properties,
+        }
+        if content_blocks:
+            body["children"] = content_blocks
         try:
             import httpx
             async with httpx.AsyncClient(timeout=15.0) as client:
-                body = {
-                    "parent": {"page_id": parent_id},
-                    "properties": {
-                        "title": {"title": [{"text": {"content": title}}]}
-                    },
-                    "children": [{
-                        "object": "block", "type": "paragraph",
-                        "paragraph": {"rich_text": [{"text": {"content": content}}]},
-                    }] if content else [],
-                }
-                resp = await client.post(f"{_API_BASE}/pages", headers=self._headers(), json=body)
-                return resp.json()
+                resp = await client.post(
+                    f"{_API_BASE}/pages",
+                    headers=self._headers(),
+                    json=body,
+                )
+                if resp.status_code in (200, 201):
+                    data = resp.json()
+                    return {"page_id": data.get("id", ""), "url": data.get("url", "")}
+                return {"error": f"Notion API {resp.status_code}: {resp.text[:200]}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def update_page(
+        self,
+        page_id: str,
+        properties: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update properties of an existing Notion page."""
+        if not self._token:
+            return {"error": "No API token configured"}
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.patch(
+                    f"{_API_BASE}/pages/{page_id}",
+                    headers=self._headers(),
+                    json={"properties": properties},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return {"page_id": data.get("id", ""), "url": data.get("url", "")}
+                return {"error": f"Notion API {resp.status_code}: {resp.text[:200]}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def append_blocks(
+        self,
+        block_id: str,
+        children: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Append content blocks to a page or block."""
+        if not self._token:
+            return {"error": "No API token configured"}
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.patch(
+                    f"{_API_BASE}/blocks/{block_id}/children",
+                    headers=self._headers(),
+                    json={"children": children},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return {"results": data.get("results", []), "block_id": block_id}
+                return {"error": f"Notion API {resp.status_code}: {resp.text[:200]}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def create_database(
+        self,
+        parent_page_id: str,
+        title: str,
+        properties_schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Create a new Notion database under a parent page."""
+        if not self._token:
+            return {"error": "No API token configured"}
+        body: dict[str, Any] = {
+            "parent": {"page_id": parent_page_id},
+            "title": [{"type": "text", "text": {"content": title}}],
+            "properties": properties_schema,
+        }
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{_API_BASE}/databases",
+                    headers=self._headers(),
+                    json=body,
+                )
+                if resp.status_code in (200, 201):
+                    data = resp.json()
+                    return {"database_id": data.get("id", ""), "url": data.get("url", "")}
+                return {"error": f"Notion API {resp.status_code}: {resp.text[:200]}"}
         except Exception as exc:
             return {"error": str(exc)}
