@@ -130,6 +130,15 @@ async def _consume_scheduler_queue(queue: asyncio.Queue, orch: Any) -> None:
         job = await queue.get()
         try:
             await orch.handle_request(job.objective)
+            # Emit typed event so the ProactiveEventReactor can log it
+            try:
+                from sovereign.events.event_types import EventType, SovereignEvent
+                orch.event_bus.emit(SovereignEvent(
+                    type=EventType.JOB_COMPLETE,
+                    data={"job_id": job.job_id, "name": getattr(job, "name", job.job_id)},
+                ))
+            except Exception:
+                pass
         except Exception as exc:
             logger.error("Scheduled job %s failed: %s", job.job_id, exc)
         finally:
@@ -148,6 +157,17 @@ async def lifespan(app: FastAPI):
         _orchestrator = create_orchestrator(config_path)
         _manager = WebSocketSessionManager(_orchestrator)
         await _orchestrator.start_background_tasks()
+
+        # ── Proactive event reactor ────────────────────────────────────────
+        try:
+            from sovereign.proactive.event_reactor import ProactiveEventReactor
+            _reactor = ProactiveEventReactor(_orchestrator)
+            _reactor.attach(_orchestrator.event_bus)
+            # Bind the event loop so async subscribers can be scheduled
+            _orchestrator.event_bus.set_loop(asyncio.get_event_loop())
+        except Exception as _exc:
+            logger.warning("ProactiveEventReactor not started: %s", _exc)
+
         logger.info("SOVEREIGN AI OS web server started")
     except Exception as exc:
         logger.error("Failed to start orchestrator", error=str(exc))
