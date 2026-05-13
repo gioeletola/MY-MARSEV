@@ -114,6 +114,8 @@ from sovereign.tools.builtin.transcriber_tool import TranscriberTool
 from sovereign.tools.builtin.web_search import WebSearchTool
 from sovereign.tools.tool_registry import ToolRegistry
 from sovereign.tools.tool_router import ToolRouter
+from sovereign.events.event_bus import EventBus
+from sovereign.events.event_types import EventType, SovereignEvent
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +130,8 @@ class SovereignOrchestrator:
         self.config = config
         self._session_counter = 0
         # Streaming event callbacks registered by the UI layer
-        self._event_callbacks: list[Callable[[dict[str, Any]], None]] = []
+        self._event_callbacks: list[Callable[[dict[str, Any]], None]] = []  # legacy
+        self.event_bus = EventBus()
 
         self._init_governance()
         self._init_claude_client()
@@ -160,22 +163,27 @@ class SovereignOrchestrator:
     # ------------------------------------------------------------------
 
     def add_event_callback(self, cb: Callable[[dict[str, Any]], None]) -> None:
-        """Register a callback that receives live session events."""
+        """Register a legacy dict-style callback (for backwards compatibility)."""
         self._event_callbacks.append(cb)
+        self.event_bus.add_legacy_callback(cb)
 
     def remove_event_callback(self, cb: Callable[[dict[str, Any]], None]) -> None:
-        self._event_callbacks.discard(cb) if hasattr(self._event_callbacks, 'discard') else None
         if cb in self._event_callbacks:
             self._event_callbacks.remove(cb)
+        self.event_bus.remove_legacy_callback(cb)
 
     def _emit(self, event_type: str, data: dict[str, Any]) -> None:
-        """Broadcast an event to all registered callbacks."""
-        payload = {"type": event_type, **data}
-        for cb in self._event_callbacks:
-            try:
-                cb(payload)
-            except Exception as exc:
-                logger.debug("Event callback error (%s): %s", event_type, exc)
+        """Emit a typed event via the EventBus (legacy dict callbacks also receive it)."""
+        try:
+            etype = EventType(event_type)
+        except ValueError:
+            etype = EventType.CUSTOM
+        event = SovereignEvent(
+            type=etype,
+            session_id=data.get("session_id", ""),
+            data={k: v for k, v in data.items() if k != "session_id"},
+        )
+        self.event_bus.emit(event)
 
     # ------------------------------------------------------------------
     # Mode management
