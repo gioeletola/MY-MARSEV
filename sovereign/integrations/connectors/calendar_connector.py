@@ -38,10 +38,14 @@ class CalendarConnector(ConnectorBase):
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
-        # Google Calendar (OAuth access token or API key)
         self._access_token = (
             self._config.get("access_token")
             or os.getenv("GOOGLE_CALENDAR_ACCESS_TOKEN")
+            or ""
+        )
+        self._refresh_token = (
+            self._config.get("refresh_token")
+            or os.getenv("GOOGLE_CALENDAR_REFRESH_TOKEN")
             or ""
         )
         self._gcal_api_key = (
@@ -51,20 +55,28 @@ class CalendarConnector(ConnectorBase):
         )
         self._calendar_id = self._config.get("calendar_id") or os.getenv("GOOGLE_CALENDAR_ID", "primary")
 
-        # CalDAV
-        self._caldav_url = self._config.get("caldav_url") or os.getenv("CALENDAR_CALDAV_URL", "")
-        self._caldav_user = self._config.get("username") or os.getenv("CALENDAR_USERNAME", "")
-        self._caldav_pass = self._config.get("password") or os.getenv("CALENDAR_PASSWORD", "")
-
-        # ICS fallback
-        self._ics_path = self._config.get("ics_path", "")
-
-        self._days_ahead = self._config.get("days_ahead", 7)
+        self._caldav_url  = self._config.get("caldav_url")  or os.getenv("CALENDAR_CALDAV_URL", "")
+        self._caldav_user = self._config.get("username")    or os.getenv("CALENDAR_USERNAME", "")
+        self._caldav_pass = self._config.get("password")    or os.getenv("CALENDAR_PASSWORD", "")
+        self._ics_path    = self._config.get("ics_path", "")
+        self._days_ahead  = self._config.get("days_ahead", 7)
         self._events: list[dict] = []
 
     # ------------------------------------------------------------------
     # Auth helpers
     # ------------------------------------------------------------------
+
+    async def _ensure_token(self) -> None:
+        """Proactively refresh the Google Calendar access token if near expiry."""
+        if not self._refresh_token:
+            return
+        try:
+            from sovereign.integrations.connectors.oauth_refresh import ensure_fresh_token
+            fresh = await ensure_fresh_token(self._access_token, self._refresh_token)
+            if fresh and fresh != self._access_token:
+                self._access_token = fresh
+        except Exception as exc:
+            logger.debug("CalendarConnector._ensure_token: %s", exc)
 
     def _gcal_headers(self) -> dict[str, str]:
         if self._access_token:
@@ -87,13 +99,11 @@ class CalendarConnector(ConnectorBase):
     # ------------------------------------------------------------------
 
     async def connect(self) -> bool:
-        # ICS file takes highest priority
         if self._ics_path and os.path.exists(self._ics_path):
             self.connector_status = ConnectorStatus.CONNECTED
             self._logger.info("CalendarConnector: using local ICS file")
             return True
 
-        # CalDAV
         if self._caldav_url and self._caldav_user:
             try:
                 import httpx
@@ -113,8 +123,8 @@ class CalendarConnector(ConnectorBase):
             except Exception as exc:
                 self._logger.error("CalendarConnector: CalDAV connect error: %s", exc)
 
-        # Google Calendar
-        if self._access_token or self._gcal_api_key:
+        if self._access_token or self._refresh_token or self._gcal_api_key:
+            await self._ensure_token()
             try:
                 import httpx
                 async with httpx.AsyncClient(timeout=10.0) as client:
@@ -144,7 +154,8 @@ class CalendarConnector(ConnectorBase):
             return await self._sync_ics()
         if self._caldav_url and self._caldav_user:
             return await self._sync_caldav()
-        if self._access_token or self._gcal_api_key:
+        if self._access_token or self._refresh_token or self._gcal_api_key:
+            await self._ensure_token()
             return await self._sync_gcal()
         return SyncResult(
             connector_id=self.connector_id,
@@ -165,6 +176,7 @@ class CalendarConnector(ConnectorBase):
                 "ics_fallback": bool(self._ics_path),
                 "caldav_configured": bool(self._caldav_url and self._caldav_user),
                 "gcal_configured": bool(self._access_token or self._gcal_api_key),
+                "refresh_token_set": bool(self._refresh_token),
             },
         )
 
@@ -221,7 +233,7 @@ class CalendarConnector(ConnectorBase):
                 '<?xml version="1.0" encoding="utf-8"?>'
                 '<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
                 "<D:prop><D:getetag/><C:calendar-data/></D:prop>"
-                "<C:filter><C:comp-filter name=\"VCALENDAR\">"
+                '<C:filter><C:comp-filter name="VCALENDAR">'
                 f'<C:comp-filter name="VEVENT">'
                 f'<C:time-range start="{time_min}" end="{time_max}"/>'
                 "</C:comp-filter></C:comp-filter></C:filter>"
@@ -279,7 +291,6 @@ class CalendarConnector(ConnectorBase):
     # ------------------------------------------------------------------
 
     async def get_upcoming_events(self, days: int = 7) -> list[dict]:
-        """Return upcoming events within the next `days` days, syncing if needed."""
         old_days = self._days_ahead
         self._days_ahead = days
         await self.sync()
@@ -287,7 +298,6 @@ class CalendarConnector(ConnectorBase):
         return self._events
 
     async def get_today_events(self) -> list[dict]:
-        """Return events scheduled for today."""
         now = datetime.now(timezone.utc)
         today_str = now.strftime("%Y%m%d")
         all_events = await self.get_upcoming_events(days=1)
@@ -310,31 +320,22 @@ class CalendarConnector(ConnectorBase):
         attendees: list[str] | None = None,
         calendar_id: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Create a Google Calendar event.
-        Returns {"event_id": str, "html_link": str} on success, {"error": str} on failure.
-        For CalDAV: PUTs an iCal VEVENT block (attendees/calendar_id ignored).
-        """
+        await self._ensure_token()
         if not self._access_token and not (self._caldav_url and self._caldav_user):
             return {"error": "No access token — configure GOOGLE_CALENDAR_ACCESS_TOKEN"}
         if self._caldav_url and self._caldav_user:
             try:
-                result = await self._create_caldav_event(title, start, end, description, location)
-                return result
+                return await self._create_caldav_event(title, start, end, description, location)
             except Exception as exc:
                 return {"error": str(exc)}
         return await self._create_gcal_event_ext(title, start, end, description, location, attendees, calendar_id)
 
-    async def _create_gcal_event(
-        self, title: str, start: str, end: str, description: str, location: str
-    ) -> dict:
+    async def _create_gcal_event(self, title: str, start: str, end: str, description: str, location: str) -> dict:
         import httpx
         body = {
-            "summary": title,
-            "description": description,
-            "location": location,
+            "summary": title, "description": description, "location": location,
             "start": {"dateTime": start, "timeZone": "UTC"},
-            "end": {"dateTime": end, "timeZone": "UTC"},
+            "end":   {"dateTime": end,   "timeZone": "UTC"},
         }
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
@@ -347,25 +348,15 @@ class CalendarConnector(ConnectorBase):
             raise RuntimeError(f"CalendarConnector: create_event failed: HTTP {resp.status_code} {resp.text[:200]}")
 
     async def _create_gcal_event_ext(
-        self,
-        title: str,
-        start: str,
-        end: str,
-        description: str,
-        location: str,
-        attendees: list[str] | None,
-        calendar_id: str | None,
+        self, title: str, start: str, end: str, description: str, location: str,
+        attendees: list[str] | None, calendar_id: str | None,
     ) -> dict[str, Any]:
-        """Extended Google Calendar event creation supporting attendees and calendar_id."""
         if not self._access_token:
             return {"error": "No access token — configure GOOGLE_CALENDAR_ACCESS_TOKEN"}
         cal_id = calendar_id or self._calendar_id
         body: dict[str, Any] = {
-            "summary": title,
-            "description": description,
-            "location": location,
-            "start": {"dateTime": start},
-            "end": {"dateTime": end},
+            "summary": title, "description": description, "location": location,
+            "start": {"dateTime": start}, "end": {"dateTime": end},
         }
         if attendees:
             body["attendees"] = [{"email": a} for a in attendees]
@@ -374,8 +365,7 @@ class CalendarConnector(ConnectorBase):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(
                     f"{_GCAL_BASE}/calendars/{cal_id}/events",
-                    headers={"Authorization": f"Bearer {self._access_token}",
-                             "Content-Type": "application/json"},
+                    headers={"Authorization": f"Bearer {self._access_token}", "Content-Type": "application/json"},
                     json=body,
                 )
                 if resp.status_code in (200, 201):
@@ -386,27 +376,18 @@ class CalendarConnector(ConnectorBase):
             return {"error": str(exc)}
 
     async def update_event(
-        self,
-        event_id: str,
-        title: str | None = None,
-        start: str | None = None,
-        end: str | None = None,
-        description: str | None = None,
-        calendar_id: str | None = None,
+        self, event_id: str, title: str | None = None, start: str | None = None,
+        end: str | None = None, description: str | None = None, calendar_id: str | None = None,
     ) -> dict[str, Any]:
-        """Patch a Google Calendar event. Only provided fields are updated."""
+        await self._ensure_token()
         if not self._access_token:
             return {"error": "No access token"}
         cal_id = calendar_id or self._calendar_id
         patch: dict[str, Any] = {}
-        if title:
-            patch["summary"] = title
-        if description is not None:
-            patch["description"] = description
-        if start:
-            patch["start"] = {"dateTime": start}
-        if end:
-            patch["end"] = {"dateTime": end}
+        if title:       patch["summary"] = title
+        if description is not None: patch["description"] = description
+        if start:       patch["start"] = {"dateTime": start}
+        if end:         patch["end"]   = {"dateTime": end}
         if not patch:
             return {"error": "No fields to update"}
         try:
@@ -414,20 +395,15 @@ class CalendarConnector(ConnectorBase):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.patch(
                     f"{_GCAL_BASE}/calendars/{cal_id}/events/{event_id}",
-                    headers={"Authorization": f"Bearer {self._access_token}",
-                             "Content-Type": "application/json"},
+                    headers={"Authorization": f"Bearer {self._access_token}", "Content-Type": "application/json"},
                     json=patch,
                 )
                 return {"updated": resp.status_code == 200, "status": resp.status_code}
         except Exception as exc:
             return {"error": str(exc)}
 
-    async def delete_event(
-        self,
-        event_id: str,
-        calendar_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Delete a Google Calendar event."""
+    async def delete_event(self, event_id: str, calendar_id: str | None = None) -> dict[str, Any]:
+        await self._ensure_token()
         if not self._access_token:
             return {"error": "No access token"}
         cal_id = calendar_id or self._calendar_id
@@ -448,31 +424,21 @@ class CalendarConnector(ConnectorBase):
         import uuid
         import httpx
         uid = str(uuid.uuid4())
-        # Normalise datetime strings to iCal format (remove dashes/colons/Z)
         dtstart = re.sub(r"[-:]", "", start).rstrip("Z") + "Z"
-        dtend = re.sub(r"[-:]", "", end).rstrip("Z") + "Z"
+        dtend   = re.sub(r"[-:]", "", end).rstrip("Z") + "Z"
         now_str = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         ics_content = (
-            "BEGIN:VCALENDAR\r\n"
-            "VERSION:2.0\r\n"
-            "PRODID:-//SovereignAI//CalendarConnector//EN\r\n"
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SovereignAI//CalendarConnector//EN\r\n"
             "BEGIN:VEVENT\r\n"
-            f"UID:{uid}\r\n"
-            f"DTSTAMP:{now_str}\r\n"
-            f"DTSTART:{dtstart}\r\n"
-            f"DTEND:{dtend}\r\n"
-            f"SUMMARY:{title}\r\n"
-            f"DESCRIPTION:{description}\r\n"
-            f"LOCATION:{location}\r\n"
-            "END:VEVENT\r\n"
-            "END:VCALENDAR\r\n"
+            f"UID:{uid}\r\nDTSTAMP:{now_str}\r\nDTSTART:{dtstart}\r\nDTEND:{dtend}\r\n"
+            f"SUMMARY:{title}\r\nDESCRIPTION:{description}\r\nLOCATION:{location}\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
         )
         event_url = self._caldav_url.rstrip("/") + f"/{uid}.ics"
         auth = self._caldav_auth()
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.put(
-                event_url,
-                auth=auth,
+                event_url, auth=auth,
                 headers={"Content-Type": "text/calendar; charset=utf-8"},
                 content=ics_content.encode(),
             )
@@ -485,35 +451,24 @@ class CalendarConnector(ConnectorBase):
     # ------------------------------------------------------------------
 
     def _parse_ics(self, content: str) -> list[dict]:
-        """Parse iCal content and return a list of VEVENT dicts."""
         events: list[dict] = []
         for block in re.split(r"BEGIN:VEVENT", content)[1:]:
             def _field(name: str, blk: str = block) -> str:
-                m = re.search(rf"{name}[^:]*:(.*)", blk)
+                m = re.search(rf"{name}[^:]*(.*)", blk)
                 return m.group(1).strip() if m else ""
-
             events.append({
-                "summary": _field("SUMMARY"),
-                "dtstart": _field("DTSTART"),
-                "dtend": _field("DTEND"),
-                "description": _field("DESCRIPTION"),
-                "location": _field("LOCATION"),
-                "uid": _field("UID"),
+                "summary": _field("SUMMARY"), "dtstart": _field("DTSTART"),
+                "dtend": _field("DTEND"), "description": _field("DESCRIPTION"),
+                "location": _field("LOCATION"), "uid": _field("UID"),
             })
         return events
 
     def _parse_caldav_response(self, xml_text: str) -> list[dict]:
-        """Extract VEVENT data from a CalDAV REPORT XML response."""
         events: list[dict] = []
         for cal_data_match in re.finditer(r"<.*?calendar-data[^>]*>(.*?)</.*?calendar-data>", xml_text, re.DOTALL):
             ics_block = cal_data_match.group(1)
-            parsed = self._parse_ics(ics_block)
-            events.extend(parsed)
+            events.extend(self._parse_ics(ics_block))
         return events
-
-    # ------------------------------------------------------------------
-    # Convenience
-    # ------------------------------------------------------------------
 
     def get_events(self) -> list[dict]:
         return self._events

@@ -25,7 +25,6 @@ class AgentFeedbackRegistry:
     # ------------------------------------------------------------------
 
     def _load(self) -> list[dict[str, Any]]:
-        """Load the feedback list from disk, returning [] when absent."""
         if not self._path.exists():
             return []
         try:
@@ -35,7 +34,6 @@ class AgentFeedbackRegistry:
             return []
 
     def _save(self, records: list[dict[str, Any]]) -> None:
-        """Write the feedback list to disk, creating parent dirs as needed."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(
             json.dumps(records, indent=2, ensure_ascii=False),
@@ -91,10 +89,7 @@ class AgentFeedbackRegistry:
         return sum(relevant) / len(relevant)
 
     def top_agents(self, n: int = 10) -> list[dict[str, Any]]:
-        """Return the top *n* agents sorted by descending average score.
-
-        Each element is ``{"agent_id": str, "score": float, "count": int}``.
-        """
+        """Return the top *n* agents sorted by descending average score."""
         records = self._load()
         by_agent: dict[str, list[int]] = {}
         for r in records:
@@ -116,10 +111,7 @@ class AgentFeedbackRegistry:
         return ranked[:n]
 
     def poor_agents(self, threshold: float = -0.3) -> list[dict[str, Any]]:
-        """Return agents whose average score is below *threshold*.
-
-        Each element is ``{"agent_id": str, "score": float, "count": int}``.
-        """
+        """Return agents whose average score is below *threshold*."""
         records = self._load()
         by_agent: dict[str, list[int]] = {}
         for r in records:
@@ -136,15 +128,67 @@ class AgentFeedbackRegistry:
             if sum(ratings) / len(ratings) < threshold
         ]
 
-    def summary(self) -> dict[str, Any]:
-        """Return a summary dict for dashboard display.
+    def recent_negatives(self, n: int = 20) -> list[dict[str, Any]]:
+        """Return the *n* most recent thumbs-down entries."""
+        records = self._load()
+        negatives = [
+            r for r in records if r.get("rating", 0) < 0
+        ]
+        return sorted(negatives, key=lambda r: r.get("timestamp", ""), reverse=True)[:n]
 
-        Keys:
-            total_feedback  — total number of feedback records.
-            agents_rated    — distinct agent IDs that received feedback.
-            top_3           — top 3 agents by score.
-            needs_attention — agents below the -0.3 threshold.
+    def generate_improvement_hints(self, threshold: float = -0.3) -> list[dict[str, Any]]:
+        """Return a list of actionable hints for agents with low scores.
+
+        Each hint contains:
+        - ``agent_id``: the under-performing agent
+        - ``score``: average rating
+        - ``count``: number of feedback entries
+        - ``negative_comments``: list of recent thumbs-down comments
+        - ``hint``: a plain-English suggestion derived from the comments
         """
+        poor = self.poor_agents(threshold=threshold)
+        if not poor:
+            return []
+
+        records = self._load()
+        hints: list[dict[str, Any]] = []
+        for entry in poor:
+            agent_id = entry["agent_id"]
+            neg_comments = [
+                r["comment"]
+                for r in records
+                if r.get("agent_id") == agent_id
+                and r.get("rating", 0) < 0
+                and r.get("comment")
+            ][:5]
+
+            if neg_comments:
+                # Derive a human-readable hint from comment keywords
+                all_text = " ".join(neg_comments).lower()
+                if any(w in all_text for w in ("slow", "timeout", "long", "wait")):
+                    hint = "Reduce response length or add a latency-budget constraint."
+                elif any(w in all_text for w in ("wrong", "incorrect", "error", "mistake", "bad")):
+                    hint = "Add explicit accuracy instructions and a self-check step."
+                elif any(w in all_text for w in ("format", "structure", "list", "table")):
+                    hint = "Specify the expected output format explicitly in the system prompt."
+                elif any(w in all_text for w in ("context", "remember", "forgot", "missing")):
+                    hint = "Inject more memory context before each call or increase recall depth."
+                else:
+                    hint = f"Review recent negative comments and update agent instructions for '{agent_id}'."
+            else:
+                hint = f"No comments available — monitor '{agent_id}' for patterns."
+
+            hints.append({
+                "agent_id": agent_id,
+                "score": round(entry["score"], 3),
+                "count": entry["count"],
+                "negative_comments": neg_comments,
+                "hint": hint,
+            })
+        return hints
+
+    def summary(self) -> dict[str, Any]:
+        """Return a summary dict for dashboard display."""
         records = self._load()
         total = len(records)
         agents_rated = len({r.get("agent_id") for r in records})

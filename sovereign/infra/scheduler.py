@@ -17,35 +17,35 @@ _DEFAULT_PATH = pathlib.Path("data/memory/scheduler.json")
 
 class ScheduleFrequency(str, Enum):
     MINUTELY = "minutely"
-    HOURLY = "hourly"
-    DAILY = "daily"
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
-    CUSTOM = "custom"
+    HOURLY   = "hourly"
+    DAILY    = "daily"
+    WEEKLY   = "weekly"
+    MONTHLY  = "monthly"
+    CUSTOM   = "custom"
 
 
 _FREQ_SECONDS: dict[str, int] = {
     ScheduleFrequency.MINUTELY: 60,
-    ScheduleFrequency.HOURLY: 3600,
-    ScheduleFrequency.DAILY: 86400,
-    ScheduleFrequency.WEEKLY: 604800,
-    ScheduleFrequency.MONTHLY: 2592000,
+    ScheduleFrequency.HOURLY:   3600,
+    ScheduleFrequency.DAILY:    86400,
+    ScheduleFrequency.WEEKLY:   604800,
+    ScheduleFrequency.MONTHLY:  2592000,
 }
 
 
 @dataclass
 class ScheduledJob:
-    job_id: str
-    name: str
-    agent_id: str
-    objective: str
-    frequency: ScheduleFrequency
+    job_id:           str
+    name:             str
+    agent_id:         str
+    objective:        str
+    frequency:        ScheduleFrequency
     interval_seconds: int
-    next_run: float
-    last_run: float = 0.0
-    enabled: bool = True
-    run_count: int = 0
-    payload: dict = field(default_factory=dict)
+    next_run:         float
+    last_run:         float = 0.0
+    enabled:          bool  = True
+    run_count:        int   = 0
+    payload:          dict  = field(default_factory=dict)
 
 
 class Scheduler:
@@ -137,9 +137,32 @@ class Scheduler:
             await asyncio.sleep(30)
 
     def _seed_defaults(self) -> None:
-        self.schedule("daily_health_check", "health_monitor", "Run system health check", ScheduleFrequency.HOURLY)
-        self.schedule("daily_memory_flush", "memory_manager", "Flush memory caches to disk", ScheduleFrequency.DAILY)
-        self.schedule("weekly_eval_report", "eval_agent", "Generate weekly quality eval report", ScheduleFrequency.WEEKLY)
+        """Register default jobs for a fresh install."""
+        self.schedule(
+            "daily_health_check", "health_monitor",
+            "Run system health check",
+            ScheduleFrequency.HOURLY,
+        )
+        self.schedule(
+            "daily_memory_flush", "memory_manager",
+            "Flush memory caches to disk",
+            ScheduleFrequency.DAILY,
+        )
+        self.schedule(
+            "morning_brief", "morning_loop",
+            "Prepare and send morning brief with today's calendar events and urgent tasks via Telegram",
+            ScheduleFrequency.DAILY,
+        )
+        self.schedule(
+            "memory_compaction", "memory_compaction",
+            "Run nightly memory compaction: remove stale transient entries and trim oversized domains",
+            ScheduleFrequency.DAILY,
+        )
+        self.schedule(
+            "weekly_eval_report", "eval_agent",
+            "Generate weekly quality eval report from agent feedback",
+            ScheduleFrequency.WEEKLY,
+        )
 
     def _persist(self) -> None:
         try:

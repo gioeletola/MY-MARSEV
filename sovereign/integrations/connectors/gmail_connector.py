@@ -35,17 +35,31 @@ class GmailConnector(ConnectorBase):
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self._access_token = self._config.get("access_token") or os.getenv("GMAIL_ACCESS_TOKEN") or ""
+        self._refresh_token = self._config.get("refresh_token") or os.getenv("GMAIL_REFRESH_TOKEN") or ""
         self._messages: list[dict] = []
         self._max_results = self._config.get("max_results", 20)
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._access_token}"}
 
+    async def _ensure_token(self) -> None:
+        """Proactively refresh the access token if a refresh token is configured."""
+        if not self._refresh_token:
+            return
+        try:
+            from sovereign.integrations.connectors.oauth_refresh import ensure_fresh_token
+            fresh = await ensure_fresh_token(self._access_token, self._refresh_token)
+            if fresh and fresh != self._access_token:
+                self._access_token = fresh
+        except Exception as exc:
+            logger.debug("GmailConnector._ensure_token: %s", exc)
+
     async def connect(self) -> bool:
-        if not self._access_token:
+        if not self._access_token and not self._refresh_token:
             self._logger.warning("GmailConnector: no access token configured")
             self.connector_status = ConnectorStatus.DISCONNECTED
             return False
+        await self._ensure_token()
         try:
             import httpx
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -66,12 +80,12 @@ class GmailConnector(ConnectorBase):
         self.connector_status = ConnectorStatus.DISCONNECTED
 
     async def sync(self) -> SyncResult:
-        if not self._access_token:
+        if not self._access_token and not self._refresh_token:
             return SyncResult(connector_id=self.connector_id, success=False, errors=["No access token"])
+        await self._ensure_token()
         try:
             import httpx
             async with httpx.AsyncClient(timeout=20.0) as client:
-                # List message IDs
                 resp = await client.get(
                     f"{_API_BASE}/users/me/messages",
                     headers=self._headers(),
@@ -83,7 +97,6 @@ class GmailConnector(ConnectorBase):
                         errors=[f"HTTP {resp.status_code}"],
                     )
                 msg_ids = [m["id"] for m in resp.json().get("messages", [])]
-                # Fetch metadata for each (parallel, limited)
                 snippets = []
                 for mid in msg_ids[:10]:
                     r = await client.get(
@@ -135,10 +148,10 @@ class GmailConnector(ConnectorBase):
         import email.mime.multipart
         import email.mime.text
 
+        await self._ensure_token()
         if not self._access_token:
             return {"error": "No access token configured"}
 
-        # Build MIME message
         if html:
             msg: email.mime.multipart.MIMEMultipart | email.mime.text.MIMEText = (
                 email.mime.multipart.MIMEMultipart("alternative")
@@ -184,6 +197,7 @@ class GmailConnector(ConnectorBase):
         import base64
         import email.mime.text
 
+        await self._ensure_token()
         if not self._access_token:
             return {"error": "No access token configured"}
 
@@ -208,6 +222,7 @@ class GmailConnector(ConnectorBase):
 
     async def trash_message(self, message_id: str) -> dict[str, Any]:
         """Move a message to trash. Returns {"trashed": True} on success."""
+        await self._ensure_token()
         if not self._access_token:
             return {"error": "No access token configured"}
         try:
