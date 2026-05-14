@@ -1,6 +1,6 @@
 # SOVEREIGN AI OS
 
-> 280+ specialized agents · 41 connectors · 23 labs · 16 operating modes · FastAPI web UI
+> 334 specialized agents · 44 connectors · 23 labs · 17 operating modes · FastAPI web UI
 
 A self-directed, multi-agent AI operating system built on the Anthropic Claude API. Orchestrates a stratified hierarchy of agents across business, personal, finance, security, research, and strategy domains — with full memory persistence, semantic search, a7-layer security stack, and a real-time WebSocket dashboard.
 
@@ -38,14 +38,14 @@ User Input
 InputPipeline (input_fabric/)
   │  Normalise · classify · extract intent · security scan
   ▼
-CEOAgent  [LEVEL 5]                        claude-opus-4-6
+CEOAgent  [LEVEL 5]                        claude-opus-4-7
   │  Strategic intent analysis + mode selection
   ▼
 ChiefOfStaff → Coordinator  [LEVEL 5]      claude-sonnet-4-6
   │  Task decomposition (1–5 parallel tasks) + agent routing
   ▼
 AgentSwarm  [LEVEL 2–4]    ←── Semaphore(5) concurrency gate
-  │  280+ specialized agents dispatched in parallel
+  │  334 specialized agents dispatched in parallel
   │  7-step workflow: OBSERVE→ANALYZE→PLAN→EXECUTE→VERIFY→REPORT→SAVE_MEMORY
   ▼
 GuardianAgent + ApprovalGate
@@ -64,11 +64,11 @@ StructuredOutput
 
 | Category | Details |
 |---|---|
-| **Agents** | 280+ agents in 5 tiers (L2–L5) across Finance, Business, Personal, Imperial, Security, Offline, Black-Tier |
+| **Agents** | 334 agents in 5 tiers (L2–L5) across Finance, Business, Personal, Imperial, Security, Offline, Black-Tier |
 | **Memory** | 14 domains (identity, financial, project, decision, diary, health, learning, relationship, …) with lazy-cached TF-IDF semantic search; upgrades to dense embeddings with `pip install -e ".[embeddings]"` |
-| **Connectors** | 41 integrations: 21 connected, 17 beta, 3 stub — Binance, Stripe, Telegram, Slack, Spotify, Strava, Shopify, Discord, Linear, CoinGecko, and more |
+| **Connectors** | 44 integrations: 21 connected, 20 beta, 3 new (YouTube, Reddit, ProductHunt) — Binance, Stripe, Telegram, Slack, Spotify, Strava, Shopify, Discord, Linear, CoinGecko, and more |
 | **Labs** | 23 experimental labs (Finance, Simulation, Cyber, Red Team, Strategy, Bio, Behavioral, …) with DRAFT→RUNNING→COMPLETED→GRADUATED lifecycle |
-| **Operating Modes** | 16 modes: command, business, personal, finance, study, travel, research, builder, local_offline, survival, founder, war, prestige, silent, recovery, emergency |
+| **Operating Modes** | 17 modes: command, business, personal, finance, study, travel, research, builder, local_offline, survival, founder, war, prestige, silent, recovery, emergency, caveman |
 | **Security** | 7-layer SecurityStack: prompt injection detection, PII masking, dangerous command blocking, RBAC, secret obfuscation, audit log, incident escalation |
 | **Governance** | RBAC, EscalationChain, SpendingLimits, RiskScoringEngine, ChangeManagement |
 | **Web UI** | FastAPI + WebSocket + JWT auth + 9 HTML templates (dashboard, finance cockpit, business wall, HUD, approvals, expansion, entities, settings, admin) |
@@ -94,7 +94,7 @@ python main.py report --print        # weekly report
 python main.py agent list
 python main.py agent info <agent_id>
 
-# Connectors (41 total)
+# Connectors (44 total: 21 connected, 20 beta, 3 new)
 python main.py connector list
 python main.py connector sync <connector_id>
 python main.py connector health
@@ -151,7 +151,7 @@ python main.py model list --local
 
 ---
 
-## Operating Modes (16)
+## Operating Modes (17)
 
 | Mode | Use case |
 |---|---|
@@ -171,6 +171,7 @@ python main.py model list --local
 | `silent` | Background processing, no interruptions |
 | `recovery` | Post-crisis stabilisation |
 | `emergency` | Critical incident response |
+| `caveman` | Budget-constrained — forces Haiku/local models, 512-token cap, offline-capable |
 
 ---
 
@@ -253,6 +254,15 @@ pip install -e ".[embeddings]"
 
 # With PDF support
 pip install -e ".[pdf]"
+
+# With audio transcription (Whisper)
+pip install -e ".[audio]"
+
+# With computer-use tools (screenshot, GUI automation)
+pip install -e ".[computer-use]"
+
+# With dense vector search (ChromaDB)
+pip install -e ".[vector]"
 
 # All extras
 pip install -e ".[full,dev]"

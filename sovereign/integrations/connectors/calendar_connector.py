@@ -384,10 +384,14 @@ class CalendarConnector(ConnectorBase):
             return {"error": "No access token"}
         cal_id = calendar_id or self._calendar_id
         patch: dict[str, Any] = {}
-        if title:       patch["summary"] = title
-        if description is not None: patch["description"] = description
-        if start:       patch["start"] = {"dateTime": start}
-        if end:         patch["end"]   = {"dateTime": end}
+        if title:
+            patch["summary"] = title
+        if description is not None:
+            patch["description"] = description
+        if start:
+            patch["start"] = {"dateTime": start}
+        if end:
+            patch["end"] = {"dateTime": end}
         if not patch:
             return {"error": "No fields to update"}
         try:

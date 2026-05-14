@@ -1,6 +1,6 @@
 # SOVEREIGN AI OS
 
-A multi-agent AI operating system. Orchestrates 326 specialized agents across business, personal, finance, security, and strategy domains.
+A multi-agent AI operating system. Orchestrates 334 specialized agents across business, personal, finance, security, and strategy domains.
 
 > **Status:** Alpha/Advanced Prototype — architecture is solid, hardening in progress. Not recommended for autonomous execution on critical systems without human supervision.
 >
@@ -135,7 +135,7 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 | `sovereign/authority/` | ApprovalGate, EscalationThresholds, Policy |
 | `sovereign/governance/` | RBAC, EscalationChain, SpendingLimits, RiskScoring, ChangeManagement |
 | `sovereign/security/` | SecretManager, SecurityStack (7-layer), AccessControl, SessionMonitor |
-| `sovereign/integrations/` | 46 connectors (Finance, Social, Productivity, E-Commerce, Health, Travel) |
+| `sovereign/integrations/` | 44 connectors (Finance, Social, Productivity, E-Commerce, Health, Travel) |
 | `sovereign/integrations/connectors/` | BinanceConnector, StripeConnector, TelegramConnector, SlackConnector, YouTubeConnector, RedditConnector, ProductHuntConnector, … |
 | `scripts/` | `build_local.sh` — PyInstaller local app packaging |
 | `sovereign.spec` | PyInstaller spec for standalone desktop/server binary |
@@ -145,7 +145,7 @@ Copy `.env.example` to `.env` and fill in all relevant keys.
 | `sovereign/observability/` | Metrics, EvalAgent, HealthMonitor, StructuredLogger, ModelPerformanceTracker |
 | `sovereign/registries/` | Agent, Tool, Prompt, Workflow, Policy, Decision, Experiment registries |
 | `sovereign/layers/` | RealityTwin, TimeMachine, TrustEngine, AttentionEngine, HumanLayer, SovereignExit, LegacyLayer |
-| `sovereign/modes/` | 16 operating modes |
+| `sovereign/modes/` | 17 operating modes |
 | `sovereign/proactive/` | GoalMonitor, SuggestionEngine, SilentOps, EventEngine, DailyDigest |
 | `sovereign/reporting/` | WeeklyReport builder + Telegram sender |
 | `sovereign/api/` | FastAPI server + WebSocket handler + 9 HTML templates |
