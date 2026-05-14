@@ -458,7 +458,7 @@ class CalendarConnector(ConnectorBase):
         events: list[dict] = []
         for block in re.split(r"BEGIN:VEVENT", content)[1:]:
             def _field(name: str, blk: str = block) -> str:
-                m = re.search(rf"{name}[^:]*(.*)", blk)
+                m = re.search(rf"^{name}[^:]*:(.*)", blk, re.MULTILINE)
                 return m.group(1).strip() if m else ""
             events.append({
                 "summary": _field("SUMMARY"), "dtstart": _field("DTSTART"),
