@@ -81,6 +81,29 @@ MODEL_IDS: dict[ModelTier, str] = {
 }
 
 
+def _load_model_ids_from_config() -> None:
+    """Override MODEL_IDS entries from config/models.yaml if available."""
+    import pathlib
+    config_path = pathlib.Path("config/models.yaml")
+    if not config_path.exists():
+        return
+    try:
+        import yaml as _yaml
+        data = _yaml.safe_load(config_path.read_text("utf-8")) or {}
+        models = data.get("models", {})
+        if "frontier" in models:
+            MODEL_IDS[ModelTier.FRONTIER] = models["frontier"]["id"]
+        if "balanced" in models:
+            MODEL_IDS[ModelTier.BALANCED] = models["balanced"]["id"]
+        if "fast" in models:
+            MODEL_IDS[ModelTier.FAST] = models["fast"]["id"]
+    except Exception as _exc:
+        logger.debug("model_router: could not load config/models.yaml: %s", _exc)
+
+
+_load_model_ids_from_config()
+
+
 @dataclass
 class RoutingCriteria:
     """All inputs considered when selecting a model tier."""
@@ -421,6 +444,13 @@ class ModelRouter:
 
     def provider_health_report(self) -> dict[str, Any]:
         return self.health.report()
+
+    def router_health(self) -> dict[str, Any]:
+        """Return router health: model IDs in use, provider circuit states."""
+        return {
+            "model_ids": {t.value: m for t, m in MODEL_IDS.items()},
+            "providers": self.health.report(),
+        }
 
     # ------------------------------------------------------------------
     # Complexity estimation

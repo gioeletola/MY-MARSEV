@@ -57,7 +57,8 @@ from sovereign.layers.human_layer import HumanLayer
 from sovereign.layers.legacy_layer import LegacyLayer
 from sovereign.layers.reality_twin import RealityTwinLayer
 from sovereign.layers.sovereign_exit import SovereignExitLayer
-from sovereign.layers.time_machine import TimeMachineLayer
+from sovereign.layers.time_machine import TemporalEvent, TimeMachineLayer
+from sovereign.modes import MODES as _MODES
 from sovereign.layers.trust_engine import TrustEngineLayer
 from sovereign.memory.memory_manager import MemoryManager
 from sovereign.observability.eval_agent import EvalAgent
@@ -190,12 +191,7 @@ class SovereignOrchestrator:
     # Mode management
     # ------------------------------------------------------------------
 
-    _VALID_MODES = frozenset({
-        "command", "business", "personal", "finance",
-        "study", "travel", "research", "builder", "local_offline", "survival",
-        # Extended modes
-        "founder", "war", "prestige", "silent", "recovery", "emergency",
-    })
+    _VALID_MODES = frozenset(_MODES.keys())
 
     def set_mode(self, mode_name: str) -> bool:
         """Switch operating mode at runtime. Returns True if valid."""
@@ -247,6 +243,15 @@ class SovereignOrchestrator:
             for w in pipeline_out.warnings:
                 self._emit("warning", {"message": w, "session_id": session_id})
 
+        # Trust-score the input content; flag suspicious prompts early
+        _trust_score = self._trust_engine.score_content(normalized)
+        if _trust_score < 0.4:
+            logger.warning(
+                "TrustEngine: low content trust score %.2f for session %s",
+                _trust_score, session_id,
+            )
+            self._emit("trust_warning", {"score": _trust_score, "session_id": session_id})
+
         # --- Step 2: Memory snapshot ---
         self._emit("step", {"step": 2, "name": "memory_snapshot", "session_id": session_id})
         snapshot = await self._memory.get_snapshot(
@@ -257,6 +262,22 @@ class SovereignOrchestrator:
         snapshot["conversation_history"] = self._conversations.to_context_string(
             user_id, n=8
         )
+
+        # Evaluate proactive suggestions against current memory state
+        try:
+            _suggestions = self._suggestion_engine.evaluate(snapshot)
+            if _suggestions:
+                snapshot["_suggestions"] = [
+                    {"id": s.suggestion_id, "title": s.title, "priority": s.priority}
+                    for s in _suggestions[:5]
+                ]
+                self._emit("suggestions", {
+                    "session_id": session_id,
+                    "count": len(_suggestions),
+                    "top": snapshot["_suggestions"],
+                })
+        except Exception as _sug_exc:
+            logger.debug("SuggestionEngine evaluation failed: %s", _sug_exc)
 
         mode = operating_mode or self.config.default_operating_mode
 
@@ -382,6 +403,24 @@ class SovereignOrchestrator:
             confidence=final_output.confidence,
         ))
 
+        # Record session to TimeMachine for temporal pattern learning
+        try:
+            self._time_machine.record(TemporalEvent(
+                event_id=session_id,
+                event_type="session",
+                description=normalized[:200],
+                context={
+                    "mode": ctx.operating_mode,
+                    "tasks": len(task_list),
+                    "confidence": final_output.confidence,
+                },
+                outcome=final_output.status.value,
+                outcome_score=final_output.confidence,
+                horizon="present",
+            ))
+        except Exception as _tm_exc:
+            logger.debug("TimeMachine record failed: %s", _tm_exc)
+
         # --- Step 10: Memory update ---
         self._emit("step", {"step": 10, "name": "memory_update", "session_id": session_id})
         await self._memory.write("operational", f"last_session_{session_id}", {
@@ -390,6 +429,19 @@ class SovereignOrchestrator:
             "status": final_output.status.value,
             "tokens": token_usage,
         })
+
+        # Update RealityTwin and log attention
+        try:
+            self._reality_twin.load(session_id)
+            latency_s = (time.monotonic() - _t0)
+            self._attention_engine.log_attention(
+                activity=normalized[:80],
+                minutes=max(1, int(latency_s / 60)),
+                category="admin",
+                roi=final_output.confidence,
+            )
+        except Exception as _rt_exc:
+            logger.debug("RealityTwin/AttentionEngine update failed: %s", _rt_exc)
 
         total_tokens = sum(token_usage.values())
         self._health.record_call(
@@ -533,6 +585,16 @@ class SovereignOrchestrator:
                 "agent": agent.agent_id,
                 "status": output.status.value,
             })
+            # Record capability gaps when tasks fail
+            if output.status == OutputStatus.FAILED and hasattr(self, "_cap_gap"):
+                try:
+                    self._cap_gap.record_failure(
+                        task_objective=objective,
+                        agent_id=agent.agent_id,
+                        error=output.error or "unknown",
+                    )
+                except Exception:
+                    pass
             return output
 
         # Run all tasks concurrently (max 5 parallel to stay within token budget)
@@ -876,10 +938,10 @@ class SovereignOrchestrator:
         # Schedule nightly eval regression job
         self._eval_agent.schedule_nightly(self._scheduler)
 
-        # Schedule weekly capability gap analysis job
+        # Capability gap detector — records task failures and schedules weekly analysis
         from sovereign.expansion.capability_gap_detector import CapabilityGapDetector
-        _gap_detector = CapabilityGapDetector()
-        _gap_detector.schedule_weekly(self._scheduler)
+        self._cap_gap = CapabilityGapDetector()
+        self._cap_gap.schedule_weekly(self._scheduler)
 
         # Seed scheduler with V2 daily jobs (idempotent)
         existing = {j.name for j in self._scheduler.list_jobs()}

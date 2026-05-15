@@ -1,6 +1,7 @@
 """Integration Manager — lifecycle controller for all external connectors."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -147,6 +148,78 @@ class IntegrationManager:
             for iid, connector in self._integrations.items()
             if connector.status != IntegrationStatus.DISABLED
         ]
+
+    async def sync(self, integration_id: str) -> dict:
+        """Sync *integration_id*, recording success or error on the connector.
+
+        Calls the connector's ``fetch("sync", {})`` entry-point.  On failure
+        the connector's ``_status`` is set to ``IntegrationStatus.ERROR`` and
+        ``_last_error`` is populated so callers can inspect the error state.
+
+        Returns a dict with at least a ``"success"`` boolean key.
+        """
+        connector = self._integrations.get(integration_id)
+        if connector is None:
+            logger.warning(
+                "integration_manager.sync: unknown integration %r",
+                integration_id,
+            )
+            return {"success": False, "error": f"unknown integration: {integration_id}"}
+
+        try:
+            result = connector.fetch("sync", {})
+            connector._status = IntegrationStatus.CONNECTED
+            connector._last_error = ""
+            logger.debug(
+                "integration_manager.sync: %s synced successfully",
+                integration_id,
+            )
+            return result if isinstance(result, dict) else {"success": True}
+        except Exception as exc:
+            connector._status = IntegrationStatus.ERROR
+            connector._last_error = str(exc)
+            logger.error(
+                "integration_manager.sync: %s sync failed — %s",
+                integration_id,
+                exc,
+            )
+            raise
+
+    async def sync_with_retry(
+        self,
+        integration_id: str,
+        max_retries: int = 3,
+        base_delay_s: float = 1.0,
+    ) -> dict:
+        """Sync a connector with automatic retry on failure.
+
+        Attempts up to *max_retries* times with exponential backoff
+        (``base_delay_s``, ``base_delay_s * 2``, ``base_delay_s * 4``, …).
+        Returns the final SyncResult-like dict.
+        """
+        last_error: str = ""
+        for attempt in range(max_retries):
+            try:
+                result = await self.sync(integration_id)
+                return result if isinstance(result, dict) else {"success": True}
+            except Exception as exc:
+                last_error = str(exc)
+                logger.warning(
+                    "sync_with_retry: %s attempt %d/%d failed: %s",
+                    integration_id,
+                    attempt + 1,
+                    max_retries,
+                    exc,
+                )
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(base_delay_s * (2**attempt))
+        logger.error(
+            "sync_with_retry: %s exhausted %d retries. Last error: %s",
+            integration_id,
+            max_retries,
+            last_error,
+        )
+        return {"success": False, "error": last_error}
 
     # ------------------------------------------------------------------
     # Config persistence

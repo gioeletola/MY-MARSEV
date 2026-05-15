@@ -17,10 +17,10 @@ class TestOrchestratorModes:
         assert "_VALID_MODES" in src
 
     def test_valid_modes_in_source(self):
-        src = (_SRC / "sovereign" / "orchestrator.py").read_text()
+        from sovereign.orchestrator import SovereignOrchestrator
         for mode in ("command", "business", "personal", "finance", "study",
                      "travel", "research", "builder", "local_offline", "survival"):
-            assert mode in src
+            assert mode in SovereignOrchestrator._VALID_MODES
 
     def test_current_mode_property_in_source(self):
         src = (_SRC / "sovereign" / "orchestrator.py").read_text()

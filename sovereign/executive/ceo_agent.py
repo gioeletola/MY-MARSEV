@@ -22,6 +22,7 @@ OPERATING_MODES = [
     "command", "business", "personal", "finance",
     "study", "travel", "research", "builder",
     "local_offline", "survival",
+    "founder", "war", "prestige", "silent", "recovery", "emergency", "caveman",
 ]
 
 

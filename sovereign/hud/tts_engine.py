@@ -61,6 +61,10 @@ class TTSEngine:
             return await self._elevenlabs_tts(text)
         if self._pyttsx3_available:
             return await self._pyttsx3_tts(text)
+        logger.warning(
+            "TTSEngine.speak: no backend available — set OPENAI_API_KEY, ELEVENLABS_API_KEY, "
+            "or install pyttsx3. Returning empty audio."
+        )
         return b""
 
     async def speak_to_file(self, text: str, path: Path) -> bool:

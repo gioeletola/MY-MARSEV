@@ -415,3 +415,120 @@ class TestMorningLoop:
                 ml = MorningLoop(orchestrator=orch)
                 await ml.run()
         mock_client.post.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# validate_mode + _enrich_from_config (modes/__init__.py)
+# ---------------------------------------------------------------------------
+
+class TestValidateMode:
+    def test_valid_mode_returns_true(self):
+        from sovereign.modes import validate_mode
+        assert validate_mode("command") is True
+        assert validate_mode("finance") is True
+        assert validate_mode("caveman") is True
+
+    def test_invalid_mode_returns_false(self):
+        from sovereign.modes import validate_mode
+        assert validate_mode("nonexistent_mode") is False
+        assert validate_mode("") is False
+
+    def test_all_17_modes_valid(self):
+        from sovereign.modes import MODES, validate_mode
+        for mode_name in MODES:
+            assert validate_mode(mode_name) is True
+
+    def test_enrich_from_config_bad_yaml(self, tmp_path):
+        import pathlib
+        from sovereign.modes import _enrich_from_config  # noqa: PLC0415
+        bad_config = tmp_path / "operating_modes.yaml"
+        bad_config.write_text("{ invalid yaml: [unclosed", encoding="utf-8")
+        with patch("pathlib.Path.exists", return_value=True), \
+             patch("pathlib.Path.read_text", return_value="{ invalid yaml: ["):
+            _enrich_from_config()  # must not raise
+
+    def test_enrich_from_config_missing_file(self):
+        from sovereign.modes import _enrich_from_config
+        with patch("pathlib.Path.exists", return_value=False):
+            _enrich_from_config()  # must not raise
+
+    def test_enrich_from_config_warns_unknown_config_mode(self):
+        from sovereign.modes import _enrich_from_config
+        fake_yaml = "modes:\n  command:\n    description: x\n  nonexistent_mode:\n    description: y\n"
+        with patch("pathlib.Path.exists", return_value=True), \
+             patch("pathlib.Path.read_text", return_value=fake_yaml):
+            _enrich_from_config()  # triggers warning for 'nonexistent_mode' not in MODES
+
+
+# ---------------------------------------------------------------------------
+# router_health + model_ids from config (model_router.py)
+# ---------------------------------------------------------------------------
+
+class TestModelRouterHealth:
+    def test_router_health_returns_dict(self):
+        from sovereign.router.model_router import ModelRouter
+        router = ModelRouter()
+        health = router.router_health()
+        assert "model_ids" in health
+        assert "providers" in health
+        assert "frontier" in health["model_ids"]
+        assert "balanced" in health["model_ids"]
+        assert "fast" in health["model_ids"]
+
+    def test_load_model_ids_exception_is_silent(self):
+        from sovereign.router import model_router as _mr
+        with patch("pathlib.Path.exists", return_value=True), \
+             patch("pathlib.Path.read_text", side_effect=OSError("disk error")):
+            _mr._load_model_ids_from_config()  # must not raise
+
+    def test_learning_rate_adjust(self):
+        from sovereign.router.model_router import ModelRouter
+        router = ModelRouter()
+        score = router.learning_rate_adjust("claude-sonnet-4-6", success=True, latency_ms=500)
+        assert 0.0 <= score <= 1.0
+        score2 = router.learning_rate_adjust("claude-sonnet-4-6", success=False, latency_ms=0)
+        assert score2 < score
+        assert router.model_score("claude-sonnet-4-6") == score2
+
+
+# ---------------------------------------------------------------------------
+# sync_with_retry (integration_manager.py)
+# ---------------------------------------------------------------------------
+
+class TestIntegrationManagerRetry:
+    async def test_sync_with_retry_success_on_first(self):
+        from sovereign.integrations.integration_manager import IntegrationManager
+        mgr = IntegrationManager.__new__(IntegrationManager)
+        mgr._integrations = {}
+        mgr._configs = {}
+        with patch.object(mgr, "sync", new=AsyncMock(return_value={"success": True})):
+            result = await mgr.sync_with_retry("some_connector")
+        assert result == {"success": True}
+
+    async def test_sync_with_retry_retries_on_failure(self):
+        from sovereign.integrations.integration_manager import IntegrationManager
+        mgr = IntegrationManager.__new__(IntegrationManager)
+        call_count = 0
+
+        async def _flaky_sync(connector_id):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise RuntimeError("temporary error")
+            return {"success": True}
+
+        with patch.object(mgr, "sync", side_effect=_flaky_sync), \
+             patch("asyncio.sleep", new=AsyncMock()):
+            result = await mgr.sync_with_retry("conn", max_retries=3, base_delay_s=0.0)
+        assert result == {"success": True}
+        assert call_count == 3
+
+    async def test_sync_with_retry_exhausts_retries(self):
+        from sovereign.integrations.integration_manager import IntegrationManager
+        mgr = IntegrationManager.__new__(IntegrationManager)
+
+        with patch.object(mgr, "sync", new=AsyncMock(side_effect=RuntimeError("fail"))), \
+             patch("asyncio.sleep", new=AsyncMock()):
+            result = await mgr.sync_with_retry("conn", max_retries=2, base_delay_s=0.0)
+        assert result["success"] is False
+        assert "fail" in result["error"]

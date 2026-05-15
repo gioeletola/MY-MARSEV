@@ -39,6 +39,34 @@ def _mode(
     )
 
 
+def _enrich_from_config() -> None:
+    """Load config/operating_modes.yaml and validate MODES keys match."""
+    import pathlib
+    config_path = pathlib.Path("config/operating_modes.yaml")
+    if not config_path.exists():
+        return
+    try:
+        import yaml as _yaml
+        data = _yaml.safe_load(config_path.read_text("utf-8")) or {}
+        config_modes = set(data.get("modes", {}).keys())
+        code_modes = set(MODES.keys())
+        missing_in_code = config_modes - code_modes
+        missing_in_config = code_modes - config_modes
+        if missing_in_code:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "modes: config has modes not in code: %s", missing_in_code
+            )
+        if missing_in_config:
+            import logging as _logging
+            _logging.getLogger(__name__).debug(
+                "modes: code has modes not in config: %s", missing_in_config
+            )
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).debug("modes: could not load config: %s", _exc)
+
+
 # Registry of all available modes — keyed by mode name
 MODES: dict[str, BaseMode] = {
     # ── Core modes ──────────────────────────────────────────────────────
@@ -73,6 +101,14 @@ MODES: dict[str, BaseMode] = {
     "emergency": EmergencyMode(),
 }
 
+def validate_mode(name: str) -> bool:
+    """Return True if *name* is a registered operating mode."""
+    return name in MODES
+
+
+_enrich_from_config()
+
+
 # Convenience aliases for the 9 inlined modes (backward compat)
 CommandMode  = type("CommandMode",  (BaseMode,), {})
 BusinessMode = type("BusinessMode", (BaseMode,), {})
@@ -85,7 +121,7 @@ BuilderMode  = type("BuilderMode",  (BaseMode,), {})
 SurvivalMode = type("SurvivalMode", (BaseMode,), {})
 
 __all__ = [
-    "BaseMode", "MODES",
+    "BaseMode", "MODES", "validate_mode",
     # Simple inlined modes
     "CommandMode", "BusinessMode", "PersonalMode", "FinanceMode",
     "StudyMode", "TravelMode", "ResearchMode", "BuilderMode", "SurvivalMode",
