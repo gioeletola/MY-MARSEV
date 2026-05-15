@@ -439,7 +439,6 @@ class TestValidateMode:
             assert validate_mode(mode_name) is True
 
     def test_enrich_from_config_bad_yaml(self, tmp_path):
-        import pathlib
         from sovereign.modes import _enrich_from_config  # noqa: PLC0415
         bad_config = tmp_path / "operating_modes.yaml"
         bad_config.write_text("{ invalid yaml: [unclosed", encoding="utf-8")
