@@ -233,7 +233,7 @@ class SovereignOrchestrator:
         self._session_counter += 1
         _t0 = time.monotonic()
         self._emit("session_start", {"session_id": session_id, "input": user_input[:200]})
-        logger.info("Session started", session_id=session_id)
+        logger.info("Session started: %s", session_id)
 
         # --- Step 1: Input pipeline ---
         self._emit("step", {"step": 1, "name": "input_pipeline", "session_id": session_id})
@@ -505,10 +505,10 @@ class SovereignOrchestrator:
                 await asyncio.sleep(0)
 
         logger.info(
-            "Session complete",
-            session_id=session_id,
-            status=final_output.status.value,
-            tokens=total_tokens,
+            "Session complete: %s status=%s tokens=%s",
+            session_id,
+            final_output.status.value,
+            total_tokens,
         )
         return final_output
 

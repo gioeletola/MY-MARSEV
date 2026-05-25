@@ -28,10 +28,14 @@ class TestDiaryDomain:
         assert len(store.recent(3)) == 3
 
     def test_average_mood(self, tmp_path):
+        from datetime import date, timedelta
         from sovereign.memory.domains.diary import DiaryEntry, DiaryMemoryStore
         store = DiaryMemoryStore(tmp_path / "diary.json")
-        store.add_entry(DiaryEntry(entry_id="e1", date="2026-04-25", mood_score=6.0))
-        store.add_entry(DiaryEntry(entry_id="e2", date="2026-04-24", mood_score=8.0))
+        today = date.today()
+        d1 = (today - timedelta(days=1)).isoformat()
+        d2 = (today - timedelta(days=2)).isoformat()
+        store.add_entry(DiaryEntry(entry_id="e1", date=d1, mood_score=6.0))
+        store.add_entry(DiaryEntry(entry_id="e2", date=d2, mood_score=8.0))
         avg = store.average_mood()
         assert avg == pytest.approx(7.0)
 
